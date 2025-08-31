@@ -1,0 +1,8 @@
+[package]
+name = "wadec"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.99"
+leb128 = "0.2.5"
