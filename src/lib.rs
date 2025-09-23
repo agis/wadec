@@ -388,7 +388,7 @@ fn parse_import<R: io::Read>(input: &mut R) -> Result<Import> {
 
     // desc
     let mut desc_kind = [0u8];
-    input.read_exact(&mut desc_kind).unwrap();
+    input.read_exact(&mut desc_kind)?;
     let idx = parse_u32(&mut *input)?;
     let desc = match desc_kind[0] {
         0x00 => ImportDesc::Type(TypeIdx(idx)),
