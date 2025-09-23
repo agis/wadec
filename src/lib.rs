@@ -78,14 +78,14 @@ pub struct Table {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Limits {
-    pub min: u32,
-    pub max: Option<u32>,
+pub struct Mem {
+    pub limits: Limits,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Mem {
-    pub limits: Limits,
+pub struct Limits {
+    pub min: u32,
+    pub max: Option<u32>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -373,9 +373,9 @@ pub struct Import {
 #[derive(Debug, PartialEq)]
 pub enum ImportDesc {
     Type(TypeIdx),
-    Table(TableIdx),
-    Mem(MemIdx),
-    Global(GlobalIdx),
+    Table(Table),
+    Mem(Mem),
+    Global(GlobalType),
 }
 
 fn parse_import_section(mut input: impl io::Read) -> Result<Vec<Import>> {
@@ -389,12 +389,11 @@ fn parse_import<R: io::Read>(input: &mut R) -> Result<Import> {
     // desc
     let mut desc_kind = [0u8];
     input.read_exact(&mut desc_kind)?;
-    let idx = parse_u32(&mut *input)?;
     let desc = match desc_kind[0] {
-        0x00 => ImportDesc::Type(TypeIdx(idx)),
-        0x01 => ImportDesc::Table(TableIdx(idx)),
-        0x02 => ImportDesc::Mem(MemIdx(idx)),
-        0x03 => ImportDesc::Global(GlobalIdx(idx)),
+        0x00 => ImportDesc::Type(TypeIdx(parse_u32(input)?)),
+        0x01 => ImportDesc::Table(parse_table(input)?),
+        0x02 => ImportDesc::Mem(parse_memtype(input)?),
+        0x03 => ImportDesc::Global(parse_globaltype(input)?),
         n => {
             return Err(anyhow!("unexpected import_desc: {n}"));
         }
@@ -435,6 +434,9 @@ fn parse_export<R: io::Read>(input: &mut R) -> Result<Export> {
         0x01 => ExportDesc::Table(TableIdx(idx)),
         0x02 => ExportDesc::Mem(MemIdx(idx)),
         0x03 => ExportDesc::Global(GlobalIdx(idx)),
+        // 0x01 => ExportDesc::Table(parse_table(&mut *input)?),
+        // 0x02 => ExportDesc::Mem(MemIdx(idx)),
+        // 0x03 => ExportDesc::Global(GlobalIdx(idx)),
         _ => {
             return Err(anyhow!("unexpected export_desc"));
         }
@@ -459,10 +461,12 @@ fn parse_table<R: io::Read>(input: &mut R) -> Result<Table> {
 }
 
 fn parse_memory_section(mut input: impl io::Read) -> Result<Vec<Mem>> {
-    parse_vec(&mut input, |reader| {
-        Ok(Mem {
-            limits: parse_limits(&mut *reader)?,
-        })
+    parse_vec(&mut input, parse_memtype)
+}
+
+fn parse_memtype<R: io::Read>(input: &mut R) -> Result<Mem> {
+    Ok(Mem {
+        limits: parse_limits(input)?,
     })
 }
 
@@ -1021,6 +1025,53 @@ mod tests {
                 types,
                 funcs,
                 exports,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_accepts_imports_of_tables_memories_and_globals() {
+        let f = File::open("tests/fixtures/imports_table_mem_global.wasm").unwrap();
+
+        let section_headers = vec![SectionHeader {
+            kind: SectionKind::Import,
+            size: 63,
+        }];
+
+        let imports = vec![
+            Import {
+                module: "env".to_owned(),
+                name: "table".to_owned(),
+                desc: ImportDesc::Table(Table {
+                    limits: Limits { min: 1, max: None },
+                    reftype: RefType::Func,
+                }),
+            },
+            Import {
+                module: "env".to_owned(),
+                name: "memory".to_owned(),
+                desc: ImportDesc::Mem(Mem {
+                    limits: Limits { min: 1, max: None },
+                }),
+            },
+            Import {
+                module: "env".to_owned(),
+                name: "global_i".to_owned(),
+                desc: ImportDesc::Global(GlobalType(Mut::Const, ValType::Num(NumType::Int32))),
+            },
+            Import {
+                module: "env".to_owned(),
+                name: "global_mut".to_owned(),
+                desc: ImportDesc::Global(GlobalType(Mut::Var, ValType::Num(NumType::Int64))),
+            },
+        ];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                section_headers,
+                imports,
                 ..Default::default()
             }
         )
