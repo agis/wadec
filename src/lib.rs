@@ -6,10 +6,14 @@ const VERSION: [u8; 4] = [0x01, 0x00, 0x00, 0x00];
 
 #[derive(Debug, PartialEq)]
 pub struct Module {
+    // only the non-custom sections that were parsed
+    parsed_section_kinds: Vec<SectionKind>,
+
     pub version: [u8; 4],
     pub section_headers: Vec<SectionHeader>,
-    pub custom_sections: Vec<CustomSection>,
 
+    // sections
+    pub custom_sections: Vec<CustomSection>,
     pub types: Vec<FuncType>,
     pub funcs: Vec<Func>,
     pub tables: Vec<Table>,
@@ -22,10 +26,30 @@ pub struct Module {
     pub exports: Vec<Export>,
 }
 
+impl Module {
+    fn validate_section_kind_expected(&self, next: &SectionHeader) -> Result<()> {
+        let prev_kind = self.parsed_section_kinds.last();
+        let next_kind = next.kind;
+
+        // Every section is valid if it's the first one we're encountering.
+        // Custom sections may appear anywhere in the module and multiple times
+        if prev_kind.is_none() || next_kind == SectionKind::Custom {
+            return Ok(());
+        }
+
+        if next_kind <= *prev_kind.unwrap() {
+            return Err(anyhow!("unexpected {:?} section", next_kind));
+        }
+
+        Ok(())
+    }
+}
+
 impl Default for Module {
     fn default() -> Self {
         Module {
             version: VERSION,
+            parsed_section_kinds: vec![],
             section_headers: vec![],
             custom_sections: vec![],
             types: vec![],
@@ -135,7 +159,7 @@ pub enum VecType {
     V128,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
 pub enum SectionKind {
     Custom,
     Type,
@@ -228,10 +252,13 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
         ..Default::default()
     };
 
-    while let Some(section) = parse_section_header(&mut input)? {
-        let mut section_reader = input.by_ref().take(section.size.into());
+    while let Some(section_header) = parse_section_header(&mut input)? {
+        let mut section_reader = input.by_ref().take(section_header.size.into());
+        let section_kind = section_header.kind;
 
-        match section.kind {
+        module.validate_section_kind_expected(&section_header)?;
+
+        match section_kind {
             SectionKind::Custom => {
                 module
                     .custom_sections
@@ -277,16 +304,20 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
         if section_reader.limit() != 0 {
             return Err(anyhow!(
                 "section {:?} size mismatch: declared {} bytes, got {}",
-                section.kind,
-                section.size,
-                u64::from(section.size) - section_reader.limit(),
+                section_kind,
+                section_header.size,
+                u64::from(section_header.size) - section_reader.limit(),
             ));
         }
 
-        module.section_headers.push(section);
+        module.section_headers.push(section_header);
+        if section_kind != SectionKind::Custom {
+            // parsed_section_kinds facilitates enforcing the prescribed order of sections, but
+            // Custom sections may appear in any order thus we don't want them in the set
+            // to compare against
+            module.parsed_section_kinds.push(section_kind);
+        }
     }
-
-    println!("{:#?}", module); // tmp
 
     Ok(module)
 }
@@ -913,6 +944,12 @@ mod tests {
     fn it_accepts_add_sample() {
         let f = File::open("./tests/fixtures/add.wasm").unwrap();
 
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
         let section_headers = vec![
             SectionHeader {
                 kind: SectionKind::Type,
@@ -955,6 +992,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds,
                 section_headers,
                 types,
                 funcs,
@@ -970,6 +1008,12 @@ mod tests {
         // Body: local.get 0, local.get 1, i32.add, end.
         let f = File::open("tests/fixtures/two_funcs_add2.wasm").unwrap();
 
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
         let section_headers = vec![
             SectionHeader {
                 kind: SectionKind::Type,
@@ -1021,6 +1065,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds,
                 section_headers,
                 types,
                 funcs,
@@ -1070,6 +1115,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds: vec![SectionKind::Import],
                 section_headers,
                 imports,
                 ..Default::default()
@@ -1083,6 +1129,8 @@ mod tests {
         // Body: local.get 0, local.get 1, i32.add
         let f = File::open("tests/fixtures/no_export.wasm").unwrap();
 
+        let parsed_section_kinds =
+            vec![SectionKind::Type, SectionKind::Function, SectionKind::Code];
         let section_headers = vec![
             SectionHeader {
                 kind: SectionKind::Type,
@@ -1116,6 +1164,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds,
                 section_headers,
                 types,
                 funcs,
@@ -1130,6 +1179,12 @@ mod tests {
         // Body: local.get 0, local.get 1, i32.add, end.
         let f = File::open("tests/fixtures/with_locals_exported.wasm").unwrap();
 
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
         let section_headers = vec![
             SectionHeader {
                 kind: SectionKind::Type,
@@ -1172,6 +1227,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds,
                 section_headers,
                 types,
                 funcs,
@@ -1184,6 +1240,17 @@ mod tests {
     #[test]
     fn it_accepts_foo() {
         let f = File::open("./tests/fixtures/foo.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Import,
+            SectionKind::Function,
+            SectionKind::Table,
+            SectionKind::Memory,
+            SectionKind::Global,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
 
         let section_headers = vec![
             SectionHeader {
@@ -1286,6 +1353,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds,
                 section_headers,
                 custom_sections,
                 types,
@@ -1337,6 +1405,7 @@ mod tests {
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds: vec![SectionKind::Memory],
                 section_headers,
                 mems,
                 ..Default::default()
@@ -1356,6 +1425,12 @@ mod tests {
     #[test]
     fn it_fails_on_code_entry_size_mismatch() {
         let f = File::open("tests/fixtures/code_entry_size_overreported.wasm").unwrap();
+        assert!(decode(f).is_err());
+    }
+
+    #[test]
+    fn it_enforces_section_ordering() {
+        let f = File::open("tests/fixtures/invalid_section_order.wasm").unwrap();
         assert!(decode(f).is_err());
     }
 }
