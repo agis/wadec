@@ -21,7 +21,7 @@ pub struct Module {
     pub globals: Vec<Global>,
     // pub elems
     // pub datas
-    // pub start
+    pub start: Option<FuncIdx>,
     pub imports: Vec<Import>,
     pub exports: Vec<Export>,
 }
@@ -57,6 +57,7 @@ impl Default for Module {
             tables: vec![],
             mems: vec![],
             globals: vec![],
+            start: None,
             imports: vec![],
             exports: vec![],
         }
@@ -85,6 +86,8 @@ pub struct FuncType {
     pub results: Vec<ValType>,
 }
 
+type Expr = Vec<Instr>;
+
 // https://webassembly.github.io/spec/core/syntax/modules.html#functions
 #[derive(Debug, PartialEq)]
 pub struct Func {
@@ -92,8 +95,6 @@ pub struct Func {
     pub locals: Vec<ValType>,
     pub body: Expr,
 }
-
-type Expr = Vec<Instr>;
 
 #[derive(Debug, PartialEq)]
 pub struct Table {
@@ -280,6 +281,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Memory => module.mems = parse_memory_section(&mut section_reader)?,
             SectionKind::Global => module.globals = parse_global_section(&mut section_reader)?,
             SectionKind::Export => module.exports = parse_export_section(&mut section_reader)?,
+            SectionKind::Start => module.start = Some(parse_start_section(&mut section_reader)?),
             SectionKind::Code => {
                 let codes = parse_code_section(&mut section_reader)?;
 
@@ -556,6 +558,11 @@ fn parse_code<R: io::Read>(input: &mut R) -> Result<Code> {
     }
 
     Ok(Code { size, locals, expr })
+}
+
+fn parse_start_section(input: impl io::Read) -> Result<FuncIdx> {
+    let idx = parse_u32(input)?;
+    Ok(FuncIdx(idx))
 }
 
 // https://webassembly.github.io/spec/core/syntax/instructions.html#
@@ -1168,6 +1175,59 @@ mod tests {
                 section_headers,
                 types,
                 funcs,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_start_section() {
+        let f = File::open("tests/fixtures/start_section.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Start,
+            SectionKind::Code,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 2,
+            },
+            SectionHeader {
+                kind: SectionKind::Start,
+                size: 1,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 4,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        }];
+
+        let funcs = vec![Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: Vec::new(),
+        }];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                start: Some(FuncIdx(0)),
                 ..Default::default()
             }
         )
