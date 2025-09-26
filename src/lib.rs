@@ -20,7 +20,7 @@ pub struct Module {
     pub mems: Vec<Mem>,
     pub globals: Vec<Global>,
     // pub elems
-    // pub datas
+    pub datas: Vec<Data>,
     pub start: Option<FuncIdx>,
     pub imports: Vec<Import>,
     pub exports: Vec<Export>,
@@ -57,6 +57,7 @@ impl Default for Module {
             tables: vec![],
             mems: vec![],
             globals: vec![],
+            datas: vec![],
             start: None,
             imports: vec![],
             exports: vec![],
@@ -284,7 +285,6 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Start => module.start = Some(parse_start_section(&mut section_reader)?),
             SectionKind::Code => {
                 let codes = parse_code_section(&mut section_reader)?;
-
                 if codes.len() != module.funcs.len() {
                     return Err(anyhow!(
                         "code entries len do not match with funcs entries len"
@@ -300,6 +300,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                     module.funcs[i].body = code.expr;
                 }
             }
+            SectionKind::Data => module.datas = parse_data_section(&mut section_reader)?,
             n => panic!("not implemented section: `{:?}`", n),
         }
 
@@ -565,6 +566,56 @@ fn parse_start_section(input: impl io::Read) -> Result<FuncIdx> {
     Ok(FuncIdx(idx))
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Data {
+    init: Vec<u8>,
+    mode: DataMode,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DataMode {
+    Passive,
+    Active { memory: MemIdx, offset: Expr },
+}
+
+fn parse_data_section(mut input: impl io::Read) -> Result<Vec<Data>> {
+    parse_vec(&mut input, parse_data)
+}
+
+fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
+    let mut bitfield = [0u8];
+    input.read_exact(&mut bitfield)?;
+
+    let mut init = Vec::new();
+
+    let mode = match bitfield[0] {
+        0 => {
+            let e = parse_expr(&mut *input)?;
+            input.read_to_end(&mut init)?;
+            DataMode::Active {
+                memory: MemIdx(0),
+                offset: e,
+            }
+        }
+        1 => {
+            input.read_to_end(&mut init)?;
+            DataMode::Passive
+        }
+        2 => {
+            let idx = parse_u32(&mut *input)?;
+            let e = parse_expr(&mut *input)?;
+            input.read_to_end(&mut init)?;
+            DataMode::Active {
+                memory: MemIdx(idx),
+                offset: e,
+            }
+        }
+        n => return Err(anyhow!("unexpected data bitfield: {n}")),
+    };
+
+    Ok(Data { init, mode })
+}
+
 // https://webassembly.github.io/spec/core/syntax/instructions.html#
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instr {
@@ -828,8 +879,7 @@ impl Instr {
         };
 
         Ok(match buf[0] {
-            // not exactly an instruction, rather an opcode for 'end'
-            0x0B => None,
+            0x0B => None, // not an instruction, rather an opcode for `end`
             0x20 => Some(Instr::LocalGet(LocalIdx(parse_u32(&mut input)?))),
             0x41 => Some(Instr::I32Const(parse_i32(&mut input)?)),
             0x42 => Some(Instr::I64Const(parse_i64(&mut input)?)),
