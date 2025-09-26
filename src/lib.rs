@@ -11,6 +11,7 @@ pub struct Module {
 
     pub version: [u8; 4],
     pub section_headers: Vec<SectionHeader>,
+    data_count: Option<u32>,
 
     // sections
     pub custom_sections: Vec<CustomSection>,
@@ -51,6 +52,7 @@ impl Default for Module {
             version: VERSION,
             parsed_section_kinds: vec![],
             section_headers: vec![],
+            data_count: None,
             custom_sections: vec![],
             types: vec![],
             funcs: vec![],
@@ -173,9 +175,9 @@ pub enum SectionKind {
     Export,
     Start,
     Element,
+    DataCount,
     Code,
     Data,
-    DataCount,
 }
 
 impl TryFrom<u8> for SectionKind {
@@ -283,6 +285,9 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Global => module.globals = parse_global_section(&mut section_reader)?,
             SectionKind::Export => module.exports = parse_export_section(&mut section_reader)?,
             SectionKind::Start => module.start = Some(parse_start_section(&mut section_reader)?),
+            SectionKind::DataCount => {
+                module.data_count = Some(parse_datacount_section(&mut section_reader)?)
+            }
             SectionKind::Code => {
                 let codes = parse_code_section(&mut section_reader)?;
                 if codes.len() != module.funcs.len() {
@@ -300,7 +305,21 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                     module.funcs[i].body = code.expr;
                 }
             }
-            SectionKind::Data => module.datas = parse_data_section(&mut section_reader)?,
+            SectionKind::Data => {
+                let datas = parse_data_section(&mut section_reader)?;
+
+                if let Some(data_count) = module.data_count
+                    && usize::try_from(data_count)? != datas.len()
+                {
+                    return Err(anyhow!(
+                        "data segments do not match the data count section: {} - {}",
+                        module.datas.len(),
+                        data_count,
+                    ));
+                }
+
+                module.datas = datas;
+            }
             n => panic!("not implemented section: `{:?}`", n),
         }
 
@@ -614,6 +633,10 @@ fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
     };
 
     Ok(Data { init, mode })
+}
+
+fn parse_datacount_section(input: impl io::Read) -> Result<u32> {
+    parse_u32(input)
 }
 
 // https://webassembly.github.io/spec/core/syntax/instructions.html#
@@ -1359,7 +1382,9 @@ mod tests {
             SectionKind::Memory,
             SectionKind::Global,
             SectionKind::Export,
+            SectionKind::DataCount,
             SectionKind::Code,
+            SectionKind::Data,
         ];
 
         let section_headers = vec![
@@ -1396,8 +1421,16 @@ mod tests {
                 size: 23,
             },
             SectionHeader {
+                kind: SectionKind::DataCount,
+                size: 1,
+            },
+            SectionHeader {
                 kind: SectionKind::Code,
                 size: 9,
+            },
+            SectionHeader {
+                kind: SectionKind::Data,
+                size: 7,
             },
         ];
 
@@ -1460,6 +1493,14 @@ mod tests {
             ],
         }];
 
+        let datas = vec![Data {
+            init: vec![0x01, 0x58],
+            mode: DataMode::Active {
+                memory: MemIdx(0),
+                offset: vec![Instr::I32Const(0)],
+            },
+        }];
+
         assert_eq!(
             decode(f).unwrap(),
             Module {
@@ -1471,8 +1512,10 @@ mod tests {
                 tables,
                 mems,
                 globals,
+                datas,
                 imports,
                 exports,
+                data_count: Some(1),
                 ..Default::default()
             }
         )
