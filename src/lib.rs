@@ -1124,11 +1124,8 @@ where
     Ok(items)
 }
 
-fn parse_name(mut input: impl io::Read) -> Result<String> {
-    let len = parse_u32(&mut input)?;
-    let mut name = vec![0u8; len.try_into().unwrap()];
-    input.read_exact(&mut name)?;
-    Ok(name.try_into()?)
+fn parse_name(input: impl io::Read) -> Result<String> {
+    Ok(parse_byte_vec(input)?.try_into()?)
 }
 
 fn read_byte(mut input: impl io::Read) -> Result<u8> {
