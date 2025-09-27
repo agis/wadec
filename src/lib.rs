@@ -1144,6 +1144,7 @@ fn parse_byte_vec(mut input: impl io::Read) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     use std::fs::File;
 
     #[test]
