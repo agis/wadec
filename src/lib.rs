@@ -1905,7 +1905,7 @@ mod tests {
         }];
 
         let datas = vec![Data {
-            init: vec![0x01, 0x58],
+            init: vec![0x58],
             mode: DataMode::Active {
                 memory: MemIdx(0),
                 offset: vec![Instr::I32Const(0)],
