@@ -20,7 +20,7 @@ pub struct Module {
     pub tables: Vec<Table>,
     pub mems: Vec<Mem>,
     pub globals: Vec<Global>,
-    // pub elems
+    pub elems: Vec<Elem>,
     pub datas: Vec<Data>,
     pub start: Option<FuncIdx>,
     pub imports: Vec<Import>,
@@ -59,6 +59,7 @@ impl Default for Module {
             tables: vec![],
             mems: vec![],
             globals: vec![],
+            elems: vec![],
             datas: vec![],
             start: None,
             imports: vec![],
@@ -210,6 +211,12 @@ pub struct TypeIdx(u32);
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct FuncIdx(u32);
 
+impl From<u32> for FuncIdx {
+    fn from(v: u32) -> Self {
+        Self(v)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct TableIdx(u32);
 
@@ -285,6 +292,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Global => module.globals = parse_global_section(&mut section_reader)?,
             SectionKind::Export => module.exports = parse_export_section(&mut section_reader)?,
             SectionKind::Start => module.start = Some(parse_start_section(&mut section_reader)?),
+            SectionKind::Element => module.elems = parse_element_section(&mut section_reader)?,
             SectionKind::DataCount => {
                 module.data_count = Some(parse_datacount_section(&mut section_reader)?)
             }
@@ -320,7 +328,6 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
 
                 module.datas = datas;
             }
-            n => panic!("not implemented section: `{:?}`", n),
         }
 
         if section_reader.limit() != 0 {
@@ -586,6 +593,134 @@ fn parse_start_section(input: impl io::Read) -> Result<FuncIdx> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct Elem {
+    pub r#type: RefType,
+    pub init: Vec<Expr>,
+    pub mode: ElemMode,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ElemMode {
+    Passive,
+    Active { table: TableIdx, offset: Expr },
+    Declarative,
+}
+
+fn parse_element_section(mut input: impl io::Read) -> Result<Vec<Elem>> {
+    parse_vec(&mut input, parse_elem)
+}
+
+fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
+    let bitfield = parse_u32(&mut *input)?;
+
+    let (r#type, init, mode) = match bitfield {
+        0 => {
+            let e = parse_expr(&mut *input)?;
+            let y = parse_vec(input, parse_func_idx)?;
+
+            (
+                RefType::Func,
+                vec![y.into_iter().map(Instr::RefFunc).collect()],
+                ElemMode::Active {
+                    table: TableIdx(0),
+                    offset: e,
+                },
+            )
+        }
+        1 => {
+            let et = parse_elemkind(&mut *input)?;
+            let y = parse_vec(input, parse_func_idx)?;
+
+            (
+                et,
+                vec![y.into_iter().map(Instr::RefFunc).collect()],
+                ElemMode::Passive,
+            )
+        }
+        2 => {
+            let x = TableIdx(parse_u32(&mut *input)?);
+            let e = parse_expr(&mut *input)?;
+            let et = parse_elemkind(&mut *input)?;
+            let y = parse_vec(input, parse_func_idx)?;
+
+            (
+                et,
+                vec![y.into_iter().map(Instr::RefFunc).collect()],
+                ElemMode::Active {
+                    table: x,
+                    offset: e,
+                },
+            )
+        }
+        3 => {
+            let et = parse_elemkind(&mut *input)?;
+            let y = parse_vec(input, parse_func_idx)?;
+
+            (
+                et,
+                vec![y.into_iter().map(Instr::RefFunc).collect()],
+                ElemMode::Declarative,
+            )
+        }
+        4 => {
+            let e = parse_expr(&mut *input)?;
+            let el = parse_vec(input, |reader| parse_expr(reader))?;
+
+            (
+                RefType::Func,
+                el,
+                ElemMode::Active {
+                    table: TableIdx(0),
+                    offset: e,
+                },
+            )
+        }
+        5 => {
+            let et: RefType = read_byte(&mut *input)?.try_into()?;
+            let el = parse_vec(input, |reader| parse_expr(reader))?;
+
+            (et, el, ElemMode::Passive)
+        }
+        6 => {
+            let x = TableIdx(parse_u32(&mut *input)?);
+            let e = parse_expr(&mut *input)?;
+            let et: RefType = read_byte(&mut *input)?.try_into()?;
+            let el = parse_vec(input, |reader| parse_expr(reader))?;
+
+            (
+                et,
+                el,
+                ElemMode::Active {
+                    table: x,
+                    offset: e,
+                },
+            )
+        }
+        7 => {
+            let et: RefType = read_byte(&mut *input)?.try_into()?;
+            let el = parse_vec(input, |reader| parse_expr(reader))?;
+
+            (et, el, ElemMode::Declarative)
+        }
+        n => return Err(anyhow!("unexpected elem bitfield: {:x}", n)),
+    };
+
+    Ok(Elem { r#type, init, mode })
+}
+
+fn parse_elemkind(input: impl io::Read) -> Result<RefType> {
+    let b = read_byte(input)?;
+    if b != 0x00 {
+        return Err(anyhow!("expected byte `0x00` for elemkind; got {:x}", b));
+    }
+    Ok(RefType::Func)
+}
+
+fn parse_func_idx<R: io::Read>(input: &mut R) -> Result<FuncIdx> {
+    Ok(FuncIdx(parse_u32(input)?))
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Data {
     init: Vec<u8>,
     mode: DataMode,
@@ -602,11 +737,13 @@ fn parse_data_section(mut input: impl io::Read) -> Result<Vec<Data>> {
 }
 
 fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
+    // FIXME: should parse u32 instead of 1 byte
     let mut bitfield = [0u8];
     input.read_exact(&mut bitfield)?;
 
     let mut init = Vec::new();
 
+    // FIXME: read_to_end will consume all segments. Add regression test
     let mode = match bitfield[0] {
         0 => {
             let e = parse_expr(&mut *input)?;
@@ -656,9 +793,9 @@ pub enum Instr {
     CallIndirect, // call_indirect
 
     // --- Reference instructions (5.4.2) ---
-    RefNull,   // ref.null
-    RefIsNull, // ref.is_null
-    RefFunc,   // ref.func
+    RefNull(RefType), // ref.null
+    RefIsNull,        // ref.is_null
+    RefFunc(FuncIdx), // ref.func
 
     // --- Parametric instructions (5.4.3) ---
     Drop,   // drop
@@ -903,12 +1040,23 @@ impl Instr {
 
         Ok(match buf[0] {
             0x0B => None, // not an instruction, rather an opcode for `end`
+
+            // --- Reference instructions (5.4.2) ---
+            0xD0 => Some(Instr::RefNull(read_byte(input)?.try_into()?)),
+            0xD1 => Some(Instr::RefIsNull),
+            0xD2 => Some(Instr::RefFunc(parse_u32(input)?.into())),
+
+            // --- Parametric instructions (5.4.3) ---
             0x20 => Some(Instr::LocalGet(LocalIdx(parse_u32(&mut input)?))),
+            // ...TODO
+
+            // --- Numeric instructions (5.4.7) ---
             0x41 => Some(Instr::I32Const(parse_i32(&mut input)?)),
             0x42 => Some(Instr::I64Const(parse_i64(&mut input)?)),
             0x6A => Some(Instr::I32Add),
+            // ...TODO
             n => {
-                return Err(anyhow!("unexpected instr: {:x}", n));
+                return Err(anyhow!("unexpected instr: {:#X}", n));
             }
         })
     }
@@ -1301,6 +1449,267 @@ mod tests {
                 types,
                 funcs,
                 start: Some(FuncIdx(0)),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_control_instructions() {
+        let f = File::open("tests/fixtures/control_instructions.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Table,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Table,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 11,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 53,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        }];
+
+        let funcs = vec![
+            Func {
+                r#type: TypeIdx(0),
+                locals: Vec::new(),
+                body: Vec::new(),
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: Vec::new(),
+                body: vec![
+                    Instr::Nop,
+                    Instr::Block,
+                    Instr::Unreachable,
+                    Instr::Block,
+                    Instr::Loop,
+                    Instr::Br,
+                    Instr::Block,
+                    Instr::I32Const(0),
+                    Instr::BrIf,
+                    Instr::Block,
+                    Instr::I32Const(0),
+                    Instr::BrTable,
+                    Instr::Block,
+                    Instr::I32Const(1),
+                    Instr::If,
+                    Instr::Nop,
+                    Instr::Call,
+                    Instr::I32Const(0),
+                    Instr::CallIndirect,
+                    Instr::Return,
+                ],
+            },
+        ];
+
+        let tables = vec![Table {
+            limits: Limits { min: 1, max: None },
+            reftype: RefType::Func,
+        }];
+
+        let exports = vec![Export {
+            name: "control".to_owned(),
+            desc: ExportDesc::Func(FuncIdx(1)),
+        }];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                tables,
+                exports,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_element_section_all_alts() {
+        let f = File::open("tests/fixtures/element_section_all_alts.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Table,
+            SectionKind::Element,
+            SectionKind::Code,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 7,
+            },
+            SectionHeader {
+                kind: SectionKind::Table,
+                size: 7,
+            },
+            SectionHeader {
+                kind: SectionKind::Element,
+                size: 67,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 19,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: vec![],
+            results: vec![],
+        }];
+
+        let funcs = vec![
+            Func {
+                r#type: TypeIdx(0),
+                locals: vec![],
+                body: vec![],
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: vec![],
+                body: vec![],
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: vec![],
+                body: vec![],
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: vec![],
+                body: vec![],
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: vec![],
+                body: vec![],
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: vec![],
+                body: vec![],
+            },
+        ];
+
+        let tables = vec![
+            Table {
+                limits: Limits { min: 12, max: None },
+                reftype: RefType::Func,
+            },
+            Table {
+                limits: Limits { min: 12, max: None },
+                reftype: RefType::Func,
+            },
+        ];
+
+        let elems = vec![
+            Elem {
+                r#type: RefType::Func,
+                init: vec![vec![Instr::RefFunc(FuncIdx(0)), Instr::RefFunc(FuncIdx(1))]],
+                mode: ElemMode::Active {
+                    table: TableIdx(0),
+                    offset: vec![Instr::I32Const(0)],
+                },
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![vec![Instr::RefFunc(FuncIdx(2)), Instr::RefFunc(FuncIdx(3))]],
+                mode: ElemMode::Passive,
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![vec![Instr::RefFunc(FuncIdx(4))]],
+                mode: ElemMode::Active {
+                    table: TableIdx(1),
+                    offset: vec![Instr::I32Const(1)],
+                },
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![vec![Instr::RefFunc(FuncIdx(5))]],
+                mode: ElemMode::Declarative,
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![
+                    vec![Instr::RefFunc(FuncIdx(0))],
+                    vec![Instr::RefNull(RefType::Func)],
+                ],
+                mode: ElemMode::Active {
+                    table: TableIdx(0),
+                    offset: vec![Instr::I32Const(6)],
+                },
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![
+                    vec![Instr::RefFunc(FuncIdx(1))],
+                    vec![Instr::RefNull(RefType::Func)],
+                ],
+                mode: ElemMode::Passive,
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![
+                    vec![Instr::RefFunc(FuncIdx(2))],
+                    vec![Instr::RefNull(RefType::Func)],
+                ],
+                mode: ElemMode::Active {
+                    table: TableIdx(1),
+                    offset: vec![Instr::I32Const(3)],
+                },
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![
+                    vec![Instr::RefNull(RefType::Func)],
+                    vec![Instr::RefFunc(FuncIdx(3))],
+                ],
+                mode: ElemMode::Declarative,
+            },
+        ];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                tables,
+                elems,
                 ..Default::default()
             }
         )
