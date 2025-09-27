@@ -737,34 +737,32 @@ fn parse_data_section(mut input: impl io::Read) -> Result<Vec<Data>> {
 }
 
 fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
-    // FIXME: should parse u32 instead of 1 byte
-    let mut bitfield = [0u8];
-    input.read_exact(&mut bitfield)?;
+    let init: Vec<u8>;
+    let mode: DataMode;
 
-    let mut init = Vec::new();
-
-    // FIXME: read_to_end will consume all segments. Add regression test
-    let mode = match bitfield[0] {
+    (init, mode) = match parse_u32(&mut *input)? {
         0 => {
             let e = parse_expr(&mut *input)?;
-            input.read_to_end(&mut init)?;
-            DataMode::Active {
-                memory: MemIdx(0),
-                offset: e,
-            }
+            (
+                parse_byte_vec(input)?,
+                DataMode::Active {
+                    memory: MemIdx(0),
+                    offset: e,
+                },
+            )
         }
-        1 => {
-            input.read_to_end(&mut init)?;
-            DataMode::Passive
-        }
+        1 => (parse_byte_vec(input)?, DataMode::Passive),
         2 => {
-            let idx = parse_u32(&mut *input)?;
+            let x = parse_u32(&mut *input)?;
             let e = parse_expr(&mut *input)?;
-            input.read_to_end(&mut init)?;
-            DataMode::Active {
-                memory: MemIdx(idx),
-                offset: e,
-            }
+
+            (
+                parse_byte_vec(input)?,
+                DataMode::Active {
+                    memory: MemIdx(x),
+                    offset: e,
+                },
+            )
         }
         n => return Err(anyhow!("unexpected data bitfield: {n}")),
     };
@@ -1137,6 +1135,13 @@ fn read_byte(mut input: impl io::Read) -> Result<u8> {
     let mut buf = [0u8];
     input.read_exact(&mut buf)?;
     Ok(buf[0])
+}
+
+fn parse_byte_vec(mut input: impl io::Read) -> Result<Vec<u8>> {
+    let len = parse_u32(&mut input)?;
+    let mut b = vec![0u8; len.try_into().unwrap()];
+    input.read_exact(&mut b)?;
+    Ok(b)
 }
 
 #[cfg(test)]
@@ -1943,6 +1948,55 @@ mod tests {
             decode(f).unwrap(),
             Module {
                 custom_sections,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_data_section_multiple_segments() {
+        let f = File::open("tests/fixtures/data_section_multi_segment.wasm").unwrap();
+
+        let parsed_section_kinds = vec![SectionKind::Memory, SectionKind::Data];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Memory,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Data,
+                size: 14,
+            },
+        ];
+
+        let mems = vec![Mem {
+            limits: Limits { min: 1, max: None },
+        }];
+
+        let datas = vec![
+            Data {
+                init: vec![0x41],
+                mode: DataMode::Active {
+                    memory: MemIdx(0),
+                    offset: vec![Instr::I32Const(0)],
+                },
+            },
+            Data {
+                init: vec![0x42],
+                mode: DataMode::Active {
+                    memory: MemIdx(0),
+                    offset: vec![Instr::I32Const(1)],
+                },
+            },
+        ];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                mems,
+                datas,
                 ..Default::default()
             }
         )
