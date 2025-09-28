@@ -244,6 +244,12 @@ pub enum RefType {
     Extern,
 }
 
+impl RefType {
+    fn read_from(r: &mut impl io::Read) -> Result<Self> {
+        read_byte(r)?.try_into()
+    }
+}
+
 impl TryFrom<u8> for RefType {
     type Error = anyhow::Error;
 
@@ -510,12 +516,8 @@ fn parse_table_section(mut input: impl io::Read) -> Result<Vec<Table>> {
 }
 
 fn parse_table<R: io::Read>(input: &mut R) -> Result<Table> {
-    let mut buf = [0u8];
-    input.read_exact(&mut buf)?;
-    let ref_type = RefType::try_from(buf[0])?;
-
     Ok(Table {
-        reftype: ref_type,
+        reftype: RefType::read_from(input)?,
         limits: parse_limits(&mut *input)?,
     })
 }
@@ -676,7 +678,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         5 => {
-            let et: RefType = read_byte(&mut *input)?.try_into()?;
+            let et = RefType::read_from(input)?;
             let el = parse_vec(input, |reader| parse_expr(reader))?;
 
             (et, el, ElemMode::Passive)
@@ -684,7 +686,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
         6 => {
             let x = TableIdx(parse_u32(&mut *input)?);
             let e = parse_expr(&mut *input)?;
-            let et: RefType = read_byte(&mut *input)?.try_into()?;
+            let et = RefType::read_from(input)?;
             let el = parse_vec(input, |reader| parse_expr(reader))?;
 
             (
@@ -697,7 +699,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         7 => {
-            let et: RefType = read_byte(&mut *input)?.try_into()?;
+            let et = RefType::read_from(input)?;
             let el = parse_vec(input, |reader| parse_expr(reader))?;
 
             (et, el, ElemMode::Declarative)
@@ -709,6 +711,8 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
 }
 
 fn parse_elemkind(input: impl io::Read) -> Result<RefType> {
+    // we intentionally don't use RefType::read_from, since the spec uses 0x00
+    // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(input)?;
     if b != 0x00 {
         return Err(anyhow!("expected byte `0x00` for elemkind; got {:x}", b));
