@@ -35,7 +35,7 @@ pub enum Instr {
     // --- Table instructions (5.4.5) ---
     TableGet(TableIdx),            // table.get
     TableSet(TableIdx),            // table.set
-    TableInit(ElemIdx, TableIdx),  // table.init
+    TableInit(TableIdx, ElemIdx),  // table.init
     ElemDrop(ElemIdx),             // elem.drop
     TableCopy(TableIdx, TableIdx), // table.copy
     TableGrow(TableIdx),           // table.grow
@@ -280,7 +280,11 @@ impl Instr {
             0x25 => Instr::TableGet(TableIdx::read(input)?),
             0x26 => Instr::TableSet(TableIdx::read(input)?),
             0xFC => match parse_u32(&mut input)? {
-                12 => Instr::TableInit(ElemIdx::read(&mut input)?, TableIdx::read(&mut input)?),
+                12 => {
+                    let y = ElemIdx::read(&mut input)?;
+                    let x = TableIdx::read(&mut input)?;
+                    Instr::TableInit(x, y)
+                }
                 13 => Instr::ElemDrop(ElemIdx::read(input)?),
                 14 => Instr::TableCopy(TableIdx::read(&mut input)?, TableIdx::read(input)?),
                 15 => Instr::TableGrow(TableIdx::read(input)?),

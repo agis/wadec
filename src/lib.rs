@@ -1720,7 +1720,7 @@ mod tests {
             },
             SectionHeader {
                 kind: SectionKind::Table,
-                size: 4,
+                size: 7,
             },
             SectionHeader {
                 kind: SectionKind::Export,
@@ -1728,7 +1728,7 @@ mod tests {
             },
             SectionHeader {
                 kind: SectionKind::Element,
-                size: 5,
+                size: 9,
             },
             SectionHeader {
                 kind: SectionKind::Code,
@@ -1766,8 +1766,8 @@ mod tests {
                     Instr::I32Const(0),
                     Instr::I32Const(0),
                     Instr::I32Const(1),
-                    Instr::TableInit(ElemIdx(0), TableIdx(0)),
-                    Instr::ElemDrop(ElemIdx(0)),
+                    Instr::TableInit(TableIdx(0), ElemIdx(1)),
+                    Instr::ElemDrop(ElemIdx(1)),
                     Instr::I32Const(0),
                     Instr::RefNull(RefType::Func),
                     Instr::I32Const(1),
@@ -1781,23 +1781,36 @@ mod tests {
                     Instr::I32Const(0),
                     Instr::I32Const(0),
                     Instr::I32Const(1),
-                    Instr::TableCopy(TableIdx(0), TableIdx(0)),
+                    Instr::TableCopy(TableIdx(0), TableIdx(1)),
                     Instr::TableSize(TableIdx(0)),
                     Instr::Drop,
                 ],
             },
         ];
 
-        let tables = vec![Table {
-            limits: Limits { min: 4, max: None },
-            reftype: RefType::Func,
-        }];
+        let tables = vec![
+            Table {
+                limits: Limits { min: 4, max: None },
+                reftype: RefType::Func,
+            },
+            Table {
+                limits: Limits { min: 4, max: None },
+                reftype: RefType::Func,
+            },
+        ];
 
-        let elems = vec![Elem {
-            r#type: RefType::Func,
-            init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
-            mode: ElemMode::Passive,
-        }];
+        let elems = vec![
+            Elem {
+                r#type: RefType::Func,
+                init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
+                mode: ElemMode::Passive,
+            },
+            Elem {
+                r#type: RefType::Func,
+                init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
+                mode: ElemMode::Passive,
+            },
+        ];
 
         let exports = vec![Export {
             name: "table_ops".to_owned(),
