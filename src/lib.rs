@@ -214,29 +214,52 @@ pub struct TypeIdx(u32);
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct FuncIdx(u32);
 
-impl From<u32> for FuncIdx {
-    fn from(v: u32) -> Self {
-        Self(v)
+impl FuncIdx {
+    fn read(r: impl io::Read) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct TableIdx(u32);
 
+impl TableIdx {
+    fn read(r: impl io::Read) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct MemIdx(u32);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct GlobalIdx(u32);
+impl GlobalIdx {
+    fn read(r: impl io::Read) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ElemIdx(u32);
+
+impl ElemIdx {
+    fn read(r: impl io::Read) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct DataIdx(u32);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct LocalIdx(u32);
+
+impl LocalIdx {
+    fn read(r: impl io::Read) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct LabelIdx(u32);
@@ -248,7 +271,7 @@ pub enum RefType {
 }
 
 impl RefType {
-    fn read_from(r: &mut impl io::Read) -> Result<Self> {
+    fn read(r: &mut impl io::Read) -> Result<Self> {
         read_byte(r)?.try_into()
     }
 }
@@ -503,9 +526,6 @@ fn parse_export<R: io::Read>(input: &mut R) -> Result<Export> {
         0x01 => ExportDesc::Table(TableIdx(idx)),
         0x02 => ExportDesc::Mem(MemIdx(idx)),
         0x03 => ExportDesc::Global(GlobalIdx(idx)),
-        // 0x01 => ExportDesc::Table(parse_table(&mut *input)?),
-        // 0x02 => ExportDesc::Mem(MemIdx(idx)),
-        // 0x03 => ExportDesc::Global(GlobalIdx(idx)),
         _ => {
             return Err(anyhow!("unexpected export_desc"));
         }
@@ -520,7 +540,7 @@ fn parse_table_section(mut input: impl io::Read) -> Result<Vec<Table>> {
 
 fn parse_table<R: io::Read>(input: &mut R) -> Result<Table> {
     Ok(Table {
-        reftype: RefType::read_from(input)?,
+        reftype: RefType::read(input)?,
         limits: parse_limits(&mut *input)?,
     })
 }
@@ -643,7 +663,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         2 => {
-            let x = TableIdx(parse_u32(&mut *input)?);
+            let x = TableIdx::read(&mut *input)?;
             let e = parse_expr(&mut *input)?;
             let et = parse_elemkind(&mut *input)?;
             let y = parse_vec(input, parse_func_idx)?;
@@ -681,15 +701,15 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         5 => {
-            let et = RefType::read_from(input)?;
+            let et = RefType::read(input)?;
             let el = parse_vec(input, |reader| parse_expr(reader))?;
 
             (et, el, ElemMode::Passive)
         }
         6 => {
-            let x = TableIdx(parse_u32(&mut *input)?);
+            let x = TableIdx::read(&mut *input)?;
             let e = parse_expr(&mut *input)?;
-            let et = RefType::read_from(input)?;
+            let et = RefType::read(input)?;
             let el = parse_vec(input, |reader| parse_expr(reader))?;
 
             (
@@ -702,7 +722,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         7 => {
-            let et = RefType::read_from(input)?;
+            let et = RefType::read(input)?;
             let el = parse_vec(input, |reader| parse_expr(reader))?;
 
             (et, el, ElemMode::Declarative)
@@ -714,7 +734,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
 }
 
 fn parse_elemkind(input: impl io::Read) -> Result<RefType> {
-    // we intentionally don't use RefType::read_from, since the spec uses 0x00
+    // we intentionally don't use RefType::read, since the spec uses 0x00
     // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(input)?;
     if b != 0x00 {

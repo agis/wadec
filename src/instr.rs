@@ -260,9 +260,9 @@ impl Instr {
             // ...
 
             // --- Reference instructions (5.4.2) ---
-            0xD0 => Instr::RefNull(read_byte(input)?.try_into()?),
+            0xD0 => Instr::RefNull(RefType::read(&mut input)?),
             0xD1 => Instr::RefIsNull,
-            0xD2 => Instr::RefFunc(parse_u32(input)?.into()),
+            0xD2 => Instr::RefFunc(FuncIdx::read(input)?),
 
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instr::Drop,
@@ -270,27 +270,22 @@ impl Instr {
             0x1C => Instr::Select(Some(parse_vec(&mut input, parse_valtype)?)),
 
             // --- Variable instructions (5.4.4) ---
-            0x20 => Instr::LocalGet(LocalIdx(parse_u32(input)?)),
-            0x21 => Instr::LocalSet(LocalIdx(parse_u32(input)?)),
-            0x22 => Instr::LocalTee(LocalIdx(parse_u32(input)?)),
-            0x23 => Instr::GlobalGet(GlobalIdx(parse_u32(input)?)),
-            0x24 => Instr::GlobalSet(GlobalIdx(parse_u32(input)?)),
+            0x20 => Instr::LocalGet(LocalIdx::read(input)?),
+            0x21 => Instr::LocalSet(LocalIdx::read(input)?),
+            0x22 => Instr::LocalTee(LocalIdx::read(input)?),
+            0x23 => Instr::GlobalGet(GlobalIdx::read(input)?),
+            0x24 => Instr::GlobalSet(GlobalIdx::read(input)?),
 
             // --- Table instructions (5.4.5) ---
-            0x25 => Instr::TableGet(TableIdx(parse_u32(input)?)),
-            0x26 => Instr::TableSet(TableIdx(parse_u32(input)?)),
+            0x25 => Instr::TableGet(TableIdx::read(input)?),
+            0x26 => Instr::TableSet(TableIdx::read(input)?),
             0xFC => match parse_u32(&mut input)? {
-                12 => {
-                    Instr::TableInit(ElemIdx(parse_u32(&mut input)?), TableIdx(parse_u32(input)?))
-                }
-                13 => Instr::ElemDrop(ElemIdx(parse_u32(input)?)),
-                14 => Instr::TableCopy(
-                    TableIdx(parse_u32(&mut input)?),
-                    TableIdx(parse_u32(input)?),
-                ),
-                15 => Instr::TableGrow(TableIdx(parse_u32(input)?)),
-                16 => Instr::TableSize(TableIdx(parse_u32(input)?)),
-                17 => Instr::TableFill(TableIdx(parse_u32(input)?)),
+                12 => Instr::TableInit(ElemIdx::read(&mut input)?, TableIdx::read(&mut input)?),
+                13 => Instr::ElemDrop(ElemIdx::read(input)?),
+                14 => Instr::TableCopy(TableIdx::read(&mut input)?, TableIdx::read(input)?),
+                15 => Instr::TableGrow(TableIdx::read(input)?),
+                16 => Instr::TableSize(TableIdx::read(input)?),
+                17 => Instr::TableFill(TableIdx::read(input)?),
                 n => return Err(anyhow!("unexpected table instr prefix byte `{:x}`", n)),
             },
 
