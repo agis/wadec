@@ -1,3 +1,4 @@
 /target
 TODO
 WebAssembly-2.0.pdf
+/tests/fixtures/*.wat
