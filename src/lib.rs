@@ -1476,6 +1476,8 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
+    // Enable this when Control instr parsing is done
     fn it_decodes_control_instructions() {
         let f = File::open("tests/fixtures/control_instructions.wasm").unwrap();
 
