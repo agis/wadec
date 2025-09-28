@@ -1059,6 +1059,10 @@ impl Instr {
 
             // --- Variable instructions (5.4.4) ---
             0x20 => Instr::LocalGet(LocalIdx(parse_u32(&mut input)?)),
+            0x21 => Instr::LocalSet(LocalIdx(parse_u32(&mut input)?)),
+            0x22 => Instr::LocalTee(LocalIdx(parse_u32(&mut input)?)),
+            0x23 => Instr::GlobalGet(GlobalIdx(parse_u32(&mut input)?)),
+            0x24 => Instr::GlobalSet(GlobalIdx(parse_u32(&mut input)?)),
 
             // --- Numeric instructions (5.4.7) ---
             0x41 => Instr::I32Const(parse_i32(&mut input)?),
