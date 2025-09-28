@@ -423,26 +423,13 @@ fn parse_type_section(mut input: impl io::Read) -> Result<Vec<FuncType>> {
 }
 
 fn parse_functype<R: io::Read>(input: &mut R) -> Result<FuncType> {
-    let mut buf = [0u8];
-    input.read_exact(&mut buf)?;
-    if buf[0] != 0x60 {
-        return Err(anyhow!(
-            "expected functype marker 0x60, got 0x{:#x}",
-            buf[0]
-        ));
+    let b = read_byte(&mut *input)?;
+    if b != 0x60 {
+        return Err(anyhow!("expected functype marker 0x60, got 0x{:#x}", b));
     }
 
-    let parameters_count = parse_u32(&mut *input)?;
-    let mut parameters = Vec::with_capacity(parameters_count.try_into().unwrap());
-    for _ in 0..parameters_count {
-        parameters.push(parse_valtype(input)?);
-    }
-
-    let results_count = parse_u32(&mut *input)?;
-    let mut results = Vec::with_capacity(results_count.try_into().unwrap());
-    for _ in 0..results_count {
-        results.push(parse_valtype(input)?);
-    }
+    let parameters = parse_vec(input, parse_valtype)?;
+    let results = parse_vec(input, parse_valtype)?;
 
     Ok(FuncType {
         parameters,
