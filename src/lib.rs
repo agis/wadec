@@ -628,7 +628,9 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
     let bitfield = parse_u32(&mut *input)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
-        vec![idxs.into_iter().map(Instr::RefFunc).collect()]
+        idxs.into_iter()
+            .map(|idx| vec![Instr::RefFunc(idx)])
+            .collect()
     }
 
     let (r#type, init, mode) = match bitfield {
@@ -1372,7 +1374,10 @@ mod tests {
         let elems = vec![
             Elem {
                 r#type: RefType::Func,
-                init: vec![vec![Instr::RefFunc(FuncIdx(0)), Instr::RefFunc(FuncIdx(1))]],
+                init: vec![
+                    vec![Instr::RefFunc(FuncIdx(0))],
+                    vec![Instr::RefFunc(FuncIdx(1))],
+                ],
                 mode: ElemMode::Active {
                     table: TableIdx(0),
                     offset: vec![Instr::I32Const(0)],
@@ -1380,7 +1385,10 @@ mod tests {
             },
             Elem {
                 r#type: RefType::Func,
-                init: vec![vec![Instr::RefFunc(FuncIdx(2)), Instr::RefFunc(FuncIdx(3))]],
+                init: vec![
+                    vec![Instr::RefFunc(FuncIdx(2))],
+                    vec![Instr::RefFunc(FuncIdx(3))],
+                ],
                 mode: ElemMode::Passive,
             },
             Elem {
