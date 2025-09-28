@@ -396,15 +396,15 @@ fn parse_preamble(mut input: impl io::Read) -> Result<()> {
 }
 
 fn parse_section_header(mut input: impl io::Read) -> Result<Option<SectionHeader>> {
-    let mut buf = [0];
-    match input.read_exact(&mut buf) {
+    let b = read_byte(&mut input);
+    match b {
         Ok(_) => Ok::<(), anyhow::Error>(()),
-        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
         Err(e) => return Err(e.into()),
     }?;
 
-    let kind = SectionKind::try_from(buf[0])?;
-    let size = parse_u32(&mut input)?;
+    let kind = SectionKind::try_from(b.unwrap())?;
+    let size = parse_u32(input)?;
 
     Ok(Some(SectionHeader { kind, size }))
 }
@@ -425,7 +425,7 @@ fn parse_type_section(mut input: impl io::Read) -> Result<Vec<FuncType>> {
 fn parse_functype<R: io::Read>(input: &mut R) -> Result<FuncType> {
     let b = read_byte(&mut *input)?;
     if b != 0x60 {
-        return Err(anyhow!("expected functype marker 0x60, got 0x{:#x}", b));
+        return Err(anyhow!("expected functype marker 0x60, got {:#X}", b));
     }
 
     let parameters = parse_vec(input, parse_valtype)?;
@@ -496,6 +496,18 @@ pub enum ExportDesc {
     Global(GlobalIdx),
 }
 
+impl ExportDesc {
+    fn from(b: u8, idx: u32) -> Result<Self> {
+        Ok(match b {
+            0x00 => ExportDesc::Func(FuncIdx(idx)),
+            0x01 => ExportDesc::Table(TableIdx(idx)),
+            0x02 => ExportDesc::Mem(MemIdx(idx)),
+            0x03 => ExportDesc::Global(GlobalIdx(idx)),
+            _ => return Err(anyhow!("unexpected export_desc byte: {:X}", b)),
+        })
+    }
+}
+
 // TODO: validate that names are unique?
 fn parse_export_section(mut input: impl io::Read) -> Result<Vec<Export>> {
     parse_vec(&mut input, parse_export)
@@ -504,19 +516,9 @@ fn parse_export_section(mut input: impl io::Read) -> Result<Vec<Export>> {
 fn parse_export<R: io::Read>(input: &mut R) -> Result<Export> {
     let name = parse_name(&mut *input)?;
 
-    // desc
-    let mut desc_kind = [0u8];
-    input.read_exact(&mut desc_kind)?;
+    let desc_kind = read_byte(&mut *input)?;
     let idx = parse_u32(&mut *input)?;
-    let desc = match desc_kind[0] {
-        0x00 => ExportDesc::Func(FuncIdx(idx)),
-        0x01 => ExportDesc::Table(TableIdx(idx)),
-        0x02 => ExportDesc::Mem(MemIdx(idx)),
-        0x03 => ExportDesc::Global(GlobalIdx(idx)),
-        _ => {
-            return Err(anyhow!("unexpected export_desc"));
-        }
-    };
+    let desc = ExportDesc::from(desc_kind, idx)?;
 
     Ok(Export { name, desc })
 }
@@ -625,6 +627,10 @@ fn parse_element_section(mut input: impl io::Read) -> Result<Vec<Elem>> {
 fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
     let bitfield = parse_u32(&mut *input)?;
 
+    fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
+        vec![idxs.into_iter().map(Instr::RefFunc).collect()]
+    }
+
     let (r#type, init, mode) = match bitfield {
         0 => {
             let e = parse_expr(&mut *input)?;
@@ -632,7 +638,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
 
             (
                 RefType::Func,
-                vec![y.into_iter().map(Instr::RefFunc).collect()],
+                funcidx_into_reffunc(y),
                 ElemMode::Active {
                     table: TableIdx(0),
                     offset: e,
@@ -643,11 +649,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             let et = parse_elemkind(&mut *input)?;
             let y = parse_vec(input, parse_func_idx)?;
 
-            (
-                et,
-                vec![y.into_iter().map(Instr::RefFunc).collect()],
-                ElemMode::Passive,
-            )
+            (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
             let x = TableIdx::read(&mut *input)?;
@@ -657,7 +659,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
 
             (
                 et,
-                vec![y.into_iter().map(Instr::RefFunc).collect()],
+                funcidx_into_reffunc(y),
                 ElemMode::Active {
                     table: x,
                     offset: e,
@@ -668,15 +670,11 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             let et = parse_elemkind(&mut *input)?;
             let y = parse_vec(input, parse_func_idx)?;
 
-            (
-                et,
-                vec![y.into_iter().map(Instr::RefFunc).collect()],
-                ElemMode::Declarative,
-            )
+            (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
         4 => {
             let e = parse_expr(&mut *input)?;
-            let el = parse_vec(input, |reader| parse_expr(reader))?;
+            let el = parse_vec(input, parse_expr)?;
 
             (
                 RefType::Func,
@@ -689,7 +687,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
         }
         5 => {
             let et = RefType::read(input)?;
-            let el = parse_vec(input, |reader| parse_expr(reader))?;
+            let el = parse_vec(input, parse_expr)?;
 
             (et, el, ElemMode::Passive)
         }
@@ -697,7 +695,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             let x = TableIdx::read(&mut *input)?;
             let e = parse_expr(&mut *input)?;
             let et = RefType::read(input)?;
-            let el = parse_vec(input, |reader| parse_expr(reader))?;
+            let el = parse_vec(input, parse_expr)?;
 
             (
                 et,
@@ -710,7 +708,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
         }
         7 => {
             let et = RefType::read(input)?;
-            let el = parse_vec(input, |reader| parse_expr(reader))?;
+            let el = parse_vec(input, parse_expr)?;
 
             (et, el, ElemMode::Declarative)
         }
@@ -788,10 +786,10 @@ fn parse_datacount_section(input: impl io::Read) -> Result<u32> {
     parse_u32(input)
 }
 
-fn parse_expr(mut input: impl io::Read) -> Result<Expr> {
+fn parse_expr<R: io::Read>(input: &mut R) -> Result<Expr> {
     let mut instr = Vec::new();
 
-    while let Some(i) = Instr::parse(&mut input)? {
+    while let Some(i) = Instr::parse(&mut *input)? {
         instr.push(i);
     }
 
@@ -799,10 +797,7 @@ fn parse_expr(mut input: impl io::Read) -> Result<Expr> {
 }
 
 fn parse_valtype(input: &mut impl io::Read) -> Result<ValType> {
-    let mut buf = [0u8];
-    input.read_exact(&mut buf)?;
-
-    Ok(match buf[0] {
+    Ok(match read_byte(input)? {
         0x7F => ValType::Num(NumType::Int32),
         0x7E => ValType::Num(NumType::Int64),
         0x7D => ValType::Num(NumType::Float32),
@@ -811,16 +806,13 @@ fn parse_valtype(input: &mut impl io::Read) -> Result<ValType> {
         0x70 => ValType::Ref(RefType::Func),
         0x6F => ValType::Ref(RefType::Extern),
         n => {
-            return Err(anyhow!("unexpected valtype: {:x}", n));
+            return Err(anyhow!("unexpected valtype: {:X}", n));
         }
     })
 }
 
 fn parse_limits(mut input: impl io::Read) -> Result<Limits> {
-    let mut buf = [0u8];
-    input.read_exact(&mut buf)?;
-
-    let has_max = match buf[0] {
+    let has_max = match read_byte(&mut input)? {
         0x00 => false,
         0x01 => true,
         n => return Err(anyhow!("unexpected limits byte: {:x}", n)),
@@ -866,7 +858,7 @@ fn parse_name(input: impl io::Read) -> Result<String> {
     Ok(parse_byte_vec(input)?.try_into()?)
 }
 
-fn read_byte(mut input: impl io::Read) -> Result<u8> {
+fn read_byte(mut input: impl io::Read) -> Result<u8, io::Error> {
     let mut buf = [0u8];
     input.read_exact(&mut buf)?;
     Ok(buf[0])
