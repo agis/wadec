@@ -775,7 +775,7 @@ fn parse_datacount_section(input: impl io::Read) -> Result<u32> {
 }
 
 // https://webassembly.github.io/spec/core/syntax/instructions.html#
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Instr {
     // --- Control instructions (5.4.1) ---
     Unreachable,  // unreachable
@@ -796,8 +796,8 @@ pub enum Instr {
     RefFunc(FuncIdx), // ref.func
 
     // --- Parametric instructions (5.4.3) ---
-    Drop,   // drop
-    Select, // select  (typed form uses an immediate type vector)
+    Drop,                         // drop
+    Select(Option<Vec<ValType>>), // select
 
     // --- Variable instructions (5.4.4) ---
     LocalGet(LocalIdx),   // local.get
@@ -1036,27 +1036,37 @@ impl Instr {
             Err(e) => return Err(e.into()),
         };
 
-        Ok(match buf[0] {
-            0x0B => None, // not an instruction, rather an opcode for `end`
+        let ins = match buf[0] {
+            // opcode for `end` - not technically an instruction
+            0x0B => return Ok(None),
+
+            // --- Control instructions (5.4.1) ---
+            // ...
 
             // --- Reference instructions (5.4.2) ---
-            0xD0 => Some(Instr::RefNull(read_byte(input)?.try_into()?)),
-            0xD1 => Some(Instr::RefIsNull),
-            0xD2 => Some(Instr::RefFunc(parse_u32(input)?.into())),
+            0xD0 => Instr::RefNull(read_byte(input)?.try_into()?),
+            0xD1 => Instr::RefIsNull,
+            0xD2 => Instr::RefFunc(parse_u32(input)?.into()),
 
             // --- Parametric instructions (5.4.3) ---
-            0x20 => Some(Instr::LocalGet(LocalIdx(parse_u32(&mut input)?))),
-            // ...TODO
+            0x1A => Instr::Drop,
+            0x1B => Instr::Select(None),
+            0x1C => Instr::Select(Some(parse_vec(&mut input, parse_valtype)?)),
+
+            // --- Variable instructions (5.4.4) ---
+            0x20 => Instr::LocalGet(LocalIdx(parse_u32(&mut input)?)),
 
             // --- Numeric instructions (5.4.7) ---
-            0x41 => Some(Instr::I32Const(parse_i32(&mut input)?)),
-            0x42 => Some(Instr::I64Const(parse_i64(&mut input)?)),
-            0x6A => Some(Instr::I32Add),
+            0x41 => Instr::I32Const(parse_i32(&mut input)?),
+            0x42 => Instr::I64Const(parse_i64(&mut input)?),
+            0x6A => Instr::I32Add,
             // ...TODO
             n => {
                 return Err(anyhow!("unexpected instr: {:#X}", n));
             }
-        })
+        };
+
+        Ok(Some(ins))
     }
 }
 
@@ -1713,6 +1723,253 @@ mod tests {
                 funcs,
                 tables,
                 elems,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_reference_instructions() {
+        let f = File::open("tests/fixtures/reference_instructions.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Table,
+            SectionKind::Export,
+            SectionKind::Element,
+            SectionKind::Code,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Table,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 8,
+            },
+            SectionHeader {
+                kind: SectionKind::Element,
+                size: 5,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 14,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        }];
+
+        let funcs = vec![
+            Func {
+                r#type: TypeIdx(0),
+                locals: Vec::new(),
+                body: Vec::new(),
+            },
+            Func {
+                r#type: TypeIdx(0),
+                locals: Vec::new(),
+                body: vec![
+                    Instr::RefNull(RefType::Func),
+                    Instr::RefIsNull,
+                    Instr::Drop,
+                    Instr::RefFunc(FuncIdx(0)),
+                    Instr::Drop,
+                ],
+            },
+        ];
+
+        let tables = vec![Table {
+            limits: Limits { min: 1, max: None },
+            reftype: RefType::Func,
+        }];
+
+        let exports = vec![Export {
+            name: "refs".to_owned(),
+            desc: ExportDesc::Func(FuncIdx(1)),
+        }];
+
+        let elems = vec![Elem {
+            r#type: RefType::Func,
+            init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
+            mode: ElemMode::Declarative,
+        }];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                tables,
+                elems,
+                exports,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_variable_instructions() {
+        let f = File::open("tests/fixtures/variable_instructions.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Global,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 6,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 2,
+            },
+            SectionHeader {
+                kind: SectionKind::Global,
+                size: 6,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 7,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 20,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
+            results: Vec::new(),
+        }];
+
+        let funcs = vec![Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![
+                Instr::LocalGet(LocalIdx(0)),
+                Instr::LocalSet(LocalIdx(1)),
+                Instr::LocalGet(LocalIdx(1)),
+                Instr::LocalTee(LocalIdx(0)),
+                Instr::Drop,
+                Instr::GlobalGet(GlobalIdx(0)),
+                Instr::Drop,
+                Instr::LocalGet(LocalIdx(1)),
+                Instr::GlobalSet(GlobalIdx(0)),
+            ],
+        }];
+
+        let globals = vec![Global {
+            r#type: GlobalType(Mut::Var, ValType::Num(NumType::Int32)),
+            init: vec![Instr::I32Const(0)],
+        }];
+
+        let exports = vec![Export {
+            name: "var".to_owned(),
+            desc: ExportDesc::Func(FuncIdx(0)),
+        }];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                globals,
+                exports,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_parametric_instructions() {
+        let f = File::open("tests/fixtures/parametric_instructions.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Export,
+            SectionKind::Code,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 8,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 2,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 9,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 24,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: vec![
+                ValType::Num(NumType::Int32),
+                ValType::Num(NumType::Int32),
+                ValType::Num(NumType::Int32),
+            ],
+            results: vec![ValType::Num(NumType::Int32)],
+        }];
+
+        let funcs = vec![Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![
+                Instr::LocalGet(LocalIdx(0)),
+                Instr::LocalGet(LocalIdx(1)),
+                Instr::LocalGet(LocalIdx(2)),
+                Instr::Select(None),
+                Instr::Drop,
+                Instr::LocalGet(LocalIdx(0)),
+                Instr::LocalGet(LocalIdx(1)),
+                Instr::LocalGet(LocalIdx(2)),
+                Instr::Select(Some(vec![ValType::Num(NumType::Int32)])),
+                Instr::Drop,
+                Instr::LocalGet(LocalIdx(0)),
+            ],
+        }];
+
+        let exports = vec![Export {
+            name: "param".to_owned(),
+            desc: ExportDesc::Func(FuncIdx(0)),
+        }];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                exports,
                 ..Default::default()
             }
         )
