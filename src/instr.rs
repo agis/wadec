@@ -43,35 +43,35 @@ pub enum Instr {
     TableFill(TableIdx),           // table.fill
 
     // --- Memory instructions (5.4.6) ---
-    I32Load,    // i32.load
-    I64Load,    // i64.load
-    F32Load,    // f32.load
-    F64Load,    // f64.load
-    I32Load8S,  // i32.load8_s
-    I32Load8U,  // i32.load8_u
-    I32Load16S, // i32.load16_s
-    I32Load16U, // i32.load16_u
-    I64Load8S,  // i64.load8_s
-    I64Load8U,  // i64.load8_u
-    I64Load16S, // i64.load16_s
-    I64Load16U, // i64.load16_u
-    I64Load32S, // i64.load32_s
-    I64Load32U, // i64.load32_u
-    I32Store,   // i32.store
-    I64Store,   // i64.store
-    F32Store,   // f32.store
-    F64Store,   // f64.store
-    I32Store8,  // i32.store8
-    I32Store16, // i32.store16
-    I64Store8,  // i64.store8
-    I64Store16, // i64.store16
-    I64Store32, // i64.store32
-    MemorySize, // memory.size
-    MemoryGrow, // memory.grow
-    MemoryInit, // memory.init
-    DataDrop,   // data.drop
-    MemoryCopy, // memory.copy
-    MemoryFill, // memory.fill
+    I32Load(Memarg),     // i32.load
+    I64Load(Memarg),     // i64.load
+    F32Load(Memarg),     // f32.load
+    F64Load(Memarg),     // f64.load
+    I32Load8s(Memarg),   // i32.load8_s
+    I32Load8u(Memarg),   // i32.load8_u
+    I32Load16s(Memarg),  // i32.load16_s
+    I32Load16u(Memarg),  // i32.load16_u
+    I64Load8s(Memarg),   // i64.load8_s
+    I64Load8u(Memarg),   // i64.load8_u
+    I64Load16s(Memarg),  // i64.load16_s
+    I64Load16u(Memarg),  // i64.load16_u
+    I64Load32s(Memarg),  // i64.load32_s
+    I64Load32u(Memarg),  // i64.load32_u
+    I32Store(Memarg),    // i32.store
+    I64Store(Memarg),    // i64.store
+    F32Store(Memarg),    // f32.store
+    F64Store(Memarg),    // f64.store
+    I32Store8(Memarg),   // i32.store8
+    I32Store16(Memarg),  // i32.store16
+    I64Store8(Memarg),   // i64.store8
+    I64Store16(Memarg),  // i64.store16
+    I64Store32(Memarg),  // i64.store32
+    MemorySize,          // memory.size
+    MemoryGrow,          // memory.grow
+    MemoryInit(DataIdx), // memory.init
+    DataDrop(DataIdx),   // data.drop
+    MemoryCopy,          // memory.copy
+    MemoryFill,          // memory.fill
 
     // --- Numeric constants (5.4.7) ---
     I32Const(i32), // i32.const
@@ -242,6 +242,12 @@ pub enum Instr {
     Simd(u32),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Memarg {
+    pub align: u32,
+    pub offset: u32,
+}
+
 impl Instr {
     pub fn parse(mut input: impl io::Read) -> Result<Option<Self>> {
         let mut buf = [0u8];
@@ -279,7 +285,88 @@ impl Instr {
             // --- Table instructions (5.4.5) ---
             0x25 => Instr::TableGet(TableIdx::read(input)?),
             0x26 => Instr::TableSet(TableIdx::read(input)?),
+            // ...the rest are below, together with some Memory instructions
+            // since they both share a common opcode - 0xFC
+
+            // --- Memory instructions (5.4.6) ---
+            op @ 0x28..=0x3E => {
+                let m = Memarg {
+                    align: parse_u32(&mut input)?,
+                    offset: parse_u32(input)?,
+                };
+                match op {
+                    0x28 => Instr::I32Load(m),
+                    0x29 => Instr::I64Load(m),
+                    0x2A => Instr::F32Load(m),
+                    0x2B => Instr::F64Load(m),
+                    0x2C => Instr::I32Load8s(m),
+                    0x2D => Instr::I32Load8u(m),
+                    0x2E => Instr::I32Load16s(m),
+                    0x2F => Instr::I32Load16u(m),
+                    0x30 => Instr::I64Load8s(m),
+                    0x31 => Instr::I64Load8u(m),
+                    0x32 => Instr::I64Load16s(m),
+                    0x33 => Instr::I64Load16u(m),
+                    0x34 => Instr::I64Load32s(m),
+                    0x35 => Instr::I64Load32u(m),
+                    0x36 => Instr::I32Store(m),
+                    0x37 => Instr::I64Store(m),
+                    0x38 => Instr::F32Store(m),
+                    0x39 => Instr::F64Store(m),
+                    0x3A => Instr::I32Store8(m),
+                    0x3B => Instr::I32Store16(m),
+                    0x3C => Instr::I64Store8(m),
+                    0x3D => Instr::I64Store16(m),
+                    0x3E => Instr::I64Store32(m),
+                    n => return Err(anyhow!("unexpected memory instruction {:X}", n)),
+                }
+            }
+            0x3F => {
+                let b = read_byte(input)?;
+                if b != 0x00 {
+                    return Err(anyhow!("unexpected byte {:X} for memory.size", b));
+                }
+                Instr::MemorySize
+            }
+            0x40 => {
+                let b = read_byte(input)?;
+                if b != 0x00 {
+                    return Err(anyhow!("unexpected byte {:X} for memory.grow", b));
+                }
+                Instr::MemoryGrow
+            }
+            // ...the rest are below, together with table since they both share
+            // a common opcode - 0xFC
+
+            // --- Table / Memory instructions ---
             0xFC => match parse_u32(&mut input)? {
+                // --- memory ---
+                8 => {
+                    let x = DataIdx::read(&mut input)?;
+                    let b = read_byte(input)?;
+                    if b != 0x00 {
+                        return Err(anyhow!("unexpected byte {:X} for memory.init", b));
+                    }
+                    Instr::MemoryInit(x)
+                }
+                9 => Instr::DataDrop(DataIdx::read(input)?),
+                10 => {
+                    let mut buf = [0u8; 2];
+                    input.read_exact(&mut buf)?;
+                    if buf != [0u8, 0u8] {
+                        return Err(anyhow!("unexpected bytes {:?} for memory.copy", buf));
+                    }
+                    Instr::MemoryCopy
+                }
+                11 => {
+                    let b = read_byte(input)?;
+                    if b != 0x00 {
+                        return Err(anyhow!("unexpected byte {:X} for memory.fill", b));
+                    }
+                    Instr::MemoryFill
+                }
+
+                // --- table ---
                 12 => {
                     let y = ElemIdx::read(&mut input)?;
                     let x = TableIdx::read(&mut input)?;
