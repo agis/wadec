@@ -1,7 +1,7 @@
 pub mod instr;
 
 use crate::instr::Instr;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::io;
 use std::io::Read;
 
@@ -251,6 +251,12 @@ impl ElemIdx {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct DataIdx(u32);
+
+impl DataIdx {
+    fn read(r: impl io::Read) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct LocalIdx(u32);
@@ -876,6 +882,7 @@ fn parse_byte_vec(mut input: impl io::Read) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instr::Memarg;
     use pretty_assertions::assert_eq;
     use std::fs::File;
 
@@ -1835,6 +1842,272 @@ mod tests {
                 tables,
                 elems,
                 exports,
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn it_decodes_memory_instructions() {
+        let f = File::open("tests/fixtures/memory_instructions.wasm").unwrap();
+
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Memory,
+            SectionKind::Export,
+            SectionKind::DataCount,
+            SectionKind::Code,
+            SectionKind::Data,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 2,
+            },
+            SectionHeader {
+                kind: SectionKind::Memory,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 20,
+            },
+            SectionHeader {
+                kind: SectionKind::DataCount,
+                size: 1,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 201,
+            },
+            SectionHeader {
+                kind: SectionKind::Data,
+                size: 46,
+            },
+        ];
+
+        let types = vec![FuncType {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        }];
+
+        let funcs = vec![Func {
+            r#type: TypeIdx(0),
+            locals: vec![
+                ValType::Num(NumType::Float32),
+                ValType::Num(NumType::Float64),
+            ],
+            body: vec![
+                Instr::I32Const(0),
+                Instr::I32Load(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load(Memarg {
+                    align: 3,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::F32Load(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::LocalTee(LocalIdx(0)),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::F64Load(Memarg {
+                    align: 3,
+                    offset: 0,
+                }),
+                Instr::LocalTee(LocalIdx(1)),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I32Load8s(Memarg {
+                    align: 0,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I32Load8u(Memarg {
+                    align: 0,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I32Load16s(Memarg {
+                    align: 1,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I32Load16u(Memarg {
+                    align: 1,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load8s(Memarg {
+                    align: 0,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load8u(Memarg {
+                    align: 0,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load16s(Memarg {
+                    align: 1,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load16u(Memarg {
+                    align: 1,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load32s(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I64Load32u(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::Drop,
+                Instr::I32Const(4),
+                Instr::I32Const(1),
+                Instr::I32Store(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::I32Const(8),
+                Instr::I64Const(2),
+                Instr::I64Store(Memarg {
+                    align: 3,
+                    offset: 0,
+                }),
+                Instr::I32Const(16),
+                Instr::LocalGet(LocalIdx(0)),
+                Instr::F32Store(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::I32Const(24),
+                Instr::LocalGet(LocalIdx(1)),
+                Instr::F64Store(Memarg {
+                    align: 3,
+                    offset: 0,
+                }),
+                Instr::I32Const(32),
+                Instr::I32Const(5),
+                Instr::I32Store8(Memarg {
+                    align: 0,
+                    offset: 0,
+                }),
+                Instr::I32Const(34),
+                Instr::I32Const(6),
+                Instr::I32Store16(Memarg {
+                    align: 1,
+                    offset: 0,
+                }),
+                Instr::I32Const(36),
+                Instr::I64Const(7),
+                Instr::I64Store8(Memarg {
+                    align: 0,
+                    offset: 0,
+                }),
+                Instr::I32Const(38),
+                Instr::I64Const(8),
+                Instr::I64Store16(Memarg {
+                    align: 1,
+                    offset: 0,
+                }),
+                Instr::I32Const(40),
+                Instr::I64Const(9),
+                Instr::I64Store32(Memarg {
+                    align: 2,
+                    offset: 0,
+                }),
+                Instr::MemorySize,
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::MemoryGrow,
+                Instr::Drop,
+                Instr::I32Const(0),
+                Instr::I32Const(0),
+                Instr::I32Const(4),
+                Instr::MemoryInit(DataIdx(1)),
+                Instr::DataDrop(DataIdx(1)),
+                Instr::I32Const(8),
+                Instr::I32Const(0),
+                Instr::I32Const(4),
+                Instr::MemoryCopy,
+                Instr::I32Const(12),
+                Instr::I32Const(255),
+                Instr::I32Const(4),
+                Instr::MemoryFill,
+            ],
+        }];
+
+        let mems = vec![Mem {
+            limits: Limits { min: 1, max: None },
+        }];
+
+        let exports = vec![
+            Export {
+                name: "mem".to_owned(),
+                desc: ExportDesc::Mem(MemIdx(0)),
+            },
+            Export {
+                name: "use-memory".to_owned(),
+                desc: ExportDesc::Func(FuncIdx(0)),
+            },
+        ];
+
+        let datas = vec![
+            Data {
+                init: vec![
+                    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+                    0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19,
+                    0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+                ],
+                mode: DataMode::Active {
+                    memory: MemIdx(0),
+                    offset: vec![Instr::I32Const(0)],
+                },
+            },
+            Data {
+                init: vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
+                mode: DataMode::Passive,
+            },
+        ];
+
+        assert_eq!(
+            decode(f).unwrap(),
+            Module {
+                parsed_section_kinds,
+                section_headers,
+                types,
+                funcs,
+                mems,
+                datas,
+                exports,
+                data_count: Some(2),
                 ..Default::default()
             }
         )
