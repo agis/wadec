@@ -1,7 +1,8 @@
+#![recursion_limit = "256"]
 pub mod instr;
 
-use crate::instr::Instr;
-use anyhow::{Result, anyhow};
+use crate::instr::{Instr, Parsed};
+use anyhow::{Result, anyhow, bail};
 use std::io;
 use std::io::Read;
 
@@ -154,6 +155,31 @@ pub enum ValType {
     Ref(RefType),
 }
 
+impl TryFrom<u8> for ValType {
+    type Error = anyhow::Error;
+
+    fn try_from(b: u8) -> Result<Self, Self::Error> {
+        Ok(match b {
+            0x7F => ValType::Num(NumType::Int32),
+            0x7E => ValType::Num(NumType::Int64),
+            0x7D => ValType::Num(NumType::Float32),
+            0x7C => ValType::Num(NumType::Float64),
+            0x7B => ValType::Vec(VecType::V128),
+            0x70 => ValType::Ref(RefType::Func),
+            0x6F => ValType::Ref(RefType::Extern),
+            n => {
+                return Err(anyhow!("unexpected valtype: {:X}", n));
+            }
+        })
+    }
+}
+
+impl ValType {
+    fn read_from<R: io::Read>(input: &mut R) -> Result<ValType> {
+        read_byte(input)?.try_into()
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum NumType {
     Int32,
@@ -211,11 +237,17 @@ impl TryFrom<u8> for SectionKind {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct TypeIdx(u32);
 
+impl TypeIdx {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct FuncIdx(u32);
 
 impl FuncIdx {
-    fn read(r: impl io::Read) -> Result<Self> {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
         Ok(Self(parse_u32(r)?))
     }
 }
@@ -224,7 +256,7 @@ impl FuncIdx {
 pub struct TableIdx(u32);
 
 impl TableIdx {
-    fn read(r: impl io::Read) -> Result<Self> {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
         Ok(Self(parse_u32(r)?))
     }
 }
@@ -235,7 +267,7 @@ pub struct MemIdx(u32);
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct GlobalIdx(u32);
 impl GlobalIdx {
-    fn read(r: impl io::Read) -> Result<Self> {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
         Ok(Self(parse_u32(r)?))
     }
 }
@@ -244,7 +276,7 @@ impl GlobalIdx {
 pub struct ElemIdx(u32);
 
 impl ElemIdx {
-    fn read(r: impl io::Read) -> Result<Self> {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
         Ok(Self(parse_u32(r)?))
     }
 }
@@ -253,7 +285,7 @@ impl ElemIdx {
 pub struct DataIdx(u32);
 
 impl DataIdx {
-    fn read(r: impl io::Read) -> Result<Self> {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
         Ok(Self(parse_u32(r)?))
     }
 }
@@ -262,13 +294,19 @@ impl DataIdx {
 pub struct LocalIdx(u32);
 
 impl LocalIdx {
-    fn read(r: impl io::Read) -> Result<Self> {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
         Ok(Self(parse_u32(r)?))
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct LabelIdx(u32);
+
+impl LabelIdx {
+    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
+        Ok(Self(parse_u32(r)?))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum RefType {
@@ -389,7 +427,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
     Ok(module)
 }
 
-fn parse_preamble(mut input: impl io::Read) -> Result<()> {
+fn parse_preamble<R: io::Read>(input: &mut R) -> Result<()> {
     const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 
     let mut preamble: [u8; 8] = [0u8; 8];
@@ -401,8 +439,8 @@ fn parse_preamble(mut input: impl io::Read) -> Result<()> {
     Ok(())
 }
 
-fn parse_section_header(mut input: impl io::Read) -> Result<Option<SectionHeader>> {
-    let b = read_byte(&mut input);
+fn parse_section_header<R: io::Read>(input: &mut R) -> Result<Option<SectionHeader>> {
+    let b = read_byte(input);
     match b {
         Ok(_) => Ok::<(), anyhow::Error>(()),
         Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
@@ -415,8 +453,8 @@ fn parse_section_header(mut input: impl io::Read) -> Result<Option<SectionHeader
     Ok(Some(SectionHeader { kind, size }))
 }
 
-fn parse_custom_section(mut input: impl io::Read) -> Result<CustomSection> {
-    let name = parse_name(&mut input)?;
+fn parse_custom_section<R: io::Read>(input: &mut R) -> Result<CustomSection> {
+    let name = parse_name(input)?;
     let mut contents = Vec::new();
     input.read_to_end(&mut contents)?;
 
@@ -424,18 +462,18 @@ fn parse_custom_section(mut input: impl io::Read) -> Result<CustomSection> {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#binary-typesec
-fn parse_type_section(mut input: impl io::Read) -> Result<Vec<FuncType>> {
-    parse_vec(&mut input, parse_functype)
+fn parse_type_section<R: io::Read>(input: &mut R) -> Result<Vec<FuncType>> {
+    parse_vec(input, parse_functype)
 }
 
 fn parse_functype<R: io::Read>(input: &mut R) -> Result<FuncType> {
-    let b = read_byte(&mut *input)?;
+    let b = read_byte(input)?;
     if b != 0x60 {
         return Err(anyhow!("expected functype marker 0x60, got {:#X}", b));
     }
 
-    let parameters = parse_vec(input, parse_valtype)?;
-    let results = parse_vec(input, parse_valtype)?;
+    let parameters = parse_vec(input, ValType::read_from)?;
+    let results = parse_vec(input, ValType::read_from)?;
 
     Ok(FuncType {
         parameters,
@@ -444,8 +482,8 @@ fn parse_functype<R: io::Read>(input: &mut R) -> Result<FuncType> {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
-fn parse_function_section(mut input: impl io::Read) -> Result<Vec<TypeIdx>> {
-    parse_vec(&mut input, |reader| Ok(TypeIdx(parse_u32(&mut *reader)?)))
+fn parse_function_section<R: io::Read>(input: &mut R) -> Result<Vec<TypeIdx>> {
+    parse_vec(input, |reader| Ok(TypeIdx(parse_u32(reader)?)))
 }
 
 #[derive(Debug, PartialEq)]
@@ -463,13 +501,13 @@ pub enum ImportDesc {
     Global(GlobalType),
 }
 
-fn parse_import_section(mut input: impl io::Read) -> Result<Vec<Import>> {
-    parse_vec(&mut input, parse_import)
+fn parse_import_section<R: io::Read>(input: &mut R) -> Result<Vec<Import>> {
+    parse_vec(input, parse_import)
 }
 
 fn parse_import<R: io::Read>(input: &mut R) -> Result<Import> {
-    let module = parse_name(&mut *input)?;
-    let name = parse_name(&mut *input)?;
+    let module = parse_name(input)?;
+    let name = parse_name(input)?;
 
     // desc
     let mut desc_kind = [0u8];
@@ -515,33 +553,33 @@ impl ExportDesc {
 }
 
 // TODO: validate that names are unique?
-fn parse_export_section(mut input: impl io::Read) -> Result<Vec<Export>> {
-    parse_vec(&mut input, parse_export)
+fn parse_export_section<R: io::Read>(input: &mut R) -> Result<Vec<Export>> {
+    parse_vec(input, parse_export)
 }
 
 fn parse_export<R: io::Read>(input: &mut R) -> Result<Export> {
-    let name = parse_name(&mut *input)?;
+    let name = parse_name(input)?;
 
-    let desc_kind = read_byte(&mut *input)?;
-    let idx = parse_u32(&mut *input)?;
+    let desc_kind = read_byte(input)?;
+    let idx = parse_u32(input)?;
     let desc = ExportDesc::from(desc_kind, idx)?;
 
     Ok(Export { name, desc })
 }
 
-fn parse_table_section(mut input: impl io::Read) -> Result<Vec<Table>> {
-    parse_vec(&mut input, parse_table)
+fn parse_table_section<R: io::Read>(input: &mut R) -> Result<Vec<Table>> {
+    parse_vec(input, parse_table)
 }
 
 fn parse_table<R: io::Read>(input: &mut R) -> Result<Table> {
     Ok(Table {
         reftype: RefType::read(input)?,
-        limits: parse_limits(&mut *input)?,
+        limits: parse_limits(input)?,
     })
 }
 
-fn parse_memory_section(mut input: impl io::Read) -> Result<Vec<Mem>> {
-    parse_vec(&mut input, parse_memtype)
+fn parse_memory_section<R: io::Read>(input: &mut R) -> Result<Vec<Mem>> {
+    parse_vec(input, parse_memtype)
 }
 
 fn parse_memtype<R: io::Read>(input: &mut R) -> Result<Mem> {
@@ -550,18 +588,18 @@ fn parse_memtype<R: io::Read>(input: &mut R) -> Result<Mem> {
     })
 }
 
-fn parse_global_section(mut input: impl io::Read) -> Result<Vec<Global>> {
-    parse_vec(&mut input, |reader| {
+fn parse_global_section<R: io::Read>(input: &mut R) -> Result<Vec<Global>> {
+    parse_vec(input, |reader| {
         Ok(Global {
-            r#type: parse_globaltype(&mut *reader)?,
-            init: parse_expr(&mut *reader)?,
+            r#type: parse_globaltype(reader)?,
+            init: parse_expr(reader)?,
         })
     })
 }
 
-fn parse_globaltype(mut input: impl io::Read) -> Result<GlobalType> {
-    let valtype = parse_valtype(&mut input)?;
-    let r#mut: Mut = read_byte(&mut input)?.try_into()?;
+fn parse_globaltype<R: io::Read>(input: &mut R) -> Result<GlobalType> {
+    let valtype = ValType::read_from(input)?;
+    let r#mut: Mut = read_byte(input)?.try_into()?;
     Ok(GlobalType(r#mut, valtype))
 }
 
@@ -578,19 +616,19 @@ struct Local {
     t: ValType,
 }
 
-fn parse_code_section(mut input: impl io::Read) -> Result<Vec<Code>> {
-    parse_vec(&mut input, parse_code)
+fn parse_code_section<R: io::Read>(input: &mut R) -> Result<Vec<Code>> {
+    parse_vec(input, parse_code)
 }
 
 fn parse_code<R: io::Read>(input: &mut R) -> Result<Code> {
-    let size = parse_u32(&mut *input)?;
+    let size = parse_u32(input)?;
 
     let mut input = input.take(size.into());
 
     let locals = parse_vec(&mut input, |reader| {
         Ok(Local {
-            count: parse_u32(&mut *reader)?,
-            t: parse_valtype(&mut *reader)?,
+            count: parse_u32(reader)?,
+            t: ValType::read_from(reader)?,
         })
     })?;
 
@@ -607,7 +645,7 @@ fn parse_code<R: io::Read>(input: &mut R) -> Result<Code> {
     Ok(Code { size, locals, expr })
 }
 
-fn parse_start_section(input: impl io::Read) -> Result<FuncIdx> {
+fn parse_start_section<R: io::Read>(input: &mut R) -> Result<FuncIdx> {
     let idx = parse_u32(input)?;
     Ok(FuncIdx(idx))
 }
@@ -626,12 +664,12 @@ pub enum ElemMode {
     Declarative,
 }
 
-fn parse_element_section(mut input: impl io::Read) -> Result<Vec<Elem>> {
-    parse_vec(&mut input, parse_elem)
+fn parse_element_section<R: io::Read>(input: &mut R) -> Result<Vec<Elem>> {
+    parse_vec(input, parse_elem)
 }
 
 fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
-    let bitfield = parse_u32(&mut *input)?;
+    let bitfield = parse_u32(input)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
         idxs.into_iter()
@@ -641,8 +679,8 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
 
     let (r#type, init, mode) = match bitfield {
         0 => {
-            let e = parse_expr(&mut *input)?;
-            let y = parse_vec(input, parse_func_idx)?;
+            let e = parse_expr(input)?;
+            let y = parse_vec(input, FuncIdx::read)?;
 
             (
                 RefType::Func,
@@ -654,15 +692,15 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         1 => {
-            let et = parse_elemkind(&mut *input)?;
+            let et = parse_elemkind(input)?;
             let y = parse_vec(input, parse_func_idx)?;
 
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
-            let x = TableIdx::read(&mut *input)?;
-            let e = parse_expr(&mut *input)?;
-            let et = parse_elemkind(&mut *input)?;
+            let x = TableIdx::read(input)?;
+            let e = parse_expr(input)?;
+            let et = parse_elemkind(input)?;
             let y = parse_vec(input, parse_func_idx)?;
 
             (
@@ -675,13 +713,13 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             )
         }
         3 => {
-            let et = parse_elemkind(&mut *input)?;
+            let et = parse_elemkind(input)?;
             let y = parse_vec(input, parse_func_idx)?;
 
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
         4 => {
-            let e = parse_expr(&mut *input)?;
+            let e = parse_expr(input)?;
             let el = parse_vec(input, parse_expr)?;
 
             (
@@ -700,8 +738,8 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
             (et, el, ElemMode::Passive)
         }
         6 => {
-            let x = TableIdx::read(&mut *input)?;
-            let e = parse_expr(&mut *input)?;
+            let x = TableIdx::read(input)?;
+            let e = parse_expr(input)?;
             let et = RefType::read(input)?;
             let el = parse_vec(input, parse_expr)?;
 
@@ -726,7 +764,7 @@ fn parse_elem<R: io::Read>(input: &mut R) -> Result<Elem> {
     Ok(Elem { r#type, init, mode })
 }
 
-fn parse_elemkind(input: impl io::Read) -> Result<RefType> {
+fn parse_elemkind<R: io::Read>(input: &mut R) -> Result<RefType> {
     // we intentionally don't use RefType::read, since the spec uses 0x00
     // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(input)?;
@@ -752,17 +790,17 @@ pub enum DataMode {
     Active { memory: MemIdx, offset: Expr },
 }
 
-fn parse_data_section(mut input: impl io::Read) -> Result<Vec<Data>> {
-    parse_vec(&mut input, parse_data)
+fn parse_data_section<R: io::Read>(input: &mut R) -> Result<Vec<Data>> {
+    parse_vec(input, parse_data)
 }
 
 fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
     let init: Vec<u8>;
     let mode: DataMode;
 
-    (init, mode) = match parse_u32(&mut *input)? {
+    (init, mode) = match parse_u32(input)? {
         0 => {
-            let e = parse_expr(&mut *input)?;
+            let e = parse_expr(input)?;
             (
                 parse_byte_vec(input)?,
                 DataMode::Active {
@@ -773,8 +811,8 @@ fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
         }
         1 => (parse_byte_vec(input)?, DataMode::Passive),
         2 => {
-            let x = parse_u32(&mut *input)?;
-            let e = parse_expr(&mut *input)?;
+            let x = parse_u32(input)?;
+            let e = parse_expr(input)?;
 
             (
                 parse_byte_vec(input)?,
@@ -790,43 +828,34 @@ fn parse_data<R: io::Read>(input: &mut R) -> Result<Data> {
     Ok(Data { init, mode })
 }
 
-fn parse_datacount_section(input: impl io::Read) -> Result<u32> {
+fn parse_datacount_section<R: io::Read>(input: &mut R) -> Result<u32> {
     parse_u32(input)
 }
 
 fn parse_expr<R: io::Read>(input: &mut R) -> Result<Expr> {
-    let mut instr = Vec::new();
+    let mut body = Vec::new();
 
-    while let Some(i) = Instr::parse(&mut *input)? {
-        instr.push(i);
+    loop {
+        match Instr::parse(input)? {
+            Parsed::Instr(ins) => body.push(ins),
+            Parsed::End => break,
+
+            // `Else` is only expected to appear when parsing individual `Control` instructions
+            Parsed::Else => bail!("unexpected `Else` delimiter"),
+        }
     }
 
-    Ok(instr)
+    Ok(body)
 }
 
-fn parse_valtype(input: &mut impl io::Read) -> Result<ValType> {
-    Ok(match read_byte(input)? {
-        0x7F => ValType::Num(NumType::Int32),
-        0x7E => ValType::Num(NumType::Int64),
-        0x7D => ValType::Num(NumType::Float32),
-        0x7C => ValType::Num(NumType::Float64),
-        0x7B => ValType::Vec(VecType::V128),
-        0x70 => ValType::Ref(RefType::Func),
-        0x6F => ValType::Ref(RefType::Extern),
-        n => {
-            return Err(anyhow!("unexpected valtype: {:X}", n));
-        }
-    })
-}
-
-fn parse_limits(mut input: impl io::Read) -> Result<Limits> {
-    let has_max = match read_byte(&mut input)? {
+fn parse_limits<R: io::Read + ?Sized>(input: &mut R) -> Result<Limits> {
+    let has_max = match read_byte(input)? {
         0x00 => false,
         0x01 => true,
         n => return Err(anyhow!("unexpected limits byte: {:x}", n)),
     };
 
-    let min = parse_u32(&mut input)?;
+    let min = parse_u32(input)?;
     let mut max = None;
 
     if has_max {
@@ -836,16 +865,16 @@ fn parse_limits(mut input: impl io::Read) -> Result<Limits> {
     Ok(Limits { min, max })
 }
 
-fn parse_u32(mut input: impl io::Read) -> Result<u32> {
-    Ok(leb128::read::unsigned(&mut input)?.try_into()?)
+fn parse_u32<R: io::Read + ?Sized>(input: &mut R) -> Result<u32> {
+    Ok(leb128::read::unsigned(input)?.try_into()?)
 }
 
-fn parse_i32(mut input: impl io::Read) -> Result<i32> {
-    Ok(leb128::read::signed(&mut input)?.try_into()?)
+fn parse_i32<R: io::Read + ?Sized>(input: &mut R) -> Result<i32> {
+    Ok(leb128::read::signed(input)?.try_into()?)
 }
 
-fn parse_i64(mut input: impl io::Read) -> Result<i64> {
-    Ok(leb128::read::signed(&mut input)?)
+fn parse_i64<R: io::Read + ?Sized>(input: &mut R) -> Result<i64> {
+    Ok(leb128::read::signed(input)?)
 }
 
 fn parse_vec<R, T, F>(input: &mut R, mut parse_item: F) -> Result<Vec<T>>
@@ -853,27 +882,27 @@ where
     R: io::Read + ?Sized,
     F: FnMut(&mut R) -> Result<T>,
 {
-    let len = parse_u32(&mut *input)?;
+    let len = parse_u32(input)?;
     let mut items = Vec::with_capacity(len.try_into().unwrap());
     for _ in 0..len {
-        items.push(parse_item(&mut *input)?);
+        items.push(parse_item(input)?);
     }
 
     Ok(items)
 }
 
-fn parse_name(input: impl io::Read) -> Result<String> {
+fn parse_name<R: io::Read + ?Sized>(input: &mut R) -> Result<String> {
     Ok(parse_byte_vec(input)?.try_into()?)
 }
 
-fn read_byte(mut input: impl io::Read) -> Result<u8, io::Error> {
+fn read_byte<R: io::Read + ?Sized>(input: &mut R) -> Result<u8, io::Error> {
     let mut buf = [0u8];
     input.read_exact(&mut buf)?;
     Ok(buf[0])
 }
 
-fn parse_byte_vec(mut input: impl io::Read) -> Result<Vec<u8>> {
-    let len = parse_u32(&mut input)?;
+fn parse_byte_vec<R: io::Read + ?Sized>(input: &mut R) -> Result<Vec<u8>> {
+    let len = parse_u32(input)?;
     let mut b = vec![0u8; len.try_into().unwrap()];
     input.read_exact(&mut b)?;
     Ok(b)
@@ -882,7 +911,7 @@ fn parse_byte_vec(mut input: impl io::Read) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instr::Memarg;
+    use crate::instr::{Blocktype, Memarg};
     use pretty_assertions::assert_eq;
     use std::fs::File;
 
@@ -1197,8 +1226,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    // Enable this when Control instr parsing is done
     fn it_decodes_control_instructions() {
         let f = File::open("tests/fixtures/control_instructions.wasm").unwrap();
 
@@ -1212,7 +1239,7 @@ mod tests {
         let section_headers = vec![
             SectionHeader {
                 kind: SectionKind::Type,
-                size: 4,
+                size: 9,
             },
             SectionHeader {
                 kind: SectionKind::Function,
@@ -1228,14 +1255,20 @@ mod tests {
             },
             SectionHeader {
                 kind: SectionKind::Code,
-                size: 53,
+                size: 64,
             },
         ];
 
-        let types = vec![FuncType {
-            parameters: Vec::new(),
-            results: Vec::new(),
-        }];
+        let types = vec![
+            FuncType {
+                parameters: Vec::new(),
+                results: Vec::new(),
+            },
+            FuncType {
+                parameters: Vec::new(),
+                results: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
+            },
+        ];
 
         let funcs = vec![
             Func {
@@ -1248,24 +1281,42 @@ mod tests {
                 locals: Vec::new(),
                 body: vec![
                     Instr::Nop,
-                    Instr::Block,
-                    Instr::Unreachable,
-                    Instr::Block,
-                    Instr::Loop,
-                    Instr::Br,
-                    Instr::Block,
+                    Instr::Block(Blocktype::Empty, vec![Instr::Unreachable]),
+                    Instr::Block(
+                        Blocktype::Empty,
+                        vec![Instr::Loop(Blocktype::Empty, vec![Instr::Br(LabelIdx(1))])],
+                    ),
+                    Instr::Block(
+                        Blocktype::Empty,
+                        vec![Instr::I32Const(0), Instr::BrIf(LabelIdx(0))],
+                    ),
+                    Instr::Block(
+                        Blocktype::Empty,
+                        vec![
+                            Instr::I32Const(0),
+                            Instr::BrTable(vec![LabelIdx(0)], LabelIdx(0)),
+                        ],
+                    ),
+                    Instr::Block(
+                        Blocktype::Empty,
+                        vec![
+                            Instr::I32Const(0),
+                            Instr::If(
+                                Blocktype::Empty,
+                                vec![Instr::Unreachable],
+                                Some(vec![Instr::Nop]),
+                            ),
+                        ],
+                    ),
+                    Instr::Block(
+                        Blocktype::X(1),
+                        vec![Instr::I32Const(42), Instr::I32Const(7)],
+                    ),
+                    Instr::Drop,
+                    Instr::Drop,
+                    Instr::Call(FuncIdx(0)),
                     Instr::I32Const(0),
-                    Instr::BrIf,
-                    Instr::Block,
-                    Instr::I32Const(0),
-                    Instr::BrTable,
-                    Instr::Block,
-                    Instr::I32Const(1),
-                    Instr::If,
-                    Instr::Nop,
-                    Instr::Call,
-                    Instr::I32Const(0),
-                    Instr::CallIndirect,
+                    Instr::CallIndirect(TableIdx(0), TypeIdx(0)),
                     Instr::Return,
                 ],
             },
@@ -1294,7 +1345,6 @@ mod tests {
             }
         )
     }
-
     #[test]
     fn it_decodes_element_section_all_alts() {
         let f = File::open("tests/fixtures/element_section_all_alts.wasm").unwrap();
@@ -2337,10 +2387,170 @@ mod tests {
             contents: vec![0x68, 0x69], // hi
         }];
 
+        let parsed_section_kinds = vec![
+            SectionKind::Type,
+            SectionKind::Import,
+            SectionKind::Function,
+            SectionKind::Table,
+            SectionKind::Memory,
+            SectionKind::Global,
+            SectionKind::Export,
+            SectionKind::Start,
+            SectionKind::Element,
+            SectionKind::Code,
+            SectionKind::Data,
+        ];
+        let section_headers = vec![
+            SectionHeader {
+                kind: SectionKind::Custom,
+                size: 7,
+            },
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 10,
+            },
+            SectionHeader {
+                kind: SectionKind::Import,
+                size: 16,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Table,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Memory,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Global,
+                size: 6,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 24,
+            },
+            SectionHeader {
+                kind: SectionKind::Start,
+                size: 1,
+            },
+            SectionHeader {
+                kind: SectionKind::Element,
+                size: 7,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 14,
+            },
+            SectionHeader {
+                kind: SectionKind::Data,
+                size: 10,
+            },
+        ];
+
+        let types = vec![
+            FuncType {
+                parameters: Vec::new(),
+                results: Vec::new(),
+            },
+            FuncType {
+                parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
+                results: vec![ValType::Num(NumType::Int32)],
+            },
+        ];
+
+        let funcs = vec![
+            Func {
+                r#type: TypeIdx(0),
+                locals: Vec::new(),
+                body: vec![Instr::Call(FuncIdx(0))],
+            },
+            Func {
+                r#type: TypeIdx(1),
+                locals: Vec::new(),
+                body: vec![
+                    Instr::LocalGet(LocalIdx(0)),
+                    Instr::LocalGet(LocalIdx(1)),
+                    Instr::I32Add,
+                ],
+            },
+        ];
+
+        let tables = vec![Table {
+            limits: Limits { min: 1, max: None },
+            reftype: RefType::Func,
+        }];
+
+        let mems = vec![Mem {
+            limits: Limits { min: 1, max: None },
+        }];
+
+        let globals = vec![Global {
+            r#type: GlobalType(Mut::Var, ValType::Num(NumType::Int32)),
+            init: vec![Instr::I32Const(42)],
+        }];
+
+        let elems = vec![Elem {
+            r#type: RefType::Func,
+            init: vec![vec![Instr::RefFunc(FuncIdx(2))]],
+            mode: ElemMode::Active {
+                table: TableIdx(0),
+                offset: vec![Instr::I32Const(0)],
+            },
+        }];
+
+        let datas = vec![Data {
+            init: vec![0, 17, 34, 51],
+            mode: DataMode::Active {
+                memory: MemIdx(0),
+                offset: vec![Instr::I32Const(0)],
+            },
+        }];
+
+        let imports = vec![Import {
+            module: "env".to_owned(),
+            name: "impstart".to_owned(),
+            desc: ImportDesc::Type(TypeIdx(0)),
+        }];
+
+        let exports = vec![
+            Export {
+                name: "add".to_owned(),
+                desc: ExportDesc::Func(FuncIdx(2)),
+            },
+            Export {
+                name: "mem".to_owned(),
+                desc: ExportDesc::Mem(MemIdx(0)),
+            },
+            Export {
+                name: "tab".to_owned(),
+                desc: ExportDesc::Table(TableIdx(0)),
+            },
+            Export {
+                name: "g0".to_owned(),
+                desc: ExportDesc::Global(GlobalIdx(0)),
+            },
+        ];
+
         assert_eq!(
             decode(f).unwrap(),
             Module {
+                parsed_section_kinds,
+                section_headers,
                 custom_sections,
+                types,
+                funcs,
+                tables,
+                mems,
+                globals,
+                elems,
+                datas,
+                imports,
+                exports,
+                start: Some(FuncIdx(1)),
                 ..Default::default()
             }
         )

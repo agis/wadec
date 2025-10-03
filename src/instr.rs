@@ -1,20 +1,56 @@
 use crate::*;
+use std::io::{Cursor, Read};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Blocktype {
+    Empty,
+    T(ValType),
+    X(u32),
+}
+
+impl Blocktype {
+    fn read_from<R: io::Read>(input: &mut R) -> Result<Blocktype> {
+        let b = read_byte(input)?;
+
+        if b == 0x40 {
+            return Ok(Blocktype::Empty);
+        }
+
+        if let Ok(t) = ValType::try_from(b) {
+            return Ok(Blocktype::T(t));
+        }
+
+        let mut chain = Cursor::new([b]).chain(input);
+        let x = parse_i64(&mut chain)?;
+        if x < 0 {
+            return Err(anyhow!("blocktype integer negative"));
+        }
+
+        Ok(Blocktype::X(x.try_into()?))
+    }
+}
+
+pub enum Parsed {
+    Instr(Instr),
+    Else,
+    End,
+}
 
 // https://webassembly.github.io/spec/core/syntax/instructions.html#
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instr {
     // --- Control instructions (5.4.1) ---
-    Unreachable,  // unreachable
-    Nop,          // nop
-    Block,        // block <blocktype> ... end
-    Loop,         // loop <blocktype> ... end
-    If,           // if <blocktype> ... (else ...)? end
-    Br,           // br
-    BrIf,         // br_if
-    BrTable,      // br_table
-    Return,       // return
-    Call,         // call
-    CallIndirect, // call_indirect
+    Unreachable,                                   // unreachable
+    Nop,                                           // nop
+    Block(Blocktype, Vec<Instr>),                  // block <blocktype> ... end
+    Loop(Blocktype, Vec<Instr>),                   // loop <blocktype> ... end
+    If(Blocktype, Vec<Instr>, Option<Vec<Instr>>), // if <blocktype> ... (else ...)? end
+    Br(LabelIdx),                                  // br
+    BrIf(LabelIdx),                                // br_if
+    BrTable(Vec<LabelIdx>, LabelIdx),              // br_table
+    Return,                                        // return
+    Call(FuncIdx),                                 // call
+    CallIndirect(TableIdx, TypeIdx),               // call_indirect
 
     // --- Reference instructions (5.4.2) ---
     RefNull(RefType), // ref.null
@@ -249,50 +285,99 @@ pub struct Memarg {
 }
 
 impl Instr {
-    pub fn parse(mut input: impl io::Read) -> Result<Option<Self>> {
+    pub fn parse<R: io::Read>(reader: &mut R) -> Result<Parsed> {
         let mut buf = [0u8];
 
-        let _ = match input.read_exact(&mut buf) {
+        let _ = match reader.read_exact(&mut buf) {
             Ok(_) => Ok::<(), anyhow::Error>(()),
-            //    Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e.into()),
         };
 
         let ins = match buf[0] {
-            // opcode for `end` - not technically an instruction
-            0x0B => return Ok(None),
+            0x0B => return Ok(Parsed::End),
+            0x05 => return Ok(Parsed::Else),
 
             // --- Control instructions (5.4.1) ---
-            // ...
+            0x00 => Instr::Unreachable,
+            0x01 => Instr::Nop,
+            op @ 0x02..=0x04 => {
+                let bt = Blocktype::read_from(reader)?;
+                let mut in1 = Vec::new();
+                let mut parsed;
+
+                loop {
+                    parsed = Self::parse(reader)?;
+                    match parsed {
+                        Parsed::Instr(i) => in1.push(i),
+                        Parsed::End | Parsed::Else => break,
+                    }
+                }
+
+                match op {
+                    0x02 => Instr::Block(bt, in1),
+                    0x03 => Instr::Loop(bt, in1),
+                    0x04 => match parsed {
+                        Parsed::End => Instr::If(bt, in1, None),
+                        Parsed::Else => {
+                            let mut in2 = Vec::new();
+                            loop {
+                                parsed = Self::parse(reader)?;
+                                match parsed {
+                                    Parsed::Instr(i) => in2.push(i),
+                                    Parsed::End => break,
+                                    _ => bail!("unexpected `Else`"),
+                                }
+                            }
+                            Instr::If(bt, in1, Some(in2))
+                        }
+                        _ => unreachable!(),
+                    },
+                    _ => unreachable!(),
+                }
+            }
+            0x0C => Instr::Br(LabelIdx::read(reader)?),
+            0x0D => Instr::BrIf(LabelIdx::read(reader)?),
+            0x0E => {
+                let l = parse_vec(reader, LabelIdx::read)?;
+                let ln = LabelIdx::read(reader)?;
+                Instr::BrTable(l, ln)
+            }
+            0x0F => Instr::Return,
+            0x10 => Instr::Call(FuncIdx::read(reader)?),
+            0x11 => {
+                let y = TypeIdx::read(reader)?;
+                let x = TableIdx::read(reader)?;
+                Instr::CallIndirect(x, y)
+            }
 
             // --- Reference instructions (5.4.2) ---
-            0xD0 => Instr::RefNull(RefType::read(&mut input)?),
+            0xD0 => Instr::RefNull(RefType::read(reader)?),
             0xD1 => Instr::RefIsNull,
-            0xD2 => Instr::RefFunc(FuncIdx::read(input)?),
+            0xD2 => Instr::RefFunc(FuncIdx::read(reader)?),
 
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instr::Drop,
             0x1B => Instr::Select(None),
-            0x1C => Instr::Select(Some(parse_vec(&mut input, parse_valtype)?)),
+            0x1C => Instr::Select(Some(parse_vec(reader, ValType::read_from)?)),
 
             // --- Variable instructions (5.4.4) ---
-            0x20 => Instr::LocalGet(LocalIdx::read(input)?),
-            0x21 => Instr::LocalSet(LocalIdx::read(input)?),
-            0x22 => Instr::LocalTee(LocalIdx::read(input)?),
-            0x23 => Instr::GlobalGet(GlobalIdx::read(input)?),
-            0x24 => Instr::GlobalSet(GlobalIdx::read(input)?),
+            0x20 => Instr::LocalGet(LocalIdx::read(reader)?),
+            0x21 => Instr::LocalSet(LocalIdx::read(reader)?),
+            0x22 => Instr::LocalTee(LocalIdx::read(reader)?),
+            0x23 => Instr::GlobalGet(GlobalIdx::read(reader)?),
+            0x24 => Instr::GlobalSet(GlobalIdx::read(reader)?),
 
             // --- Table instructions (5.4.5) ---
-            0x25 => Instr::TableGet(TableIdx::read(input)?),
-            0x26 => Instr::TableSet(TableIdx::read(input)?),
+            0x25 => Instr::TableGet(TableIdx::read(reader)?),
+            0x26 => Instr::TableSet(TableIdx::read(reader)?),
             // ...the rest are below, together with some Memory instructions
             // since they both share a common opcode - 0xFC
 
             // --- Memory instructions (5.4.6) ---
             op @ 0x28..=0x3E => {
                 let m = Memarg {
-                    align: parse_u32(&mut input)?,
-                    offset: parse_u32(input)?,
+                    align: parse_u32(reader)?,
+                    offset: parse_u32(reader)?,
                 };
                 match op {
                     0x28 => Instr::I32Load(m),
@@ -322,14 +407,14 @@ impl Instr {
                 }
             }
             0x3F => {
-                let b = read_byte(input)?;
+                let b = read_byte(reader)?;
                 if b != 0x00 {
                     return Err(anyhow!("unexpected byte {:X} for memory.size", b));
                 }
                 Instr::MemorySize
             }
             0x40 => {
-                let b = read_byte(input)?;
+                let b = read_byte(reader)?;
                 if b != 0x00 {
                     return Err(anyhow!("unexpected byte {:X} for memory.grow", b));
                 }
@@ -339,27 +424,27 @@ impl Instr {
             // a common opcode - 0xFC
 
             // --- Table / Memory instructions ---
-            0xFC => match parse_u32(&mut input)? {
+            0xFC => match parse_u32(reader)? {
                 // --- memory ---
                 8 => {
-                    let x = DataIdx::read(&mut input)?;
-                    let b = read_byte(input)?;
+                    let x = DataIdx::read(reader)?;
+                    let b = read_byte(reader)?;
                     if b != 0x00 {
                         return Err(anyhow!("unexpected byte {:X} for memory.init", b));
                     }
                     Instr::MemoryInit(x)
                 }
-                9 => Instr::DataDrop(DataIdx::read(input)?),
+                9 => Instr::DataDrop(DataIdx::read(reader)?),
                 10 => {
                     let mut buf = [0u8; 2];
-                    input.read_exact(&mut buf)?;
+                    reader.read_exact(&mut buf)?;
                     if buf != [0u8, 0u8] {
                         return Err(anyhow!("unexpected bytes {:?} for memory.copy", buf));
                     }
                     Instr::MemoryCopy
                 }
                 11 => {
-                    let b = read_byte(input)?;
+                    let b = read_byte(reader)?;
                     if b != 0x00 {
                         return Err(anyhow!("unexpected byte {:X} for memory.fill", b));
                     }
@@ -368,21 +453,21 @@ impl Instr {
 
                 // --- table ---
                 12 => {
-                    let y = ElemIdx::read(&mut input)?;
-                    let x = TableIdx::read(&mut input)?;
+                    let y = ElemIdx::read(reader)?;
+                    let x = TableIdx::read(reader)?;
                     Instr::TableInit(x, y)
                 }
-                13 => Instr::ElemDrop(ElemIdx::read(input)?),
-                14 => Instr::TableCopy(TableIdx::read(&mut input)?, TableIdx::read(input)?),
-                15 => Instr::TableGrow(TableIdx::read(input)?),
-                16 => Instr::TableSize(TableIdx::read(input)?),
-                17 => Instr::TableFill(TableIdx::read(input)?),
+                13 => Instr::ElemDrop(ElemIdx::read(reader)?),
+                14 => Instr::TableCopy(TableIdx::read(reader)?, TableIdx::read(reader)?),
+                15 => Instr::TableGrow(TableIdx::read(reader)?),
+                16 => Instr::TableSize(TableIdx::read(reader)?),
+                17 => Instr::TableFill(TableIdx::read(reader)?),
                 n => return Err(anyhow!("unexpected table instr prefix byte `{:x}`", n)),
             },
 
             // --- Numeric instructions (5.4.7) ---
-            0x41 => Instr::I32Const(parse_i32(input)?),
-            0x42 => Instr::I64Const(parse_i64(input)?),
+            0x41 => Instr::I32Const(parse_i32(reader)?),
+            0x42 => Instr::I64Const(parse_i64(reader)?),
             0x6A => Instr::I32Add,
             // ...TODO
             n => {
@@ -390,6 +475,6 @@ impl Instr {
             }
         };
 
-        Ok(Some(ins))
+        Ok(Parsed::Instr(ins))
     }
 }
