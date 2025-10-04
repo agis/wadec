@@ -361,20 +361,20 @@ impl Instr {
                     0x3C => Instr::I64Store8(m),
                     0x3D => Instr::I64Store16(m),
                     0x3E => Instr::I64Store32(m),
-                    n => return Err(anyhow!("unexpected memory instruction {:X}", n)),
+                    n => bail!("unexpected memory instruction {:X}", n),
                 }
             }
             0x3F => {
                 let b = read_byte(reader)?;
                 if b != 0x00 {
-                    return Err(anyhow!("unexpected byte {:X} for memory.size", b));
+                    bail!("unexpected byte {:X} for memory.size", b);
                 }
                 Instr::MemorySize
             }
             0x40 => {
                 let b = read_byte(reader)?;
                 if b != 0x00 {
-                    return Err(anyhow!("unexpected byte {:X} for memory.grow", b));
+                    bail!("unexpected byte {:X} for memory.grow", b);
                 }
                 Instr::MemoryGrow
             }
@@ -388,7 +388,7 @@ impl Instr {
                     let x = DataIdx::read(reader)?;
                     let b = read_byte(reader)?;
                     if b != 0x00 {
-                        return Err(anyhow!("unexpected byte {:X} for memory.init", b));
+                        bail!("unexpected byte {:X} for memory.init", b);
                     }
                     Instr::MemoryInit(x)
                 }
@@ -397,14 +397,14 @@ impl Instr {
                     let mut buf = [0u8; 2];
                     reader.read_exact(&mut buf)?;
                     if buf != [0u8, 0u8] {
-                        return Err(anyhow!("unexpected bytes {:?} for memory.copy", buf));
+                        bail!("unexpected bytes {:?} for memory.copy", buf);
                     }
                     Instr::MemoryCopy
                 }
                 11 => {
                     let b = read_byte(reader)?;
                     if b != 0x00 {
-                        return Err(anyhow!("unexpected byte {:X} for memory.fill", b));
+                        bail!("unexpected byte {:X} for memory.fill", b);
                     }
                     Instr::MemoryFill
                 }
@@ -420,7 +420,7 @@ impl Instr {
                 15 => Instr::TableGrow(TableIdx::read(reader)?),
                 16 => Instr::TableSize(TableIdx::read(reader)?),
                 17 => Instr::TableFill(TableIdx::read(reader)?),
-                n => return Err(anyhow!("unexpected table instr prefix byte `{:x}`", n)),
+                n => bail!("unexpected table instr prefix byte `{:x}`", n),
             },
 
             // --- Numeric instructions (5.4.7) ---
@@ -428,9 +428,7 @@ impl Instr {
             0x42 => Instr::I64Const(parse_i64(reader)?),
             0x6A => Instr::I32Add,
             // ...TODO
-            n => {
-                return Err(anyhow!("unexpected instr: {:#X}", n));
-            }
+            n => bail!("unexpected instr: {:#X}", n),
         };
 
         Ok(Parsed::Instr(ins))
@@ -471,7 +469,7 @@ impl BlockType {
         let mut chain = Cursor::new([b]).chain(reader);
         let x = parse_i64(&mut chain)?;
         if x < 0 {
-            return Err(anyhow!("blocktype integer negative"));
+            bail!("blocktype integer negative");
         }
 
         Ok(BlockType::X(x.try_into()?))

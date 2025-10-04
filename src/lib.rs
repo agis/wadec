@@ -2,7 +2,7 @@
 pub mod instr;
 
 use crate::instr::{Instr, Parsed};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, bail};
 use std::io;
 use std::io::Read;
 
@@ -43,7 +43,7 @@ impl Module {
         }
 
         if next_kind <= *prev_kind.unwrap() {
-            return Err(anyhow!("unexpected {:?} section", next_kind));
+            bail!("unexpected {:?} section", next_kind);
         }
 
         Ok(())
@@ -143,7 +143,7 @@ impl TryFrom<u8> for Mut {
         Ok(match v {
             0x00 => Mut::Const,
             0x01 => Mut::Var,
-            n => return Err(anyhow!("malformed Mut: {:x}", n)),
+            n => bail!("malformed Mut: {:x}", n),
         })
     }
 }
@@ -167,9 +167,7 @@ impl TryFrom<u8> for ValType {
             0x7B => ValType::Vec(VecType::V128),
             0x70 => ValType::Ref(RefType::Func),
             0x6F => ValType::Ref(RefType::Extern),
-            n => {
-                return Err(anyhow!("unexpected valtype: {:X}", n));
-            }
+            n => bail!("unexpected valtype: {:X}", n),
         })
     }
 }
@@ -228,7 +226,7 @@ impl TryFrom<u8> for SectionKind {
             10 => SectionKind::Code,
             11 => SectionKind::Data,
             12 => SectionKind::DataCount,
-            n => return Err(anyhow!("malformed section id {:x}", n)),
+            n => bail!("malformed section id {:x}", n),
         })
     }
 }
@@ -327,7 +325,7 @@ impl TryFrom<u8> for RefType {
         Ok(match v {
             0x70 => RefType::Func,
             0x6F => RefType::Extern,
-            n => return Err(anyhow!("malformed reftype: {:x}", n)),
+            n => bail!("malformed reftype: {:x}", n),
         })
     }
 }
@@ -375,9 +373,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Code => {
                 let codes = parse_code_section(&mut section_reader)?;
                 if codes.len() != module.funcs.len() {
-                    return Err(anyhow!(
-                        "code entries len do not match with funcs entries len"
-                    ));
+                    bail!("code entries len do not match with funcs entries len");
                 }
 
                 for (i, code) in codes.into_iter().enumerate() {
@@ -395,11 +391,11 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                 if let Some(data_count) = module.data_count
                     && usize::try_from(data_count)? != datas.len()
                 {
-                    return Err(anyhow!(
+                    bail!(
                         "data segments do not match the data count section: {} - {}",
                         module.datas.len(),
                         data_count,
-                    ));
+                    );
                 }
 
                 module.datas = datas;
@@ -407,12 +403,12 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
         }
 
         if section_reader.limit() != 0 {
-            return Err(anyhow!(
+            bail!(
                 "section {:?} size mismatch: declared {} bytes, got {}",
                 section_kind,
                 section_header.size,
                 u64::from(section_header.size) - section_reader.limit(),
-            ));
+            );
         }
 
         module.section_headers.push(section_header);
@@ -433,7 +429,7 @@ fn parse_preamble<R: io::Read>(reader: &mut R) -> Result<()> {
     let mut preamble: [u8; 8] = [0u8; 8];
     reader.read_exact(&mut preamble)?;
     if [MAGIC_NUMBER, VERSION].concat() != preamble {
-        return Err(anyhow!("unexpected preamble: {:#X?}", preamble));
+        bail!("unexpected preamble: {:#X?}", preamble);
     }
 
     Ok(())
@@ -469,7 +465,7 @@ fn parse_type_section<R: io::Read>(reader: &mut R) -> Result<Vec<FuncType>> {
 fn parse_functype<R: io::Read>(reader: &mut R) -> Result<FuncType> {
     let b = read_byte(reader)?;
     if b != 0x60 {
-        return Err(anyhow!("expected functype marker 0x60, got {:#X}", b));
+        bail!("expected functype marker 0x60, got {:#X}", b);
     }
 
     let parameters = parse_vec(reader, ValType::read)?;
@@ -517,9 +513,7 @@ fn parse_import<R: io::Read>(reader: &mut R) -> Result<Import> {
         0x01 => ImportDesc::Table(parse_table(reader)?),
         0x02 => ImportDesc::Mem(parse_memtype(reader)?),
         0x03 => ImportDesc::Global(parse_globaltype(reader)?),
-        n => {
-            return Err(anyhow!("unexpected import_desc: {n}"));
-        }
+        n => bail!("unexpected import_desc: {n}"),
     };
 
     Ok(Import { module, name, desc })
@@ -547,7 +541,7 @@ impl ExportDesc {
             0x01 => ExportDesc::Table(TableIdx(idx)),
             0x02 => ExportDesc::Mem(MemIdx(idx)),
             0x03 => ExportDesc::Global(GlobalIdx(idx)),
-            _ => return Err(anyhow!("unexpected export_desc byte: {:X}", b)),
+            _ => bail!("unexpected export_desc byte: {:X}", b),
         })
     }
 }
@@ -635,11 +629,11 @@ fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
     let expr = parse_expr(&mut reader)?;
 
     if reader.limit() != 0 {
-        return Err(anyhow!(
+        bail!(
             "code entry size mismatch: declared {} bytes, leftover {}",
             size,
             reader.limit(),
-        ));
+        );
     }
 
     Ok(Code { size, locals, expr })
@@ -758,7 +752,7 @@ fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
 
             (et, el, ElemMode::Declarative)
         }
-        n => return Err(anyhow!("unexpected elem bitfield: {:x}", n)),
+        n => bail!("unexpected elem bitfield: {:x}", n),
     };
 
     Ok(Elem { r#type, init, mode })
@@ -769,7 +763,7 @@ fn parse_elemkind<R: io::Read>(reader: &mut R) -> Result<RefType> {
     // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(reader)?;
     if b != 0x00 {
-        return Err(anyhow!("expected byte `0x00` for elemkind; got {:x}", b));
+        bail!("expected byte `0x00` for elemkind; got {:x}", b);
     }
     Ok(RefType::Func)
 }
@@ -822,7 +816,7 @@ fn parse_data<R: io::Read>(reader: &mut R) -> Result<Data> {
                 },
             )
         }
-        n => return Err(anyhow!("unexpected data bitfield: {n}")),
+        n => bail!("unexpected data bitfield: {n}"),
     };
 
     Ok(Data { init, mode })
@@ -852,7 +846,7 @@ fn parse_limits<R: io::Read + ?Sized>(reader: &mut R) -> Result<Limits> {
     let has_max = match read_byte(reader)? {
         0x00 => false,
         0x01 => true,
-        n => return Err(anyhow!("unexpected limits byte: {:x}", n)),
+        n => bail!("unexpected limits byte: {:x}", n),
     };
 
     let min = parse_u32(reader)?;
