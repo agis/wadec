@@ -2,49 +2,13 @@ use crate::*;
 use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Blocktype {
-    Empty,
-    T(ValType),
-    X(u32),
-}
-
-impl Blocktype {
-    fn read_from<R: io::Read>(input: &mut R) -> Result<Blocktype> {
-        let b = read_byte(input)?;
-
-        if b == 0x40 {
-            return Ok(Blocktype::Empty);
-        }
-
-        if let Ok(t) = ValType::try_from(b) {
-            return Ok(Blocktype::T(t));
-        }
-
-        let mut chain = Cursor::new([b]).chain(input);
-        let x = parse_i64(&mut chain)?;
-        if x < 0 {
-            return Err(anyhow!("blocktype integer negative"));
-        }
-
-        Ok(Blocktype::X(x.try_into()?))
-    }
-}
-
-pub enum Parsed {
-    Instr(Instr),
-    Else,
-    End,
-}
-
-// https://webassembly.github.io/spec/core/syntax/instructions.html#
-#[derive(Debug, Clone, PartialEq)]
 pub enum Instr {
     // --- Control instructions (5.4.1) ---
     Unreachable,                                   // unreachable
     Nop,                                           // nop
-    Block(Blocktype, Vec<Instr>),                  // block <blocktype> ... end
-    Loop(Blocktype, Vec<Instr>),                   // loop <blocktype> ... end
-    If(Blocktype, Vec<Instr>, Option<Vec<Instr>>), // if <blocktype> ... (else ...)? end
+    Block(BlockType, Vec<Instr>),                  // block <blocktype> ... end
+    Loop(BlockType, Vec<Instr>),                   // loop <blocktype> ... end
+    If(BlockType, Vec<Instr>, Option<Vec<Instr>>), // if <blocktype> ... (else ...)? end
     Br(LabelIdx),                                  // br
     BrIf(LabelIdx),                                // br_if
     BrTable(Vec<LabelIdx>, LabelIdx),              // br_table
@@ -278,12 +242,6 @@ pub enum Instr {
     Simd(u32),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Memarg {
-    pub align: u32,
-    pub offset: u32,
-}
-
 impl Instr {
     pub fn parse<R: io::Read>(reader: &mut R) -> Result<Parsed> {
         let mut buf = [0u8];
@@ -301,7 +259,7 @@ impl Instr {
             0x00 => Instr::Unreachable,
             0x01 => Instr::Nop,
             op @ 0x02..=0x04 => {
-                let bt = Blocktype::read_from(reader)?;
+                let bt = BlockType::read(reader)?;
                 let mut in1 = Vec::new();
                 let mut parsed;
 
@@ -476,5 +434,46 @@ impl Instr {
         };
 
         Ok(Parsed::Instr(ins))
+    }
+}
+
+pub enum Parsed {
+    Instr(Instr),
+    Else,
+    End,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Memarg {
+    pub align: u32,
+    pub offset: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BlockType {
+    Empty,
+    T(ValType),
+    X(u32),
+}
+
+impl BlockType {
+    fn read<R: io::Read>(reader: &mut R) -> Result<BlockType> {
+        let b = read_byte(reader)?;
+
+        if b == 0x40 {
+            return Ok(BlockType::Empty);
+        }
+
+        if let Ok(t) = ValType::try_from(b) {
+            return Ok(BlockType::T(t));
+        }
+
+        let mut chain = Cursor::new([b]).chain(reader);
+        let x = parse_i64(&mut chain)?;
+        if x < 0 {
+            return Err(anyhow!("blocktype integer negative"));
+        }
+
+        Ok(BlockType::X(x.try_into()?))
     }
 }
