@@ -1,8 +1,9 @@
-#![recursion_limit = "256"]
+pub mod index;
 pub mod instr;
 
+use crate::index::*;
 use crate::instr::{Instr, Parsed};
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use std::io;
 use std::io::Read;
 
@@ -228,81 +229,6 @@ impl TryFrom<u8> for SectionKind {
             12 => SectionKind::DataCount,
             n => bail!("malformed section id {:x}", n),
         })
-    }
-}
-
-// https://webassembly.github.io/spec/core/syntax/modules.html#indices
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct TypeIdx(u32);
-
-impl TypeIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct FuncIdx(u32);
-
-impl FuncIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct TableIdx(u32);
-
-impl TableIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct MemIdx(u32);
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct GlobalIdx(u32);
-impl GlobalIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct ElemIdx(u32);
-
-impl ElemIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct DataIdx(u32);
-
-impl DataIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct LocalIdx(u32);
-
-impl LocalIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct LabelIdx(u32);
-
-impl LabelIdx {
-    fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-        Ok(Self(parse_u32(r)?))
     }
 }
 
@@ -640,8 +566,7 @@ fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
 }
 
 fn parse_start_section<R: io::Read>(reader: &mut R) -> Result<FuncIdx> {
-    let idx = parse_u32(reader)?;
-    Ok(FuncIdx(idx))
+    FuncIdx::read(reader)
 }
 
 #[derive(Debug, PartialEq)]
@@ -687,7 +612,7 @@ fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
         }
         1 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, parse_func_idx)?;
+            let y = parse_vec(reader, FuncIdx::read)?;
 
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
@@ -695,7 +620,7 @@ fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
             let x = TableIdx::read(reader)?;
             let e = parse_expr(reader)?;
             let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, parse_func_idx)?;
+            let y = parse_vec(reader, FuncIdx::read)?;
 
             (
                 et,
@@ -708,7 +633,7 @@ fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
         }
         3 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, parse_func_idx)?;
+            let y = parse_vec(reader, FuncIdx::read)?;
 
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
@@ -766,10 +691,6 @@ fn parse_elemkind<R: io::Read>(reader: &mut R) -> Result<RefType> {
         bail!("expected byte `0x00` for elemkind; got {:x}", b);
     }
     Ok(RefType::Func)
-}
-
-fn parse_func_idx<R: io::Read>(reader: &mut R) -> Result<FuncIdx> {
-    Ok(FuncIdx(parse_u32(reader)?))
 }
 
 #[derive(Debug, PartialEq)]
