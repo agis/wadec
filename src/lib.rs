@@ -2,7 +2,7 @@
 pub mod instr;
 
 use crate::instr::{Instr, Parsed};
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use std::io;
 use std::io::Read;
 
@@ -175,7 +175,7 @@ impl TryFrom<u8> for ValType {
 }
 
 impl ValType {
-    fn read_from<R: io::Read>(input: &mut R) -> Result<ValType> {
+    fn read<R: io::Read>(input: &mut R) -> Result<ValType> {
         read_byte(input)?.try_into()
     }
 }
@@ -472,8 +472,8 @@ fn parse_functype<R: io::Read>(input: &mut R) -> Result<FuncType> {
         return Err(anyhow!("expected functype marker 0x60, got {:#X}", b));
     }
 
-    let parameters = parse_vec(input, ValType::read_from)?;
-    let results = parse_vec(input, ValType::read_from)?;
+    let parameters = parse_vec(input, ValType::read)?;
+    let results = parse_vec(input, ValType::read)?;
 
     Ok(FuncType {
         parameters,
@@ -598,7 +598,7 @@ fn parse_global_section<R: io::Read>(input: &mut R) -> Result<Vec<Global>> {
 }
 
 fn parse_globaltype<R: io::Read>(input: &mut R) -> Result<GlobalType> {
-    let valtype = ValType::read_from(input)?;
+    let valtype = ValType::read(input)?;
     let r#mut: Mut = read_byte(input)?.try_into()?;
     Ok(GlobalType(r#mut, valtype))
 }
@@ -628,7 +628,7 @@ fn parse_code<R: io::Read>(input: &mut R) -> Result<Code> {
     let locals = parse_vec(&mut input, |reader| {
         Ok(Local {
             count: parse_u32(reader)?,
-            t: ValType::read_from(reader)?,
+            t: ValType::read(reader)?,
         })
     })?;
 
