@@ -4,80 +4,80 @@ use std::io::{Cursor, Read};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instr {
     // --- Control instructions (5.4.1) ---
-    Unreachable,                                   // unreachable
-    Nop,                                           // nop
-    Block(BlockType, Vec<Instr>),                  // block <blocktype> ... end
-    Loop(BlockType, Vec<Instr>),                   // loop <blocktype> ... end
-    If(BlockType, Vec<Instr>, Option<Vec<Instr>>), // if <blocktype> ... (else ...)? end
-    Br(LabelIdx),                                  // br
-    BrIf(LabelIdx),                                // br_if
-    BrTable(Vec<LabelIdx>, LabelIdx),              // br_table
-    Return,                                        // return
-    Call(FuncIdx),                                 // call
-    CallIndirect(TableIdx, TypeIdx),               // call_indirect
+    Unreachable,
+    Nop,
+    Block(BlockType, Vec<Instr>),
+    Loop(BlockType, Vec<Instr>),
+    If(BlockType, Vec<Instr>, Option<Vec<Instr>>),
+    Br(LabelIdx),
+    BrIf(LabelIdx),
+    BrTable(Vec<LabelIdx>, LabelIdx),
+    Return,
+    Call(FuncIdx),
+    CallIndirect(TableIdx, TypeIdx),
 
     // --- Reference instructions (5.4.2) ---
-    RefNull(RefType), // ref.null
-    RefIsNull,        // ref.is_null
-    RefFunc(FuncIdx), // ref.func
+    RefNull(RefType),
+    RefIsNull,
+    RefFunc(FuncIdx),
 
     // --- Parametric instructions (5.4.3) ---
-    Drop,                         // drop
-    Select(Option<Vec<ValType>>), // select
+    Drop,
+    Select(Option<Vec<ValType>>),
 
     // --- Variable instructions (5.4.4) ---
-    LocalGet(LocalIdx),   // local.get
-    LocalSet(LocalIdx),   // local.set
-    LocalTee(LocalIdx),   // local.tee
-    GlobalGet(GlobalIdx), // global.get
-    GlobalSet(GlobalIdx), // global.set
+    LocalGet(LocalIdx),
+    LocalSet(LocalIdx),
+    LocalTee(LocalIdx),
+    GlobalGet(GlobalIdx),
+    GlobalSet(GlobalIdx),
 
     // --- Table instructions (5.4.5) ---
-    TableGet(TableIdx),            // table.get
-    TableSet(TableIdx),            // table.set
-    TableInit(TableIdx, ElemIdx),  // table.init
-    ElemDrop(ElemIdx),             // elem.drop
-    TableCopy(TableIdx, TableIdx), // table.copy
-    TableGrow(TableIdx),           // table.grow
-    TableSize(TableIdx),           // table.size
-    TableFill(TableIdx),           // table.fill
+    TableGet(TableIdx),
+    TableSet(TableIdx),
+    TableInit(TableIdx, ElemIdx),
+    ElemDrop(ElemIdx),
+    TableCopy(TableIdx, TableIdx),
+    TableGrow(TableIdx),
+    TableSize(TableIdx),
+    TableFill(TableIdx),
 
     // --- Memory instructions (5.4.6) ---
-    I32Load(Memarg),     // i32.load
-    I64Load(Memarg),     // i64.load
-    F32Load(Memarg),     // f32.load
-    F64Load(Memarg),     // f64.load
-    I32Load8s(Memarg),   // i32.load8_s
-    I32Load8u(Memarg),   // i32.load8_u
-    I32Load16s(Memarg),  // i32.load16_s
-    I32Load16u(Memarg),  // i32.load16_u
-    I64Load8s(Memarg),   // i64.load8_s
-    I64Load8u(Memarg),   // i64.load8_u
-    I64Load16s(Memarg),  // i64.load16_s
-    I64Load16u(Memarg),  // i64.load16_u
-    I64Load32s(Memarg),  // i64.load32_s
-    I64Load32u(Memarg),  // i64.load32_u
-    I32Store(Memarg),    // i32.store
-    I64Store(Memarg),    // i64.store
-    F32Store(Memarg),    // f32.store
-    F64Store(Memarg),    // f64.store
-    I32Store8(Memarg),   // i32.store8
-    I32Store16(Memarg),  // i32.store16
-    I64Store8(Memarg),   // i64.store8
-    I64Store16(Memarg),  // i64.store16
-    I64Store32(Memarg),  // i64.store32
-    MemorySize,          // memory.size
-    MemoryGrow,          // memory.grow
-    MemoryInit(DataIdx), // memory.init
-    DataDrop(DataIdx),   // data.drop
-    MemoryCopy,          // memory.copy
-    MemoryFill,          // memory.fill
+    I32Load(Memarg),
+    I64Load(Memarg),
+    F32Load(Memarg),
+    F64Load(Memarg),
+    I32Load8s(Memarg),
+    I32Load8u(Memarg),
+    I32Load16s(Memarg),
+    I32Load16u(Memarg),
+    I64Load8s(Memarg),
+    I64Load8u(Memarg),
+    I64Load16s(Memarg),
+    I64Load16u(Memarg),
+    I64Load32s(Memarg),
+    I64Load32u(Memarg),
+    I32Store(Memarg),
+    I64Store(Memarg),
+    F32Store(Memarg),
+    F64Store(Memarg),
+    I32Store8(Memarg),
+    I32Store16(Memarg),
+    I64Store8(Memarg),
+    I64Store16(Memarg),
+    I64Store32(Memarg),
+    MemorySize,
+    MemoryGrow,
+    MemoryInit(DataIdx),
+    DataDrop(DataIdx),
+    MemoryCopy,
+    MemoryFill,
 
     // --- Numeric constants (5.4.7) ---
-    I32Const(i32), // i32.const
-    I64Const(i64), // i64.const
-    F32Const(f32), // f32.const
-    F64Const(f64), // f64.const
+    I32Const(i32),
+    I64Const(i64),
+    F32Const(f32),
+    F64Const(f64),
 
     // --- I32 tests/relops (5.4.7) ---
     I32Eqz,
