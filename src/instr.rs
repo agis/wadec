@@ -78,8 +78,6 @@ pub enum Instr {
     I64Const(i64),
     F32Const(f32),
     F64Const(f64),
-
-    // --- I32 tests/relops (5.4.7) ---
     I32Eqz,
     I32Eq,
     I32Ne,
@@ -91,8 +89,6 @@ pub enum Instr {
     I32LeU,
     I32GeS,
     I32GeU,
-
-    // --- I64 tests/relops (5.4.7) ---
     I64Eqz,
     I64Eq,
     I64Ne,
@@ -104,24 +100,18 @@ pub enum Instr {
     I64LeU,
     I64GeS,
     I64GeU,
-
-    // --- F32 relops (5.4.7) ---
     F32Eq,
     F32Ne,
     F32Lt,
     F32Gt,
     F32Le,
     F32Ge,
-
-    // --- F64 relops (5.4.7) ---
     F64Eq,
     F64Ne,
     F64Lt,
     F64Gt,
     F64Le,
     F64Ge,
-
-    // --- I32 numeric ops (5.4.7) ---
     I32Clz,
     I32Ctz,
     I32Popcnt,
@@ -140,8 +130,6 @@ pub enum Instr {
     I32ShrU,
     I32Rotl,
     I32Rotr,
-
-    // --- I64 numeric ops (5.4.7) ---
     I64Clz,
     I64Ctz,
     I64Popcnt,
@@ -160,8 +148,6 @@ pub enum Instr {
     I64ShrU,
     I64Rotl,
     I64Rotr,
-
-    // --- F32 numeric ops (5.4.7) ---
     F32Abs,
     F32Neg,
     F32Ceil,
@@ -176,8 +162,6 @@ pub enum Instr {
     F32Min,
     F32Max,
     F32Copysign,
-
-    // --- F64 numeric ops (5.4.7) ---
     F64Abs,
     F64Neg,
     F64Ceil,
@@ -192,8 +176,6 @@ pub enum Instr {
     F64Min,
     F64Max,
     F64Copysign,
-
-    // --- Conversions & reinterpretations (5.4.7) ---
     I32WrapI64,
     I32TruncF32S,
     I32TruncF32U,
@@ -219,15 +201,11 @@ pub enum Instr {
     I64ReinterpretF64,
     F32ReinterpretI32,
     F64ReinterpretI64,
-
-    // --- Sign-extension ops (5.4.7, “sign extension instructions”) ---
     I32Extend8S,
     I32Extend16S,
     I64Extend8S,
     I64Extend16S,
     I64Extend32S,
-
-    // --- Non-trapping float-to-int (saturating truncation, 5.4.7) ---
     I32TruncSatF32S,
     I32TruncSatF32U,
     I32TruncSatF64S,
@@ -328,8 +306,6 @@ impl Instr {
             // --- Table instructions (5.4.5) ---
             0x25 => Instr::TableGet(TableIdx::read(reader)?),
             0x26 => Instr::TableSet(TableIdx::read(reader)?),
-            // ...the rest are below, together with some Memory instructions
-            // since they both share a common opcode - 0xFC
 
             // --- Memory instructions (5.4.6) ---
             op @ 0x28..=0x3E => {
@@ -378,12 +354,154 @@ impl Instr {
                 }
                 Instr::MemoryGrow
             }
-            // ...the rest are below, together with table since they both share
-            // a common opcode - 0xFC
 
-            // --- Table / Memory instructions ---
+            // --- Numeric instructions (5.4.7) ---
+            0x41 => Instr::I32Const(parse_i32(reader)?),
+            0x42 => Instr::I64Const(parse_i64(reader)?),
+            0x43 => Instr::F32Const(parse_f32(reader)?),
+            0x44 => Instr::F64Const(parse_f64(reader)?),
+            0x45 => Instr::I32Eqz,
+            0x46 => Instr::I32Eq,
+            0x47 => Instr::I32Ne,
+            0x48 => Instr::I32LtS,
+            0x49 => Instr::I32LtU,
+            0x4A => Instr::I32GtS,
+            0x4B => Instr::I32GtU,
+            0x4C => Instr::I32LeS,
+            0x4D => Instr::I32LeU,
+            0x4E => Instr::I32GeS,
+            0x4F => Instr::I32GeU,
+            0x50 => Instr::I64Eqz,
+            0x51 => Instr::I64Eq,
+            0x52 => Instr::I64Ne,
+            0x53 => Instr::I64LtS,
+            0x54 => Instr::I64LtU,
+            0x55 => Instr::I64GtS,
+            0x56 => Instr::I64GtU,
+            0x57 => Instr::I64LeS,
+            0x58 => Instr::I64LeU,
+            0x59 => Instr::I64GeS,
+            0x5A => Instr::I64GeU,
+            0x5B => Instr::F32Eq,
+            0x5C => Instr::F32Ne,
+            0x5D => Instr::F32Lt,
+            0x5E => Instr::F32Gt,
+            0x5F => Instr::F32Le,
+            0x60 => Instr::F32Ge,
+            0x61 => Instr::F64Eq,
+            0x62 => Instr::F64Ne,
+            0x63 => Instr::F64Lt,
+            0x64 => Instr::F64Gt,
+            0x65 => Instr::F64Le,
+            0x66 => Instr::F64Ge,
+            0x67 => Instr::I32Clz,
+            0x68 => Instr::I32Ctz,
+            0x69 => Instr::I32Popcnt,
+            0x6A => Instr::I32Add,
+            0x6B => Instr::I32Sub,
+            0x6C => Instr::I32Mul,
+            0x6D => Instr::I32DivS,
+            0x6E => Instr::I32DivU,
+            0x6F => Instr::I32RemS,
+            0x70 => Instr::I32RemU,
+            0x71 => Instr::I32And,
+            0x72 => Instr::I32Or,
+            0x73 => Instr::I32Xor,
+            0x74 => Instr::I32Shl,
+            0x75 => Instr::I32ShrS,
+            0x76 => Instr::I32ShrU,
+            0x77 => Instr::I32Rotl,
+            0x78 => Instr::I32Rotr,
+            0x79 => Instr::I64Clz,
+            0x7A => Instr::I64Ctz,
+            0x7B => Instr::I64Popcnt,
+            0x7C => Instr::I64Add,
+            0x7D => Instr::I64Sub,
+            0x7E => Instr::I64Mul,
+            0x7F => Instr::I64DivS,
+            0x80 => Instr::I64DivU,
+            0x81 => Instr::I64RemS,
+            0x82 => Instr::I64RemU,
+            0x83 => Instr::I64And,
+            0x84 => Instr::I64Or,
+            0x85 => Instr::I64Xor,
+            0x86 => Instr::I64Shl,
+            0x87 => Instr::I64ShrS,
+            0x88 => Instr::I64ShrU,
+            0x89 => Instr::I64Rotl,
+            0x8A => Instr::I64Rotr,
+            0x8B => Instr::F32Abs,
+            0x8C => Instr::F32Neg,
+            0x8D => Instr::F32Ceil,
+            0x8E => Instr::F32Floor,
+            0x8F => Instr::F32Trunc,
+            0x90 => Instr::F32Nearest,
+            0x91 => Instr::F32Sqrt,
+            0x92 => Instr::F32Add,
+            0x93 => Instr::F32Sub,
+            0x94 => Instr::F32Mul,
+            0x95 => Instr::F32Div,
+            0x96 => Instr::F32Min,
+            0x97 => Instr::F32Max,
+            0x98 => Instr::F32Copysign,
+            0x99 => Instr::F64Abs,
+            0x9A => Instr::F64Neg,
+            0x9B => Instr::F64Ceil,
+            0x9C => Instr::F64Floor,
+            0x9D => Instr::F64Trunc,
+            0x9E => Instr::F64Nearest,
+            0x9F => Instr::F64Sqrt,
+            0xA0 => Instr::F64Add,
+            0xA1 => Instr::F64Sub,
+            0xA2 => Instr::F64Mul,
+            0xA3 => Instr::F64Div,
+            0xA4 => Instr::F64Min,
+            0xA5 => Instr::F64Max,
+            0xA6 => Instr::F64Copysign,
+            0xA7 => Instr::I32WrapI64,
+            0xA8 => Instr::I32TruncF32S,
+            0xA9 => Instr::I32TruncF32U,
+            0xAA => Instr::I32TruncF64S,
+            0xAB => Instr::I32TruncF64U,
+            0xAC => Instr::I64ExtendI32S,
+            0xAD => Instr::I64ExtendI32U,
+            0xAE => Instr::I64TruncF32S,
+            0xAF => Instr::I64TruncF32U,
+            0xB0 => Instr::I64TruncF64S,
+            0xB1 => Instr::I64TruncF64U,
+            0xB2 => Instr::F32ConvertI32S,
+            0xB3 => Instr::F32ConvertI32U,
+            0xB4 => Instr::F32ConvertI64S,
+            0xB5 => Instr::F32ConvertI64U,
+            0xB6 => Instr::F32DemoteF64,
+            0xB7 => Instr::F64ConvertI32S,
+            0xB8 => Instr::F64ConvertI32U,
+            0xB9 => Instr::F64ConvertI64S,
+            0xBA => Instr::F64ConvertI64U,
+            0xBB => Instr::F64PromoteF32,
+            0xBC => Instr::I32ReinterpretF32,
+            0xBD => Instr::I64ReinterpretF64,
+            0xBE => Instr::F32ReinterpretI32,
+            0xBF => Instr::F64ReinterpretI64,
+            0xC0 => Instr::I32Extend8S,
+            0xC1 => Instr::I32Extend16S,
+            0xC2 => Instr::I64Extend8S,
+            0xC3 => Instr::I64Extend16S,
+            0xC4 => Instr::I64Extend32S,
+
+            // 0xFC is shared by Table, Memory and Numeric instructions
             0xFC => match parse_u32(reader)? {
-                // --- memory ---
+                // --- Numeric saturating truncation ---
+                0 => Instr::I32TruncSatF32S,
+                1 => Instr::I32TruncSatF32U,
+                2 => Instr::I32TruncSatF64S,
+                3 => Instr::I32TruncSatF64U,
+                4 => Instr::I64TruncSatF32S,
+                5 => Instr::I64TruncSatF32U,
+                6 => Instr::I64TruncSatF64S,
+                7 => Instr::I64TruncSatF64U,
+
+                // --- Memory ---
                 8 => {
                     let x = DataIdx::read(reader)?;
                     let b = read_byte(reader)?;
@@ -409,7 +527,7 @@ impl Instr {
                     Instr::MemoryFill
                 }
 
-                // --- table ---
+                // --- Table ---
                 12 => {
                     let y = ElemIdx::read(reader)?;
                     let x = TableIdx::read(reader)?;
@@ -423,11 +541,6 @@ impl Instr {
                 n => bail!("unexpected table instr prefix byte `{:x}`", n),
             },
 
-            // --- Numeric instructions (5.4.7) ---
-            0x41 => Instr::I32Const(parse_i32(reader)?),
-            0x42 => Instr::I64Const(parse_i64(reader)?),
-            0x6A => Instr::I32Add,
-            // ...TODO
             n => bail!("unexpected instr: {:#X}", n),
         };
 

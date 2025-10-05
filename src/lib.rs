@@ -265,9 +265,10 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
 
     while let Some(section_header) = parse_section_header(&mut input)? {
         let mut section_reader = input.by_ref().take(section_header.size.into());
-        let section_kind = section_header.kind;
 
         module.validate_section_kind_expected(&section_header)?;
+
+        let section_kind = section_header.kind;
 
         match section_kind {
             SectionKind::Custom => {
@@ -792,6 +793,18 @@ fn parse_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
     Ok(leb128::read::signed(reader)?)
 }
 
+fn parse_f32<R: io::Read + ?Sized>(r: &mut R) -> Result<f32> {
+    let mut buf = [0u8; 4];
+    r.read_exact(&mut buf)?;
+    Ok(f32::from_le_bytes(buf))
+}
+
+fn parse_f64<R: io::Read + ?Sized>(r: &mut R) -> Result<f64> {
+    let mut buf = [0u8; 8];
+    r.read_exact(&mut buf)?;
+    Ok(f64::from_le_bytes(buf))
+}
+
 fn parse_vec<R, T, F>(reader: &mut R, mut parse_item: F) -> Result<Vec<T>>
 where
     R: io::Read + ?Sized,
@@ -826,8 +839,9 @@ fn parse_byte_vec<R: io::Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instr::{BlockType, Memarg};
+    use crate::instr::{BlockType, Instr, Memarg};
     use pretty_assertions::assert_eq;
+    use std::collections::BTreeSet;
     use std::fs::File;
 
     #[test]
@@ -2518,6 +2532,589 @@ mod tests {
                 ..Default::default()
             }
         )
+    }
+
+    #[test]
+    fn it_decodes_numeric_instructions() {
+        let f = File::open("./tests/fixtures/numeric_instructions.wasm").unwrap();
+
+        let module = decode(f).unwrap();
+        let mut seen = BTreeSet::new();
+
+        for func in &module.funcs {
+            for instr in &func.body {
+                match instr {
+                    Instr::I32Const(_) => {
+                        seen.insert("i32.const");
+                    }
+                    Instr::I64Const(_) => {
+                        seen.insert("i64.const");
+                    }
+                    Instr::F32Const(_) => {
+                        seen.insert("f32.const");
+                    }
+                    Instr::F64Const(_) => {
+                        seen.insert("f64.const");
+                    }
+                    Instr::I32Eqz => {
+                        seen.insert("i32.eqz");
+                    }
+                    Instr::I32Eq => {
+                        seen.insert("i32.eq");
+                    }
+                    Instr::I32Ne => {
+                        seen.insert("i32.ne");
+                    }
+                    Instr::I32LtS => {
+                        seen.insert("i32.lt_s");
+                    }
+                    Instr::I32LtU => {
+                        seen.insert("i32.lt_u");
+                    }
+                    Instr::I32GtS => {
+                        seen.insert("i32.gt_s");
+                    }
+                    Instr::I32GtU => {
+                        seen.insert("i32.gt_u");
+                    }
+                    Instr::I32LeS => {
+                        seen.insert("i32.le_s");
+                    }
+                    Instr::I32LeU => {
+                        seen.insert("i32.le_u");
+                    }
+                    Instr::I32GeS => {
+                        seen.insert("i32.ge_s");
+                    }
+                    Instr::I32GeU => {
+                        seen.insert("i32.ge_u");
+                    }
+                    Instr::I64Eqz => {
+                        seen.insert("i64.eqz");
+                    }
+                    Instr::I64Eq => {
+                        seen.insert("i64.eq");
+                    }
+                    Instr::I64Ne => {
+                        seen.insert("i64.ne");
+                    }
+                    Instr::I64LtS => {
+                        seen.insert("i64.lt_s");
+                    }
+                    Instr::I64LtU => {
+                        seen.insert("i64.lt_u");
+                    }
+                    Instr::I64GtS => {
+                        seen.insert("i64.gt_s");
+                    }
+                    Instr::I64GtU => {
+                        seen.insert("i64.gt_u");
+                    }
+                    Instr::I64LeS => {
+                        seen.insert("i64.le_s");
+                    }
+                    Instr::I64LeU => {
+                        seen.insert("i64.le_u");
+                    }
+                    Instr::I64GeS => {
+                        seen.insert("i64.ge_s");
+                    }
+                    Instr::I64GeU => {
+                        seen.insert("i64.ge_u");
+                    }
+                    Instr::F32Eq => {
+                        seen.insert("f32.eq");
+                    }
+                    Instr::F32Ne => {
+                        seen.insert("f32.ne");
+                    }
+                    Instr::F32Lt => {
+                        seen.insert("f32.lt");
+                    }
+                    Instr::F32Gt => {
+                        seen.insert("f32.gt");
+                    }
+                    Instr::F32Le => {
+                        seen.insert("f32.le");
+                    }
+                    Instr::F32Ge => {
+                        seen.insert("f32.ge");
+                    }
+                    Instr::F64Eq => {
+                        seen.insert("f64.eq");
+                    }
+                    Instr::F64Ne => {
+                        seen.insert("f64.ne");
+                    }
+                    Instr::F64Lt => {
+                        seen.insert("f64.lt");
+                    }
+                    Instr::F64Gt => {
+                        seen.insert("f64.gt");
+                    }
+                    Instr::F64Le => {
+                        seen.insert("f64.le");
+                    }
+                    Instr::F64Ge => {
+                        seen.insert("f64.ge");
+                    }
+                    Instr::I32Clz => {
+                        seen.insert("i32.clz");
+                    }
+                    Instr::I32Ctz => {
+                        seen.insert("i32.ctz");
+                    }
+                    Instr::I32Popcnt => {
+                        seen.insert("i32.popcnt");
+                    }
+                    Instr::I32Add => {
+                        seen.insert("i32.add");
+                    }
+                    Instr::I32Sub => {
+                        seen.insert("i32.sub");
+                    }
+                    Instr::I32Mul => {
+                        seen.insert("i32.mul");
+                    }
+                    Instr::I32DivS => {
+                        seen.insert("i32.div_s");
+                    }
+                    Instr::I32DivU => {
+                        seen.insert("i32.div_u");
+                    }
+                    Instr::I32RemS => {
+                        seen.insert("i32.rem_s");
+                    }
+                    Instr::I32RemU => {
+                        seen.insert("i32.rem_u");
+                    }
+                    Instr::I32And => {
+                        seen.insert("i32.and");
+                    }
+                    Instr::I32Or => {
+                        seen.insert("i32.or");
+                    }
+                    Instr::I32Xor => {
+                        seen.insert("i32.xor");
+                    }
+                    Instr::I32Shl => {
+                        seen.insert("i32.shl");
+                    }
+                    Instr::I32ShrS => {
+                        seen.insert("i32.shr_s");
+                    }
+                    Instr::I32ShrU => {
+                        seen.insert("i32.shr_u");
+                    }
+                    Instr::I32Rotl => {
+                        seen.insert("i32.rotl");
+                    }
+                    Instr::I32Rotr => {
+                        seen.insert("i32.rotr");
+                    }
+                    Instr::I64Clz => {
+                        seen.insert("i64.clz");
+                    }
+                    Instr::I64Ctz => {
+                        seen.insert("i64.ctz");
+                    }
+                    Instr::I64Popcnt => {
+                        seen.insert("i64.popcnt");
+                    }
+                    Instr::I64Add => {
+                        seen.insert("i64.add");
+                    }
+                    Instr::I64Sub => {
+                        seen.insert("i64.sub");
+                    }
+                    Instr::I64Mul => {
+                        seen.insert("i64.mul");
+                    }
+                    Instr::I64DivS => {
+                        seen.insert("i64.div_s");
+                    }
+                    Instr::I64DivU => {
+                        seen.insert("i64.div_u");
+                    }
+                    Instr::I64RemS => {
+                        seen.insert("i64.rem_s");
+                    }
+                    Instr::I64RemU => {
+                        seen.insert("i64.rem_u");
+                    }
+                    Instr::I64And => {
+                        seen.insert("i64.and");
+                    }
+                    Instr::I64Or => {
+                        seen.insert("i64.or");
+                    }
+                    Instr::I64Xor => {
+                        seen.insert("i64.xor");
+                    }
+                    Instr::I64Shl => {
+                        seen.insert("i64.shl");
+                    }
+                    Instr::I64ShrS => {
+                        seen.insert("i64.shr_s");
+                    }
+                    Instr::I64ShrU => {
+                        seen.insert("i64.shr_u");
+                    }
+                    Instr::I64Rotl => {
+                        seen.insert("i64.rotl");
+                    }
+                    Instr::I64Rotr => {
+                        seen.insert("i64.rotr");
+                    }
+                    Instr::F32Abs => {
+                        seen.insert("f32.abs");
+                    }
+                    Instr::F32Neg => {
+                        seen.insert("f32.neg");
+                    }
+                    Instr::F32Ceil => {
+                        seen.insert("f32.ceil");
+                    }
+                    Instr::F32Floor => {
+                        seen.insert("f32.floor");
+                    }
+                    Instr::F32Trunc => {
+                        seen.insert("f32.trunc");
+                    }
+                    Instr::F32Nearest => {
+                        seen.insert("f32.nearest");
+                    }
+                    Instr::F32Sqrt => {
+                        seen.insert("f32.sqrt");
+                    }
+                    Instr::F32Add => {
+                        seen.insert("f32.add");
+                    }
+                    Instr::F32Sub => {
+                        seen.insert("f32.sub");
+                    }
+                    Instr::F32Mul => {
+                        seen.insert("f32.mul");
+                    }
+                    Instr::F32Div => {
+                        seen.insert("f32.div");
+                    }
+                    Instr::F32Min => {
+                        seen.insert("f32.min");
+                    }
+                    Instr::F32Max => {
+                        seen.insert("f32.max");
+                    }
+                    Instr::F32Copysign => {
+                        seen.insert("f32.copysign");
+                    }
+                    Instr::F64Abs => {
+                        seen.insert("f64.abs");
+                    }
+                    Instr::F64Neg => {
+                        seen.insert("f64.neg");
+                    }
+                    Instr::F64Ceil => {
+                        seen.insert("f64.ceil");
+                    }
+                    Instr::F64Floor => {
+                        seen.insert("f64.floor");
+                    }
+                    Instr::F64Trunc => {
+                        seen.insert("f64.trunc");
+                    }
+                    Instr::F64Nearest => {
+                        seen.insert("f64.nearest");
+                    }
+                    Instr::F64Sqrt => {
+                        seen.insert("f64.sqrt");
+                    }
+                    Instr::F64Add => {
+                        seen.insert("f64.add");
+                    }
+                    Instr::F64Sub => {
+                        seen.insert("f64.sub");
+                    }
+                    Instr::F64Mul => {
+                        seen.insert("f64.mul");
+                    }
+                    Instr::F64Div => {
+                        seen.insert("f64.div");
+                    }
+                    Instr::F64Min => {
+                        seen.insert("f64.min");
+                    }
+                    Instr::F64Max => {
+                        seen.insert("f64.max");
+                    }
+                    Instr::F64Copysign => {
+                        seen.insert("f64.copysign");
+                    }
+                    Instr::I32WrapI64 => {
+                        seen.insert("i32.wrap_i64");
+                    }
+                    Instr::I32TruncF32S => {
+                        seen.insert("i32.trunc_f32_s");
+                    }
+                    Instr::I32TruncF32U => {
+                        seen.insert("i32.trunc_f32_u");
+                    }
+                    Instr::I32TruncF64S => {
+                        seen.insert("i32.trunc_f64_s");
+                    }
+                    Instr::I32TruncF64U => {
+                        seen.insert("i32.trunc_f64_u");
+                    }
+                    Instr::I64ExtendI32S => {
+                        seen.insert("i64.extend_i32_s");
+                    }
+                    Instr::I64ExtendI32U => {
+                        seen.insert("i64.extend_i32_u");
+                    }
+                    Instr::I64TruncF32S => {
+                        seen.insert("i64.trunc_f32_s");
+                    }
+                    Instr::I64TruncF32U => {
+                        seen.insert("i64.trunc_f32_u");
+                    }
+                    Instr::I64TruncF64S => {
+                        seen.insert("i64.trunc_f64_s");
+                    }
+                    Instr::I64TruncF64U => {
+                        seen.insert("i64.trunc_f64_u");
+                    }
+                    Instr::F32ConvertI32S => {
+                        seen.insert("f32.convert_i32_s");
+                    }
+                    Instr::F32ConvertI32U => {
+                        seen.insert("f32.convert_i32_u");
+                    }
+                    Instr::F32ConvertI64S => {
+                        seen.insert("f32.convert_i64_s");
+                    }
+                    Instr::F32ConvertI64U => {
+                        seen.insert("f32.convert_i64_u");
+                    }
+                    Instr::F32DemoteF64 => {
+                        seen.insert("f32.demote_f64");
+                    }
+                    Instr::F64ConvertI32S => {
+                        seen.insert("f64.convert_i32_s");
+                    }
+                    Instr::F64ConvertI32U => {
+                        seen.insert("f64.convert_i32_u");
+                    }
+                    Instr::F64ConvertI64S => {
+                        seen.insert("f64.convert_i64_s");
+                    }
+                    Instr::F64ConvertI64U => {
+                        seen.insert("f64.convert_i64_u");
+                    }
+                    Instr::F64PromoteF32 => {
+                        seen.insert("f64.promote_f32");
+                    }
+                    Instr::I32ReinterpretF32 => {
+                        seen.insert("i32.reinterpret_f32");
+                    }
+                    Instr::I64ReinterpretF64 => {
+                        seen.insert("i64.reinterpret_f64");
+                    }
+                    Instr::F32ReinterpretI32 => {
+                        seen.insert("f32.reinterpret_i32");
+                    }
+                    Instr::F64ReinterpretI64 => {
+                        seen.insert("f64.reinterpret_i64");
+                    }
+                    Instr::I32Extend8S => {
+                        seen.insert("i32.extend8_s");
+                    }
+                    Instr::I32Extend16S => {
+                        seen.insert("i32.extend16_s");
+                    }
+                    Instr::I64Extend8S => {
+                        seen.insert("i64.extend8_s");
+                    }
+                    Instr::I64Extend16S => {
+                        seen.insert("i64.extend16_s");
+                    }
+                    Instr::I64Extend32S => {
+                        seen.insert("i64.extend32_s");
+                    }
+                    Instr::I32TruncSatF32S => {
+                        seen.insert("i32.trunc_sat_f32_s");
+                    }
+                    Instr::I32TruncSatF32U => {
+                        seen.insert("i32.trunc_sat_f32_u");
+                    }
+                    Instr::I32TruncSatF64S => {
+                        seen.insert("i32.trunc_sat_f64_s");
+                    }
+                    Instr::I32TruncSatF64U => {
+                        seen.insert("i32.trunc_sat_f64_u");
+                    }
+                    Instr::I64TruncSatF32S => {
+                        seen.insert("i64.trunc_sat_f32_s");
+                    }
+                    Instr::I64TruncSatF32U => {
+                        seen.insert("i64.trunc_sat_f32_u");
+                    }
+                    Instr::I64TruncSatF64S => {
+                        seen.insert("i64.trunc_sat_f64_s");
+                    }
+                    Instr::I64TruncSatF64U => {
+                        seen.insert("i64.trunc_sat_f64_u");
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let expected: BTreeSet<&'static str> = [
+            "i32.const",
+            "i64.const",
+            "f32.const",
+            "f64.const",
+            "i32.eqz",
+            "i32.eq",
+            "i32.ne",
+            "i32.lt_s",
+            "i32.lt_u",
+            "i32.gt_s",
+            "i32.gt_u",
+            "i32.le_s",
+            "i32.le_u",
+            "i32.ge_s",
+            "i32.ge_u",
+            "i64.eqz",
+            "i64.eq",
+            "i64.ne",
+            "i64.lt_s",
+            "i64.lt_u",
+            "i64.gt_s",
+            "i64.gt_u",
+            "i64.le_s",
+            "i64.le_u",
+            "i64.ge_s",
+            "i64.ge_u",
+            "f32.eq",
+            "f32.ne",
+            "f32.lt",
+            "f32.gt",
+            "f32.le",
+            "f32.ge",
+            "f64.eq",
+            "f64.ne",
+            "f64.lt",
+            "f64.gt",
+            "f64.le",
+            "f64.ge",
+            "i32.clz",
+            "i32.ctz",
+            "i32.popcnt",
+            "i32.add",
+            "i32.sub",
+            "i32.mul",
+            "i32.div_s",
+            "i32.div_u",
+            "i32.rem_s",
+            "i32.rem_u",
+            "i32.and",
+            "i32.or",
+            "i32.xor",
+            "i32.shl",
+            "i32.shr_s",
+            "i32.shr_u",
+            "i32.rotl",
+            "i32.rotr",
+            "i64.clz",
+            "i64.ctz",
+            "i64.popcnt",
+            "i64.add",
+            "i64.sub",
+            "i64.mul",
+            "i64.div_s",
+            "i64.div_u",
+            "i64.rem_s",
+            "i64.rem_u",
+            "i64.and",
+            "i64.or",
+            "i64.xor",
+            "i64.shl",
+            "i64.shr_s",
+            "i64.shr_u",
+            "i64.rotl",
+            "i64.rotr",
+            "f32.abs",
+            "f32.neg",
+            "f32.ceil",
+            "f32.floor",
+            "f32.trunc",
+            "f32.nearest",
+            "f32.sqrt",
+            "f32.add",
+            "f32.sub",
+            "f32.mul",
+            "f32.div",
+            "f32.min",
+            "f32.max",
+            "f32.copysign",
+            "f64.abs",
+            "f64.neg",
+            "f64.ceil",
+            "f64.floor",
+            "f64.trunc",
+            "f64.nearest",
+            "f64.sqrt",
+            "f64.add",
+            "f64.sub",
+            "f64.mul",
+            "f64.div",
+            "f64.min",
+            "f64.max",
+            "f64.copysign",
+            "i32.wrap_i64",
+            "i32.trunc_f32_s",
+            "i32.trunc_f32_u",
+            "i32.trunc_f64_s",
+            "i32.trunc_f64_u",
+            "i64.extend_i32_s",
+            "i64.extend_i32_u",
+            "i64.trunc_f32_s",
+            "i64.trunc_f32_u",
+            "i64.trunc_f64_s",
+            "i64.trunc_f64_u",
+            "f32.convert_i32_s",
+            "f32.convert_i32_u",
+            "f32.convert_i64_s",
+            "f32.convert_i64_u",
+            "f32.demote_f64",
+            "f64.convert_i32_s",
+            "f64.convert_i32_u",
+            "f64.convert_i64_s",
+            "f64.convert_i64_u",
+            "f64.promote_f32",
+            "i32.reinterpret_f32",
+            "i64.reinterpret_f64",
+            "f32.reinterpret_i32",
+            "f64.reinterpret_i64",
+            "i32.extend8_s",
+            "i32.extend16_s",
+            "i64.extend8_s",
+            "i64.extend16_s",
+            "i64.extend32_s",
+            "i32.trunc_sat_f32_s",
+            "i32.trunc_sat_f32_u",
+            "i32.trunc_sat_f64_s",
+            "i32.trunc_sat_f64_u",
+            "i64.trunc_sat_f32_s",
+            "i64.trunc_sat_f32_u",
+            "i64.trunc_sat_f64_s",
+            "i64.trunc_sat_f64_u",
+        ]
+        .into_iter()
+        .collect();
+
+        assert_eq!(seen, expected);
     }
 
     #[test]
