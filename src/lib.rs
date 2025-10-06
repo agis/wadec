@@ -264,7 +264,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
     };
 
     while let Some(section_header) = parse_section_header(&mut input)? {
-        let mut section_reader = input.by_ref().take(section_header.size.into());
+        let mut section_reader = &mut input.by_ref().take(section_header.size.into());
 
         module.validate_section_kind_expected(&section_header)?;
 
@@ -276,8 +276,8 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                     .custom_sections
                     .push(parse_custom_section(&mut section_reader)?);
             }
-            SectionKind::Type => module.types = parse_type_section(&mut section_reader)?,
-            SectionKind::Import => module.imports = parse_import_section(&mut section_reader)?,
+            SectionKind::Type => module.types = parse_type_section(section_reader)?,
+            SectionKind::Import => module.imports = parse_import_section(section_reader)?,
             SectionKind::Function => {
                 for type_idx in parse_function_section(&mut section_reader)? {
                     module.funcs.push(Func {
@@ -288,17 +288,17 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                     });
                 }
             }
-            SectionKind::Table => module.tables = parse_table_section(&mut section_reader)?,
-            SectionKind::Memory => module.mems = parse_memory_section(&mut section_reader)?,
-            SectionKind::Global => module.globals = parse_global_section(&mut section_reader)?,
-            SectionKind::Export => module.exports = parse_export_section(&mut section_reader)?,
-            SectionKind::Start => module.start = Some(parse_start_section(&mut section_reader)?),
-            SectionKind::Element => module.elems = parse_element_section(&mut section_reader)?,
+            SectionKind::Table => module.tables = parse_table_section(section_reader)?,
+            SectionKind::Memory => module.mems = parse_memory_section(section_reader)?,
+            SectionKind::Global => module.globals = parse_global_section(section_reader)?,
+            SectionKind::Export => module.exports = parse_export_section(section_reader)?,
+            SectionKind::Start => module.start = Some(parse_start_section(section_reader)?),
+            SectionKind::Element => module.elems = parse_element_section(section_reader)?,
             SectionKind::DataCount => {
-                module.data_count = Some(parse_datacount_section(&mut section_reader)?)
+                module.data_count = Some(parse_datacount_section(section_reader)?)
             }
             SectionKind::Code => {
-                let codes = parse_code_section(&mut section_reader)?;
+                let codes = parse_code_section(section_reader)?;
                 if codes.len() != module.funcs.len() {
                     bail!("code entries len do not match with funcs entries len");
                 }
@@ -313,7 +313,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                 }
             }
             SectionKind::Data => {
-                let datas = parse_data_section(&mut section_reader)?;
+                let datas = parse_data_section(section_reader)?;
 
                 if let Some(data_count) = module.data_count
                     && usize::try_from(data_count)? != datas.len()
