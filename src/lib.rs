@@ -406,7 +406,7 @@ fn parse_functype<R: io::Read>(reader: &mut R) -> Result<FuncType> {
 
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
 fn parse_function_section<R: io::Read>(reader: &mut R) -> Result<Vec<TypeIdx>> {
-    parse_vec(reader, |r| Ok(TypeIdx(parse_u32(r)?)))
+    parse_vec(reader, TypeIdx::read)
 }
 
 #[derive(Debug, PartialEq)]
@@ -424,6 +424,7 @@ pub enum ImportDesc {
     Global(GlobalType),
 }
 
+// https://webassembly.github.io/spec/core/binary/modules.html#import-section
 fn parse_import_section<R: io::Read>(reader: &mut R) -> Result<Vec<Import>> {
     parse_vec(reader, parse_import)
 }
