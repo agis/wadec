@@ -1,0 +1,134 @@
+use anyhow::{bail, Result};
+use serde::Deserialize;
+use std::fs;
+use std::fs::File;
+use std::io::{self, Write};
+use std::process::Command;
+use wadec::*;
+
+// .wasm and .json fixtures generated via wast2json
+const FIXTURE_PATH: &str = "./tests/fixtures/spec/";
+
+#[derive(Deserialize, Debug)]
+struct TestScript {
+    source_filename: String,
+    commands: Vec<Assertion>,
+}
+
+impl TestScript {
+    fn execute(self) {
+        self.commands
+            .into_iter()
+            .filter(|c| *c != Assertion::Other)
+            .for_each(|c| {
+                if let Err(e) = c.execute() {
+                    eprintln!("{}: {}", self.source_filename, e)
+                }
+            });
+    }
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all(deserialize = "lowercase"))]
+enum ModuleType {
+    Binary,
+    Text,
+}
+
+// TODO: also map for errors
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all(deserialize = "snake_case"))]
+#[derive(PartialEq)]
+enum Assertion {
+    #[serde(alias = "module")]
+    AssertValid { line: u64, filename: String },
+    AssertMalformed {
+        line: u64,
+        filename: String,
+        text: String,
+        module_type: ModuleType,
+    },
+    #[serde(other)]
+    Other,
+}
+
+impl Assertion {
+    fn is_binary(&self) -> bool {
+        matches!(
+            self,
+            Assertion::AssertValid { .. }
+                | Assertion::AssertMalformed {
+                    module_type: ModuleType::Binary,
+                    ..
+                }
+        )
+    }
+
+    fn execute(&self) -> Result<()> {
+        if !self.is_binary() {
+            return Ok(());
+        }
+
+        match self {
+            Self::AssertValid { filename, .. } => {
+                match decode(File::open(resolve_fixture(filename)).expect(filename)) {
+                    Ok(_) => Ok(()),
+                    Err(e) => bail!("expected {filename} to be valid; got: {e}"),
+                }
+            }
+            Self::AssertMalformed { filename, .. } => {
+                if decode(File::open(resolve_fixture(filename)).expect(filename)).is_ok() {
+                    bail!("expected {} to be malformed", filename);
+                }
+                Ok(())
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn resolve_fixture(filename: &str) -> String {
+    FIXTURE_PATH.to_owned() + filename
+}
+
+#[test]
+fn it_passes_upstream_spec_tests() {
+    setup();
+
+    for fname in files_with_ext(FIXTURE_PATH, ".json") {
+        let f = File::open(fname).unwrap();
+        let test_script: TestScript = serde_json::from_reader(f).unwrap();
+        test_script.execute()
+    }
+}
+
+fn files_with_ext(path: &str, ext: &str) -> impl Iterator<Item = std::path::PathBuf> {
+    fs::read_dir(path)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().unwrap().is_file())
+        .filter_map(move |entry| {
+            let filename = entry.file_name().into_string().unwrap();
+            filename.ends_with(ext).then_some(entry.path())
+        })
+}
+
+fn setup() {
+    println!("generating fixtures from spec testsuite ...");
+
+    const TEST_SCRIPTS_PATH: &str = "./spec/test/core/";
+
+    for fname in files_with_ext(TEST_SCRIPTS_PATH, ".wast") {
+        let output = Command::new("wast2json")
+            .current_dir(FIXTURE_PATH)
+            .arg("../../../".to_owned() + fname.to_str().unwrap())
+            .output()
+            .unwrap();
+
+        if !output.status.success() {
+            io::stderr().write_all(&output.stderr).unwrap();
+        }
+        io::stderr().write_all(&output.stderr).unwrap();
+    }
+}

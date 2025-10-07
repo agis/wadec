@@ -5,6 +5,7 @@ use wadec::index::*;
 use wadec::instr::*;
 use wadec::*;
 
+#[allow(dead_code)]
 #[test]
 fn parse_preamble() {
     let mut input: &[u8] = &[];

@@ -2,3 +2,6 @@
 TODO
 WebAssembly-2.0.pdf
 /tests/fixtures/*.wat
+/tests/fixtures/spec/*.json
+/tests/fixtures/spec/*.wasm
+/tests/fixtures/spec/*.wat
