@@ -437,7 +437,7 @@ fn parse_import<R: io::Read>(reader: &mut R) -> Result<Import> {
     let mut desc_kind = [0u8];
     reader.read_exact(&mut desc_kind)?;
     let desc = match desc_kind[0] {
-        0x00 => ImportDesc::Type(TypeIdx(parse_u32(reader)?)),
+        0x00 => ImportDesc::Type(TypeIdx::read(reader)?),
         0x01 => ImportDesc::Table(parse_table(reader)?),
         0x02 => ImportDesc::Mem(parse_memtype(reader)?),
         0x03 => ImportDesc::Global(parse_globaltype(reader)?),
@@ -546,10 +546,18 @@ fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
     let size = parse_u32(reader)?;
 
     let mut reader = reader.take(size.into());
+    let mut expanded_locals: u64 = 0;
 
     let locals = parse_vec(&mut reader, |r| {
+        let count = parse_u32(r)?;
+
+        expanded_locals += count as u64;
+        if expanded_locals > u32::MAX.into() {
+            bail!("code locals out of bound: {}", expanded_locals);
+        }
+
         Ok(Local {
-            count: parse_u32(r)?,
+            count,
             t: ValType::read(r)?,
         })
     })?;
