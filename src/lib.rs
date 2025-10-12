@@ -546,10 +546,18 @@ fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
     let size = parse_u32(reader)?;
 
     let mut reader = reader.take(size.into());
+    let mut expanded_locals: u64 = 0;
 
     let locals = parse_vec(&mut reader, |r| {
+        let count = parse_u32(r)?;
+
+        expanded_locals += count as u64;
+        if expanded_locals > u32::MAX.into() {
+            bail!("code locals out of bound: {}", expanded_locals);
+        }
+
         Ok(Local {
-            count: parse_u32(r)?,
+            count,
             t: ValType::read(r)?,
         })
     })?;
