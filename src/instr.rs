@@ -337,7 +337,7 @@ impl Instr {
                     0x3C => Instr::I64Store8(m),
                     0x3D => Instr::I64Store16(m),
                     0x3E => Instr::I64Store32(m),
-                    n => bail!("unexpected memory instruction {:X}", n),
+                    n => bail!("unexpected memory opcode: {:X}", n),
                 }
             }
             0x3F => {
