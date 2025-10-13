@@ -263,13 +263,21 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
         ..Default::default()
     };
 
+    // track this to enforce that if the function section declares one or more
+    // functions, then the code section is required (per section 5.5.16)
+    let mut encountered_code_section = false;
+
+    // track this to enforce that a data count section must be present if a
+    // data index appears in one of the instructions of the Code section
+    // (per section 5.5.16)
+    let mut encountered_data_idx_in_code_section = false;
+
     while let Some(section_header) = parse_section_header(&mut input)? {
         let mut section_reader = &mut input.by_ref().take(section_header.size.into());
 
         module.validate_section_kind_expected(&section_header)?;
 
         let section_kind = section_header.kind;
-
         match section_kind {
             SectionKind::Custom => {
                 module
@@ -298,6 +306,8 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                 module.data_count = Some(parse_datacount_section(section_reader)?)
             }
             SectionKind::Code => {
+                encountered_code_section = true;
+
                 let codes = parse_code_section(section_reader)?;
                 if codes.len() != module.funcs.len() {
                     bail!("code entries len do not match with funcs entries len");
@@ -309,6 +319,17 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                             module.funcs[i].locals.push(local.t);
                         }
                     }
+
+                    for instr in code.expr.iter() {
+                        match instr {
+                            Instr::MemoryInit(_) | Instr::DataDrop(_) => {
+                                encountered_data_idx_in_code_section = true;
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+
                     module.funcs[i].body = code.expr;
                 }
             }
@@ -345,6 +366,29 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             // to compare against
             module.parsed_section_kinds.push(section_kind);
         }
+    }
+
+    // Section 5.5.16: The lengths of vectors produced by the (possibly empty)
+    // function and code section must match up
+    if !module.funcs.is_empty() && !encountered_code_section {
+        // if we encountered a Code section, it means we already checked that
+        // its count matches the Function section count. (Function section comes
+        // before Code section.)
+        bail!("function section has non-zero count but code section was absent")
+    }
+
+    // Section 5.5.16: Similarly, the optional data count must match the length
+    // of the data segment vector
+    if let Some(n) = module.data_count
+        && module.datas.len() != n.try_into().unwrap()
+    {
+        bail!("data count ({n}) was present but data segment did not match it",)
+    }
+
+    // Section 5.5.16: Furthermore, it must be present if any data index
+    // occurs in the code section
+    if encountered_data_idx_in_code_section && module.data_count.is_none() {
+        bail!("data count section required because of data index in code section")
     }
 
     Ok(module)
