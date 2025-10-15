@@ -54,6 +54,19 @@ enum Assertion {
 }
 
 impl Assertion {
+    const EXCLUDED: [&str; 5] = [
+        // these tests are bogus in the upstream v2.0 branch
+        // (see https://github.com/WebAssembly/spec/issues/2012).
+        //
+        // TODO: re-enable them when we migrate to the v3.0, since they're fixed
+        // in that one
+        "align.109.wasm",
+        "align.110.wasm",
+        "align.111.wasm",
+        "align.112.wasm",
+        "align.113.wasm",
+    ];
+
     fn is_binary(&self) -> bool {
         matches!(
             self,
@@ -72,12 +85,18 @@ impl Assertion {
 
         match self {
             Self::AssertValid { filename, .. } => {
+                if Self::EXCLUDED.contains(&filename.as_str()) {
+                    return Ok(());
+                }
                 match decode(File::open(resolve_fixture(filename)).expect(filename)) {
                     Ok(_) => Ok(()),
                     Err(e) => bail!("expected {filename} to be valid; got: {e}"),
                 }
             }
             Self::AssertMalformed { filename, .. } => {
+                if Self::EXCLUDED.contains(&filename.as_str()) {
+                    return Ok(());
+                }
                 if decode(File::open(resolve_fixture(filename)).expect(filename)).is_ok() {
                     bail!("expected {} to be malformed", filename);
                 }
