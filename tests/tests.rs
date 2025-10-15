@@ -2280,6 +2280,128 @@ fn it_decodes_numeric_instructions() {
 }
 
 #[test]
+fn it_decodes_vector_instructions() {
+    let f = File::open("./tests/fixtures/vector_instructions.wasm").unwrap();
+
+    let module = decode(f).unwrap();
+
+    assert_eq!(
+        module.parsed_section_kinds,
+        vec![
+            SectionKind::Type,
+            SectionKind::Function,
+            SectionKind::Memory,
+            SectionKind::Export,
+            SectionKind::Code,
+            SectionKind::Data,
+        ]
+    );
+
+    assert_eq!(
+        module.section_headers,
+        vec![
+            SectionHeader {
+                kind: SectionKind::Type,
+                size: 4,
+            },
+            SectionHeader {
+                kind: SectionKind::Function,
+                size: 2,
+            },
+            SectionHeader {
+                kind: SectionKind::Memory,
+                size: 3,
+            },
+            SectionHeader {
+                kind: SectionKind::Export,
+                size: 15,
+            },
+            SectionHeader {
+                kind: SectionKind::Code,
+                size: 204,
+            },
+            SectionHeader {
+                kind: SectionKind::Data,
+                size: 70,
+            },
+        ]
+    );
+
+    assert_eq!(
+        module.types,
+        vec![FuncType {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        }]
+    );
+
+    assert_eq!(
+        module.mems,
+        vec![Mem {
+            limits: Limits { min: 1, max: None },
+        }]
+    );
+
+    assert_eq!(
+        module.exports,
+        vec![Export {
+            name: "use_vectors".to_owned(),
+            desc: ExportDesc::Func(FuncIdx(0)),
+        }]
+    );
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(func.r#type, TypeIdx(0));
+    assert!(func.locals.is_empty());
+    assert_eq!(func.body.len(), 26);
+    let actual_body: Vec<String> = func.body.iter().map(|instr| format!("{instr:?}")).collect();
+    let expected_body: Vec<String> = vec![
+        "I32Const(0)",
+        "V128Load(Memarg { align: 4, offset: 0 })",
+        "I32Const(16)",
+        "V128Load(Memarg { align: 4, offset: 0 })",
+        "I8x16Add",
+        "V128Const([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])",
+        "V128Const([16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])",
+        "V128Bitselect",
+        "Drop",
+        "V128Const([32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47])",
+        "I8x16ExtractLaneS(LaneIdx(0))",
+        "Drop",
+        "V128Const([48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63])",
+        "I32Const(7)",
+        "I8x16ReplaceLane(LaneIdx(5))",
+        "Drop",
+        "V128Const([64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79])",
+        "V128Const([80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95])",
+        "I8x16Shuffle([LaneIdx(0), LaneIdx(16), LaneIdx(1), LaneIdx(17), LaneIdx(2), LaneIdx(18), LaneIdx(3), LaneIdx(19), LaneIdx(4), LaneIdx(20), LaneIdx(5), LaneIdx(21), LaneIdx(6), LaneIdx(22), LaneIdx(7), LaneIdx(23)])",
+        "Drop",
+        "V128Const([96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111])",
+        "V128AnyTrue",
+        "Drop",
+        "I32Const(0)",
+        "V128Const([112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127])",
+        "V128Store(Memarg { align: 4, offset: 0 })",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    assert_eq!(actual_body, expected_body);
+
+    assert_eq!(module.datas.len(), 1);
+    let data = &module.datas[0];
+    assert_eq!(data.init, (0..64).map(|b| b as u8).collect::<Vec<_>>());
+    match &data.mode {
+        DataMode::Active { memory, offset } => {
+            assert_eq!(*memory, MemIdx(0));
+            assert_eq!(offset, &vec![Instr::I32Const(0)]);
+        }
+        other => panic!("unexpected data mode: {:?}", other),
+    }
+}
+
+#[test]
 fn it_respects_mem_limits() {
     let f = File::open("tests/fixtures/mem_limits_bug.wasm").unwrap();
 

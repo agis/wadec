@@ -3,7 +3,7 @@ pub mod instr;
 
 use crate::index::*;
 use crate::instr::{Instr, Parsed};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::io;
 use std::io::Read;
 
