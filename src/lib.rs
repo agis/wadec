@@ -1,11 +1,13 @@
 pub mod index;
 pub mod instr;
+mod integer;
 
 use crate::index::*;
 use crate::instr::{Instr, Parsed};
 use anyhow::{Result, bail};
 use std::io;
 use std::io::Read;
+use integer::*;
 
 const VERSION: [u8; 4] = [0x01, 0x00, 0x00, 0x00];
 
@@ -415,7 +417,7 @@ fn parse_section_header<R: io::Read>(reader: &mut R) -> Result<Option<SectionHea
     }?;
 
     let kind = SectionKind::try_from(b.unwrap())?;
-    let size = parse_u32(reader)?;
+    let size = read_u32(reader)?;
 
     Ok(Some(SectionHeader { kind, size }))
 }
@@ -527,7 +529,7 @@ fn parse_export<R: io::Read>(reader: &mut R) -> Result<Export> {
     let name = parse_name(reader)?;
 
     let desc_kind = read_byte(reader)?;
-    let idx = parse_u32(reader)?;
+    let idx = read_u32(reader)?;
     let desc = ExportDesc::from(desc_kind, idx)?;
 
     Ok(Export { name, desc })
@@ -587,13 +589,13 @@ fn parse_code_section<R: io::Read>(reader: &mut R) -> Result<Vec<Code>> {
 }
 
 fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
-    let size = parse_u32(reader)?;
+    let size = read_u32(reader)?;
 
     let mut reader = reader.take(size.into());
     let mut expanded_locals: u64 = 0;
 
     let locals = parse_vec(&mut reader, |r| {
-        let count = parse_u32(r)?;
+        let count = read_u32(r)?;
 
         expanded_locals += count as u64;
         if expanded_locals > u32::MAX.into() {
@@ -642,7 +644,7 @@ fn parse_element_section<R: io::Read>(reader: &mut R) -> Result<Vec<Elem>> {
 }
 
 fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
-    let bitfield = parse_u32(reader)?;
+    let bitfield = read_u32(reader)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
         idxs.into_iter()
@@ -767,7 +769,7 @@ fn parse_data<R: io::Read>(reader: &mut R) -> Result<Data> {
     let init: Vec<u8>;
     let mode: DataMode;
 
-    (init, mode) = match parse_u32(reader)? {
+    (init, mode) = match read_u32(reader)? {
         0 => {
             let e = parse_expr(reader)?;
             (
@@ -780,7 +782,7 @@ fn parse_data<R: io::Read>(reader: &mut R) -> Result<Data> {
         }
         1 => (parse_byte_vec(reader)?, DataMode::Passive),
         2 => {
-            let x = parse_u32(reader)?;
+            let x = read_u32(reader)?;
             let e = parse_expr(reader)?;
 
             (
@@ -798,7 +800,7 @@ fn parse_data<R: io::Read>(reader: &mut R) -> Result<Data> {
 }
 
 fn parse_datacount_section<R: io::Read>(reader: &mut R) -> Result<u32> {
-    parse_u32(reader)
+    read_u32(reader)
 }
 
 fn parse_expr<R: io::Read>(reader: &mut R) -> Result<Expr> {
@@ -824,26 +826,14 @@ fn parse_limits<R: io::Read + ?Sized>(reader: &mut R) -> Result<Limits> {
         n => bail!("unexpected limits byte: {:x}", n),
     };
 
-    let min = parse_u32(reader)?;
+    let min = read_u32(reader)?;
     let mut max = None;
 
     if has_max {
-        max = Some(parse_u32(reader)?);
+        max = Some(read_u32(reader)?);
     }
 
     Ok(Limits { min, max })
-}
-
-fn parse_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
-    Ok(leb128::read::unsigned(reader)?.try_into()?)
-}
-
-fn parse_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32> {
-    Ok(leb128::read::signed(reader)?.try_into()?)
-}
-
-fn parse_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
-    Ok(leb128::read::signed(reader)?)
 }
 
 fn parse_f32<R: io::Read + ?Sized>(r: &mut R) -> Result<f32> {
@@ -863,7 +853,7 @@ where
     R: io::Read + ?Sized,
     F: FnMut(&mut R) -> Result<T>,
 {
-    let len = parse_u32(reader)?;
+    let len = read_u32(reader)?;
     let mut items = Vec::with_capacity(len.try_into().unwrap());
     for _ in 0..len {
         items.push(parse_item(reader)?);
@@ -883,7 +873,7 @@ fn read_byte<R: io::Read + ?Sized>(reader: &mut R) -> Result<u8, io::Error> {
 }
 
 fn parse_byte_vec<R: io::Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>> {
-    let len = parse_u32(reader)?;
+    let len = read_u32(reader)?;
     let mut b = vec![0u8; len.try_into().unwrap()];
     reader.read_exact(&mut b)?;
     Ok(b)
