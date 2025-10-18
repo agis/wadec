@@ -1,4 +1,4 @@
-use crate::parse_u32;
+use crate::integer;
 use anyhow::Result;
 use std::io;
 
@@ -9,7 +9,7 @@ macro_rules! define_index {
 
         impl $name {
             pub fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-                Ok(Self(parse_u32(r)?))
+                Ok(Self(integer::read_u32(r)?))
             }
         }
     };

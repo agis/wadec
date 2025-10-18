@@ -7,7 +7,7 @@ use wadec::*;
 
 #[allow(dead_code)]
 #[test]
-fn parse_preamble() {
+fn it_parses_preamble() {
     let mut input: &[u8] = &[];
     assert!(decode(input).is_err());
 

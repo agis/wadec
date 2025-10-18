@@ -1,4 +1,5 @@
 use crate::*;
+use integer::*;
 use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -587,8 +588,8 @@ impl Instr {
             }
 
             // --- Numeric instructions (5.4.7) ---
-            0x41 => Instr::I32Const(parse_i32(reader)?),
-            0x42 => Instr::I64Const(parse_i64(reader)?),
+            0x41 => Instr::I32Const(read_i32(reader)?),
+            0x42 => Instr::I64Const(read_i64(reader)?),
             0x43 => Instr::F32Const(parse_f32(reader)?),
             0x44 => Instr::F64Const(parse_f64(reader)?),
             0x45 => Instr::I32Eqz,
@@ -721,7 +722,7 @@ impl Instr {
             0xC4 => Instr::I64Extend32S,
 
             // 0xFC is shared by Table, Memory and Numeric instructions
-            0xFC => match parse_u32(reader)? {
+            0xFC => match read_u32(reader)? {
                 // --- Numeric saturating truncation ---
                 0 => Instr::I32TruncSatF32S,
                 1 => Instr::I32TruncSatF32U,
@@ -772,7 +773,7 @@ impl Instr {
                 n => bail!("unexpected table instr prefix byte `{:x}`", n),
             },
 
-            0xFD => match parse_u32(reader)? {
+            0xFD => match read_u32(reader)? {
                 op @ (0..=11 | 92 | 93) => {
                     let m = Memarg::read(reader)?;
                     match op {
@@ -1061,8 +1062,8 @@ pub struct Memarg {
 impl Memarg {
     fn read<R: io::Read>(reader: &mut R) -> Result<Memarg> {
         Ok(Self {
-            align: parse_u32(reader)?,
-            offset: parse_u32(reader)?,
+            align: read_u32(reader)?,
+            offset: read_u32(reader)?,
         })
     }
 }
@@ -1096,7 +1097,7 @@ impl BlockType {
         }
 
         let mut chain = Cursor::new([b]).chain(reader);
-        let x = parse_i64(&mut chain)?;
+        let x = read_i64(&mut chain)?;
         if x < 0 {
             bail!("blocktype integer negative");
         }
