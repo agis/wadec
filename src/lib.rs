@@ -340,13 +340,11 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Data => {
                 let datas = parse_data_section(section_reader)?;
 
-                if let Some(data_count) = module.data_count
-                    && usize::try_from(data_count)? != datas.len()
-                {
+                if let Some(data_count) = module.data_count && datas.len() != data_count.try_into()? {
                     bail!(
-                        "data segments do not match the data count section: {} - {}",
-                        module.datas.len(),
+                        "number of data segments ({}) do not match the data count section ({})",
                         data_count,
+                        datas.len()
                     );
                 }
 
@@ -383,9 +381,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
 
     // Section 5.5.16: Similarly, the optional data count must match the length
     // of the data segment vector
-    if let Some(n) = module.data_count
-        && module.datas.len() != n.try_into().unwrap()
-    {
+    if let Some(n) = module.data_count && usize::try_from(n)? != module.datas.len() {
         bail!("data count ({n}) was present but data segment did not match it",)
     }
 
