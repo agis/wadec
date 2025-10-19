@@ -1,5 +1,7 @@
-use crate::*;
-use integer::*;
+use crate::index::*;
+use crate::integer::*;
+use crate::{parse_f32, parse_f64, parse_vec, read_byte, RefType, ValType};
+use anyhow::{bail, Result};
 use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -456,7 +458,7 @@ pub enum Instr {
 }
 
 impl Instr {
-    pub fn parse<R: io::Read>(reader: &mut R) -> Result<Parsed> {
+    pub fn parse<R: Read>(reader: &mut R) -> Result<Parsed> {
         let mut buf = [0u8];
 
         let _ = match reader.read_exact(&mut buf) {
@@ -1060,7 +1062,7 @@ pub struct Memarg {
 }
 
 impl Memarg {
-    fn read<R: io::Read>(reader: &mut R) -> Result<Memarg> {
+    fn read<R: Read>(reader: &mut R) -> Result<Memarg> {
         Ok(Self {
             align: read_u32(reader)?,
             offset: read_u32(reader)?,
@@ -1072,7 +1074,7 @@ impl Memarg {
 pub struct LaneIdx(u8);
 
 impl LaneIdx {
-    fn read<R: io::Read>(reader: &mut R) -> Result<Self> {
+    fn read<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(Self(read_byte(reader)?))
     }
 }
@@ -1085,7 +1087,7 @@ pub enum BlockType {
 }
 
 impl BlockType {
-    fn read<R: io::Read>(reader: &mut R) -> Result<Self> {
+    fn read<R: Read>(reader: &mut R) -> Result<Self> {
         let b = read_byte(reader)?;
 
         if b == 0x40 {

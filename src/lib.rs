@@ -178,7 +178,7 @@ impl TryFrom<u8> for ValType {
 }
 
 impl ValType {
-    fn read<R: io::Read>(reader: &mut R) -> Result<ValType> {
+    fn read<R: Read>(reader: &mut R) -> Result<ValType> {
         read_byte(reader)?.try_into()
     }
 }
@@ -243,7 +243,7 @@ pub enum RefType {
 }
 
 impl RefType {
-    fn read(r: &mut impl io::Read) -> Result<Self> {
+    fn read<R: Read>(r: &mut R) -> Result<Self> {
         read_byte(r)?.try_into()
     }
 }
@@ -394,7 +394,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
     Ok(module)
 }
 
-fn parse_preamble<R: io::Read>(reader: &mut R) -> Result<()> {
+fn parse_preamble<R: Read>(reader: &mut R) -> Result<()> {
     const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 
     let mut preamble: [u8; 8] = [0u8; 8];
@@ -406,7 +406,7 @@ fn parse_preamble<R: io::Read>(reader: &mut R) -> Result<()> {
     Ok(())
 }
 
-fn parse_section_header<R: io::Read>(reader: &mut R) -> Result<Option<SectionHeader>> {
+fn parse_section_header<R: Read>(reader: &mut R) -> Result<Option<SectionHeader>> {
     let b = read_byte(reader);
     match b {
         Ok(_) => Ok::<(), anyhow::Error>(()),
@@ -420,7 +420,7 @@ fn parse_section_header<R: io::Read>(reader: &mut R) -> Result<Option<SectionHea
     Ok(Some(SectionHeader { kind, size }))
 }
 
-fn parse_custom_section<R: io::Read>(reader: &mut R) -> Result<CustomSection> {
+fn parse_custom_section<R: Read>(reader: &mut R) -> Result<CustomSection> {
     let name = parse_name(reader)?;
     let mut contents = Vec::new();
     reader.read_to_end(&mut contents)?;
@@ -429,11 +429,11 @@ fn parse_custom_section<R: io::Read>(reader: &mut R) -> Result<CustomSection> {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#binary-typesec
-fn parse_type_section<R: io::Read>(reader: &mut R) -> Result<Vec<FuncType>> {
+fn parse_type_section<R: Read>(reader: &mut R) -> Result<Vec<FuncType>> {
     parse_vec(reader, parse_functype)
 }
 
-fn parse_functype<R: io::Read>(reader: &mut R) -> Result<FuncType> {
+fn parse_functype<R: Read>(reader: &mut R) -> Result<FuncType> {
     let b = read_byte(reader)?;
     if b != 0x60 {
         bail!("expected functype marker 0x60, got {:#X}", b);
@@ -449,7 +449,7 @@ fn parse_functype<R: io::Read>(reader: &mut R) -> Result<FuncType> {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
-fn parse_function_section<R: io::Read>(reader: &mut R) -> Result<Vec<TypeIdx>> {
+fn parse_function_section<R: Read>(reader: &mut R) -> Result<Vec<TypeIdx>> {
     parse_vec(reader, TypeIdx::read)
 }
 
@@ -469,11 +469,11 @@ pub enum ImportDesc {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#import-section
-fn parse_import_section<R: io::Read>(reader: &mut R) -> Result<Vec<Import>> {
+fn parse_import_section<R: Read>(reader: &mut R) -> Result<Vec<Import>> {
     parse_vec(reader, parse_import)
 }
 
-fn parse_import<R: io::Read>(reader: &mut R) -> Result<Import> {
+fn parse_import<R: Read>(reader: &mut R) -> Result<Import> {
     let module = parse_name(reader)?;
     let name = parse_name(reader)?;
 
@@ -519,11 +519,11 @@ impl ExportDesc {
 }
 
 // TODO: validate that names are unique?
-fn parse_export_section<R: io::Read>(reader: &mut R) -> Result<Vec<Export>> {
+fn parse_export_section<R: Read>(reader: &mut R) -> Result<Vec<Export>> {
     parse_vec(reader, parse_export)
 }
 
-fn parse_export<R: io::Read>(reader: &mut R) -> Result<Export> {
+fn parse_export<R: Read>(reader: &mut R) -> Result<Export> {
     let name = parse_name(reader)?;
 
     let desc_kind = read_byte(reader)?;
@@ -533,28 +533,28 @@ fn parse_export<R: io::Read>(reader: &mut R) -> Result<Export> {
     Ok(Export { name, desc })
 }
 
-fn parse_table_section<R: io::Read>(reader: &mut R) -> Result<Vec<Table>> {
+fn parse_table_section<R: Read>(reader: &mut R) -> Result<Vec<Table>> {
     parse_vec(reader, parse_table)
 }
 
-fn parse_table<R: io::Read>(reader: &mut R) -> Result<Table> {
+fn parse_table<R: Read>(reader: &mut R) -> Result<Table> {
     Ok(Table {
         reftype: RefType::read(reader)?,
         limits: parse_limits(reader)?,
     })
 }
 
-fn parse_memory_section<R: io::Read>(reader: &mut R) -> Result<Vec<Mem>> {
+fn parse_memory_section<R: Read>(reader: &mut R) -> Result<Vec<Mem>> {
     parse_vec(reader, parse_memtype)
 }
 
-fn parse_memtype<R: io::Read>(reader: &mut R) -> Result<Mem> {
+fn parse_memtype<R: Read>(reader: &mut R) -> Result<Mem> {
     Ok(Mem {
         limits: parse_limits(reader)?,
     })
 }
 
-fn parse_global_section<R: io::Read>(reader: &mut R) -> Result<Vec<Global>> {
+fn parse_global_section<R: Read>(reader: &mut R) -> Result<Vec<Global>> {
     parse_vec(reader, |r| {
         Ok(Global {
             r#type: parse_globaltype(r)?,
@@ -563,7 +563,7 @@ fn parse_global_section<R: io::Read>(reader: &mut R) -> Result<Vec<Global>> {
     })
 }
 
-fn parse_globaltype<R: io::Read>(reader: &mut R) -> Result<GlobalType> {
+fn parse_globaltype<R: Read>(reader: &mut R) -> Result<GlobalType> {
     let valtype = ValType::read(reader)?;
     let r#mut: Mut = read_byte(reader)?.try_into()?;
     Ok(GlobalType(r#mut, valtype))
@@ -582,11 +582,11 @@ struct Local {
     t: ValType,
 }
 
-fn parse_code_section<R: io::Read>(reader: &mut R) -> Result<Vec<Code>> {
+fn parse_code_section<R: Read>(reader: &mut R) -> Result<Vec<Code>> {
     parse_vec(reader, parse_code)
 }
 
-fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
+fn parse_code<R: Read>(reader: &mut R) -> Result<Code> {
     let size = read_u32(reader)?;
 
     let mut reader = reader.take(size.into());
@@ -619,7 +619,7 @@ fn parse_code<R: io::Read>(reader: &mut R) -> Result<Code> {
     Ok(Code { size, locals, expr })
 }
 
-fn parse_start_section<R: io::Read>(reader: &mut R) -> Result<FuncIdx> {
+fn parse_start_section<R: Read>(reader: &mut R) -> Result<FuncIdx> {
     FuncIdx::read(reader)
 }
 
@@ -637,11 +637,11 @@ pub enum ElemMode {
     Declarative,
 }
 
-fn parse_element_section<R: io::Read>(reader: &mut R) -> Result<Vec<Elem>> {
+fn parse_element_section<R: Read>(reader: &mut R) -> Result<Vec<Elem>> {
     parse_vec(reader, parse_elem)
 }
 
-fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
+fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
     let bitfield = read_u32(reader)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
@@ -737,7 +737,7 @@ fn parse_elem<R: io::Read>(reader: &mut R) -> Result<Elem> {
     Ok(Elem { r#type, init, mode })
 }
 
-fn parse_elemkind<R: io::Read>(reader: &mut R) -> Result<RefType> {
+fn parse_elemkind<R: Read>(reader: &mut R) -> Result<RefType> {
     // we intentionally don't use RefType::read, since the spec uses 0x00
     // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(reader)?;
@@ -759,11 +759,11 @@ pub enum DataMode {
     Active { memory: MemIdx, offset: Expr },
 }
 
-fn parse_data_section<R: io::Read>(reader: &mut R) -> Result<Vec<Data>> {
+fn parse_data_section<R: Read>(reader: &mut R) -> Result<Vec<Data>> {
     parse_vec(reader, parse_data)
 }
 
-fn parse_data<R: io::Read>(reader: &mut R) -> Result<Data> {
+fn parse_data<R: Read>(reader: &mut R) -> Result<Data> {
     let init: Vec<u8>;
     let mode: DataMode;
 
@@ -797,11 +797,11 @@ fn parse_data<R: io::Read>(reader: &mut R) -> Result<Data> {
     Ok(Data { init, mode })
 }
 
-fn parse_datacount_section<R: io::Read>(reader: &mut R) -> Result<u32> {
+fn parse_datacount_section<R: Read>(reader: &mut R) -> Result<u32> {
     read_u32(reader)
 }
 
-fn parse_expr<R: io::Read>(reader: &mut R) -> Result<Expr> {
+fn parse_expr<R: Read>(reader: &mut R) -> Result<Expr> {
     let mut body = Vec::new();
 
     loop {
@@ -817,7 +817,7 @@ fn parse_expr<R: io::Read>(reader: &mut R) -> Result<Expr> {
     Ok(body)
 }
 
-fn parse_limits<R: io::Read + ?Sized>(reader: &mut R) -> Result<Limits> {
+fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits> {
     let has_max = match read_byte(reader)? {
         0x00 => false,
         0x01 => true,
@@ -834,13 +834,13 @@ fn parse_limits<R: io::Read + ?Sized>(reader: &mut R) -> Result<Limits> {
     Ok(Limits { min, max })
 }
 
-fn parse_f32<R: io::Read + ?Sized>(r: &mut R) -> Result<f32> {
+fn parse_f32<R: Read + ?Sized>(r: &mut R) -> Result<f32> {
     let mut buf = [0u8; 4];
     r.read_exact(&mut buf)?;
     Ok(f32::from_le_bytes(buf))
 }
 
-fn parse_f64<R: io::Read + ?Sized>(r: &mut R) -> Result<f64> {
+fn parse_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64> {
     let mut buf = [0u8; 8];
     r.read_exact(&mut buf)?;
     Ok(f64::from_le_bytes(buf))
@@ -848,7 +848,7 @@ fn parse_f64<R: io::Read + ?Sized>(r: &mut R) -> Result<f64> {
 
 fn parse_vec<R, T, F>(reader: &mut R, mut parse_item: F) -> Result<Vec<T>>
 where
-    R: io::Read + ?Sized,
+    R: Read + ?Sized,
     F: FnMut(&mut R) -> Result<T>,
 {
     let len = read_u32(reader)?;
@@ -860,17 +860,17 @@ where
     Ok(items)
 }
 
-fn parse_name<R: io::Read + ?Sized>(reader: &mut R) -> Result<String> {
+fn parse_name<R: Read + ?Sized>(reader: &mut R) -> Result<String> {
     Ok(parse_byte_vec(reader)?.try_into()?)
 }
 
-fn read_byte<R: io::Read + ?Sized>(reader: &mut R) -> Result<u8, io::Error> {
+fn read_byte<R: Read + ?Sized>(reader: &mut R) -> Result<u8, io::Error> {
     let mut buf = [0u8];
     reader.read_exact(&mut buf)?;
     Ok(buf[0])
 }
 
-fn parse_byte_vec<R: io::Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>> {
+fn parse_byte_vec<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>> {
     let len = read_u32(reader)?;
     let mut b = vec![0u8; len.try_into().unwrap()];
     reader.read_exact(&mut b)?;

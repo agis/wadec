@@ -1,6 +1,6 @@
-use crate::integer;
+use crate::integer::read_u32;
 use anyhow::Result;
-use std::io;
+use std::io::Read;
 
 macro_rules! define_index {
     ($name:ident) => {
@@ -8,8 +8,8 @@ macro_rules! define_index {
         pub struct $name(pub u32);
 
         impl $name {
-            pub fn read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self> {
-                Ok(Self(integer::read_u32(r)?))
+            pub fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self> {
+                Ok(Self(read_u32(r)?))
             }
         }
     };
