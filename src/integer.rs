@@ -130,8 +130,7 @@ mod tests {
         loop {
             let mut byte = (value & 0x7F) as u8;
             value >>= 7;
-            let done = (value == 0 && (byte & 0x40) == 0)
-                || (value == -1 && (byte & 0x40) != 0);
+            let done = (value == 0 && (byte & 0x40) == 0) || (value == -1 && (byte & 0x40) != 0);
             if done {
                 out.push(byte);
                 break;

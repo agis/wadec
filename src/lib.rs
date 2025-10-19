@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod index;
 pub mod instr;
 mod integer;
