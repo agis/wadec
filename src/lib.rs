@@ -798,7 +798,7 @@ fn parse_data<R: Read>(reader: &mut R) -> Result<Data> {
 }
 
 fn parse_datacount_section<R: Read>(reader: &mut R) -> Result<u32> {
-    read_u32(reader)
+    Ok(read_u32(reader)?)
 }
 
 fn parse_expr<R: Read>(reader: &mut R) -> Result<Expr> {

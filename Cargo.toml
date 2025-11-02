@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.99"
+thiserror = "2.0.17"
 
 [dev-dependencies]
 googletest = "0.14.2"

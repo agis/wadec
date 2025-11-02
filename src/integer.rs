@@ -1,6 +1,32 @@
 use crate::read_byte;
-use anyhow::{bail, Result};
 use std::io;
+use thiserror::Error;
+
+type Result<T> = std::result::Result<T, DecodeError>;
+
+#[derive(Error, Debug)]
+pub enum DecodeError {
+    #[error("uint32 too large")]
+    Uint32TooLarge,
+
+    #[error("uint32 representation too long")]
+    Uint32RepresentationTooLong,
+
+    #[error("int32 too large")]
+    Int32TooLarge,
+
+    #[error("int32 representation too long")]
+    Int32RepresentationTooLong,
+
+    #[error("int64 representation too long")]
+    Int64RepresentationTooLong,
+
+    #[error("int64 incorrect sign extension")]
+    Int64IncorrectSignExtension,
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
 
 pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
     let mut result: u32 = 0;
@@ -21,7 +47,7 @@ pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
                 //
                 // Therefore, ensure that the rest of those bits do not carry
                 // any payload.
-                bail!("invalid u32: integer too large");
+                return Err(DecodeError::Uint32TooLarge);
             }
             return Ok(result);
         }
@@ -31,7 +57,7 @@ pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
         shift += 7;
     }
 
-    bail!("invalid u32: integer representation too long");
+    Err(DecodeError::Uint32RepresentationTooLong)
 }
 
 pub(crate) fn read_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32> {
@@ -55,14 +81,14 @@ pub(crate) fn read_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32> {
             }
 
             if !(MIN..=MAX).contains(&result) {
-                bail!("invalid i32: integer too large");
+                return Err(DecodeError::Int32TooLarge);
             }
 
             return Ok(i32::try_from(result).unwrap());
         }
     }
 
-    bail!("invalid i32: integer representation too long");
+    Err(DecodeError::Int32RepresentationTooLong)
 }
 
 pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
@@ -85,11 +111,11 @@ pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
                 let padding = byte & 0b0011_1111 /* 0x3F */;
                 if is_negative && padding != 0b0011_1111 {
                     // six low-order bits must be all 1s
-                    bail!("invalid i64: incorrect sign extension");
+                    return Err(DecodeError::Int64IncorrectSignExtension);
                 }
                 if !is_negative && padding != 0b0000_0000 {
                     // six low-order bits must be all 0s
-                    bail!("invalid i64: incorrect sign extension");
+                    return Err(DecodeError::Int64IncorrectSignExtension);
                 }
             } else if is_negative {
                 // fill remaining high bits with ones, to sign-extend the
@@ -101,7 +127,7 @@ pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
         }
     }
 
-    bail!("invalid i64: integer representation too long");
+    Err(DecodeError::Int64RepresentationTooLong)
 }
 
 #[cfg(test)]
@@ -168,7 +194,7 @@ mod tests {
     #[test]
     fn read_u32_rejects_payload_bits_in_last_byte() {
         let err = read_u32_from(vec![0xFF, 0xFF, 0xFF, 0xFF, 0x10]).unwrap_err();
-        assert!(err.to_string().contains("integer too large"));
+        matches!(err, DecodeError::Uint32TooLarge);
     }
 
     #[test]
@@ -179,7 +205,7 @@ mod tests {
     #[test]
     fn read_u32_rejects_representation_too_long() {
         let err = read_u32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
-        assert!(err.to_string().contains("representation too long"));
+        matches!(err, DecodeError::Uint32RepresentationTooLong);
     }
 
     #[test]
@@ -199,20 +225,20 @@ mod tests {
     fn read_i32_rejects_out_of_range_positive() {
         let bytes = encode_sleb64(i64::from(i32::MAX) + 1);
         let err = read_i32_from(bytes).unwrap_err();
-        assert!(err.to_string().contains("integer too large"));
+        matches!(err, DecodeError::Int32TooLarge);
     }
 
     #[test]
     fn read_i32_rejects_out_of_range_negative() {
         let bytes = encode_sleb64(i64::from(i32::MIN) - 1);
         let err = read_i32_from(bytes).unwrap_err();
-        assert!(err.to_string().contains("integer too large"));
+        matches!(err, DecodeError::Int32TooLarge);
     }
 
     #[test]
     fn read_i32_rejects_representation_too_long() {
         let err = read_i32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
-        assert!(err.to_string().contains("representation too long"));
+        matches!(err, DecodeError::Int32RepresentationTooLong);
     }
 
     #[test]
@@ -238,9 +264,9 @@ mod tests {
     fn read_i64_rejects_incorrect_negative_padding() {
         let mut bytes = encode_sleb64(i64::MIN);
         let last = bytes.last_mut().unwrap();
-        *last = *last & !0x01; // flip one of the padding bits
+        *last &= !0x01; // flip one of the padding bits
         let err = read_i64_from(bytes).unwrap_err();
-        assert!(err.to_string().contains("incorrect sign extension"));
+        matches!(err, DecodeError::Int64IncorrectSignExtension);
     }
 
     #[test]
@@ -248,13 +274,13 @@ mod tests {
         let mut bytes = vec![0x80; 9];
         bytes.push(0x02);
         let err = read_i64_from(bytes).unwrap_err();
-        assert!(err.to_string().contains("incorrect sign extension"));
+        matches!(err, DecodeError::Int64IncorrectSignExtension);
     }
 
     #[test]
     fn read_i64_rejects_representation_too_long() {
         let err = read_i64_from(vec![0x80; 10]).unwrap_err();
-        assert!(err.to_string().contains("representation too long"));
+        matches!(err, DecodeError::Int64IncorrectSignExtension);
     }
 
     #[test]
@@ -267,7 +293,7 @@ mod tests {
     #[test]
     fn read_i64_accepts_full_length_negative_min_plus_one() {
         let mut bytes = vec![0x81];
-        bytes.extend(std::iter::repeat(0x80).take(8));
+        bytes.extend(std::iter::repeat_n(0x80, 8));
         bytes.push(0x7F);
         assert_eq!(read_i64_from(bytes).unwrap(), i64::MIN + 1);
     }
