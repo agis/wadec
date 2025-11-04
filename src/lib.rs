@@ -7,9 +7,9 @@ mod integer;
 use crate::index::*;
 use crate::instr::{Instr, Parsed};
 use anyhow::{Result, bail};
+use integer::*;
 use std::io;
 use std::io::Read;
-use integer::*;
 
 const VERSION: [u8; 4] = [0x01, 0x00, 0x00, 0x00];
 
@@ -340,7 +340,9 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
             SectionKind::Data => {
                 let datas = parse_data_section(section_reader)?;
 
-                if let Some(data_count) = module.data_count && datas.len() != data_count.try_into()? {
+                if let Some(data_count) = module.data_count
+                    && datas.len() != data_count.try_into()?
+                {
                     bail!(
                         "number of data segments ({}) do not match the data count section ({})",
                         data_count,
@@ -381,7 +383,9 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
 
     // Section 5.5.16: Similarly, the optional data count must match the length
     // of the data segment vector
-    if let Some(n) = module.data_count && usize::try_from(n)? != module.datas.len() {
+    if let Some(n) = module.data_count
+        && usize::try_from(n)? != module.datas.len()
+    {
         bail!("data count ({n}) was present but data segment did not match it",)
     }
 
@@ -450,7 +454,7 @@ fn parse_functype<R: Read>(reader: &mut R) -> Result<FuncType> {
 
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
 fn parse_function_section<R: Read>(reader: &mut R) -> Result<Vec<TypeIdx>> {
-    parse_vec(reader, TypeIdx::read)
+    parse_vec(reader, |r| Ok(TypeIdx::read(r)?))
 }
 
 #[derive(Debug, PartialEq)]
@@ -620,7 +624,7 @@ fn parse_code<R: Read>(reader: &mut R) -> Result<Code> {
 }
 
 fn parse_start_section<R: Read>(reader: &mut R) -> Result<FuncIdx> {
-    FuncIdx::read(reader)
+    Ok(FuncIdx::read(reader)?)
 }
 
 #[derive(Debug, PartialEq)]
@@ -653,7 +657,7 @@ fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
     let (r#type, init, mode) = match bitfield {
         0 => {
             let e = parse_expr(reader)?;
-            let y = parse_vec(reader, FuncIdx::read)?;
+            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
 
             (
                 RefType::Func,
@@ -666,7 +670,7 @@ fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
         }
         1 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, FuncIdx::read)?;
+            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
 
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
@@ -674,7 +678,7 @@ fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
             let x = TableIdx::read(reader)?;
             let e = parse_expr(reader)?;
             let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, FuncIdx::read)?;
+            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
 
             (
                 et,
@@ -687,7 +691,7 @@ fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
         }
         3 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, FuncIdx::read)?;
+            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
 
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }

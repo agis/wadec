@@ -2448,3 +2448,26 @@ fn it_enforces_section_ordering() {
     let f = File::open("tests/fixtures/invalid_section_order.wasm").unwrap();
     assert!(decode(f).is_err());
 }
+
+#[test]
+fn it_rejects_overlong_type_index_encoding() {
+    // Construct a minimal module containing a function section whose type index
+    // is encoded with five continuation bytes, which exceeds the allowed
+    // length for a u32 LEB128.
+    let module: &[u8] = &[
+        0x00, 0x61, 0x73, 0x6D, // magic
+        0x01, 0x00, 0x00, 0x00, // version
+        0x01, 0x04, // type section id + size
+        0x01, // type vector length
+        0x60, // functype tag
+        0x00, // param count
+        0x00, // result count
+        0x03, 0x06, // function section id + size
+        0x01, // function count
+        0x80, 0x80, 0x80, 0x80, 0x80, // overlong type index encoding
+    ];
+
+    let err = decode(module).expect_err("module should fail while reading type index");
+    let msg = err.to_string();
+    assert!(msg.contains("failed to decode TypeIdx"));
+}

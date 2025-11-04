@@ -511,7 +511,7 @@ impl Instr {
             0x0C => Instr::Br(LabelIdx::read(reader)?),
             0x0D => Instr::BrIf(LabelIdx::read(reader)?),
             0x0E => {
-                let l = parse_vec(reader, LabelIdx::read)?;
+                let l = parse_vec(reader, |r| Ok(LabelIdx::read(r)?))?;
                 let ln = LabelIdx::read(reader)?;
                 Instr::BrTable(l, ln)
             }
