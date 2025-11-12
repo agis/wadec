@@ -178,7 +178,7 @@ impl TryFrom<u8> for ValType {
 }
 
 impl ValType {
-    fn read<R: Read>(reader: &mut R) -> Result<ValType> {
+    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<ValType> {
         read_byte(reader)?.try_into()
     }
 }
@@ -243,7 +243,7 @@ pub enum RefType {
 }
 
 impl RefType {
-    fn read<R: Read>(r: &mut R) -> Result<Self> {
+    fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self> {
         read_byte(r)?.try_into()
     }
 }
@@ -398,7 +398,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
     Ok(module)
 }
 
-fn parse_preamble<R: Read>(reader: &mut R) -> Result<()> {
+fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<()> {
     const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 
     let mut preamble: [u8; 8] = [0u8; 8];
@@ -410,7 +410,7 @@ fn parse_preamble<R: Read>(reader: &mut R) -> Result<()> {
     Ok(())
 }
 
-fn parse_section_header<R: Read>(reader: &mut R) -> Result<Option<SectionHeader>> {
+fn parse_section_header<R: Read + ?Sized>(reader: &mut R) -> Result<Option<SectionHeader>> {
     let b = read_byte(reader);
     match b {
         Ok(_) => Ok::<(), anyhow::Error>(()),
@@ -424,7 +424,7 @@ fn parse_section_header<R: Read>(reader: &mut R) -> Result<Option<SectionHeader>
     Ok(Some(SectionHeader { kind, size }))
 }
 
-fn parse_custom_section<R: Read>(reader: &mut R) -> Result<CustomSection> {
+fn parse_custom_section<R: Read + ?Sized>(reader: &mut R) -> Result<CustomSection> {
     let name = parse_name(reader)?;
     let mut contents = Vec::new();
     reader.read_to_end(&mut contents)?;
@@ -433,11 +433,11 @@ fn parse_custom_section<R: Read>(reader: &mut R) -> Result<CustomSection> {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#binary-typesec
-fn parse_type_section<R: Read>(reader: &mut R) -> Result<Vec<FuncType>> {
+fn parse_type_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<FuncType>> {
     parse_vec(reader, parse_functype)
 }
 
-fn parse_functype<R: Read>(reader: &mut R) -> Result<FuncType> {
+fn parse_functype<R: Read + ?Sized>(reader: &mut R) -> Result<FuncType> {
     let b = read_byte(reader)?;
     if b != 0x60 {
         bail!("expected functype marker 0x60, got {:#X}", b);
@@ -453,7 +453,7 @@ fn parse_functype<R: Read>(reader: &mut R) -> Result<FuncType> {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
-fn parse_function_section<R: Read>(reader: &mut R) -> Result<Vec<TypeIdx>> {
+fn parse_function_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<TypeIdx>> {
     parse_vec(reader, |r| Ok(TypeIdx::read(r)?))
 }
 
@@ -473,11 +473,11 @@ pub enum ImportDesc {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#import-section
-fn parse_import_section<R: Read>(reader: &mut R) -> Result<Vec<Import>> {
+fn parse_import_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Import>> {
     parse_vec(reader, parse_import)
 }
 
-fn parse_import<R: Read>(reader: &mut R) -> Result<Import> {
+fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import> {
     let module = parse_name(reader)?;
     let name = parse_name(reader)?;
 
@@ -523,11 +523,11 @@ impl ExportDesc {
 }
 
 // TODO: validate that names are unique?
-fn parse_export_section<R: Read>(reader: &mut R) -> Result<Vec<Export>> {
+fn parse_export_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Export>> {
     parse_vec(reader, parse_export)
 }
 
-fn parse_export<R: Read>(reader: &mut R) -> Result<Export> {
+fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export> {
     let name = parse_name(reader)?;
 
     let desc_kind = read_byte(reader)?;
@@ -537,28 +537,28 @@ fn parse_export<R: Read>(reader: &mut R) -> Result<Export> {
     Ok(Export { name, desc })
 }
 
-fn parse_table_section<R: Read>(reader: &mut R) -> Result<Vec<Table>> {
+fn parse_table_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Table>> {
     parse_vec(reader, parse_table)
 }
 
-fn parse_table<R: Read>(reader: &mut R) -> Result<Table> {
+fn parse_table<R: Read + ?Sized>(reader: &mut R) -> Result<Table> {
     Ok(Table {
         reftype: RefType::read(reader)?,
         limits: parse_limits(reader)?,
     })
 }
 
-fn parse_memory_section<R: Read>(reader: &mut R) -> Result<Vec<Mem>> {
+fn parse_memory_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Mem>> {
     parse_vec(reader, parse_memtype)
 }
 
-fn parse_memtype<R: Read>(reader: &mut R) -> Result<Mem> {
+fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<Mem> {
     Ok(Mem {
         limits: parse_limits(reader)?,
     })
 }
 
-fn parse_global_section<R: Read>(reader: &mut R) -> Result<Vec<Global>> {
+fn parse_global_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Global>> {
     parse_vec(reader, |r| {
         Ok(Global {
             r#type: parse_globaltype(r)?,
@@ -567,7 +567,7 @@ fn parse_global_section<R: Read>(reader: &mut R) -> Result<Vec<Global>> {
     })
 }
 
-fn parse_globaltype<R: Read>(reader: &mut R) -> Result<GlobalType> {
+fn parse_globaltype<R: Read + ?Sized>(reader: &mut R) -> Result<GlobalType> {
     let valtype = ValType::read(reader)?;
     let r#mut: Mut = read_byte(reader)?.try_into()?;
     Ok(GlobalType(r#mut, valtype))
@@ -586,11 +586,11 @@ struct Local {
     t: ValType,
 }
 
-fn parse_code_section<R: Read>(reader: &mut R) -> Result<Vec<Code>> {
+fn parse_code_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Code>> {
     parse_vec(reader, parse_code)
 }
 
-fn parse_code<R: Read>(reader: &mut R) -> Result<Code> {
+fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code> {
     let size = read_u32(reader)?;
 
     let mut reader = reader.take(size.into());
@@ -623,7 +623,7 @@ fn parse_code<R: Read>(reader: &mut R) -> Result<Code> {
     Ok(Code { size, locals, expr })
 }
 
-fn parse_start_section<R: Read>(reader: &mut R) -> Result<FuncIdx> {
+fn parse_start_section<R: Read + ?Sized>(reader: &mut R) -> Result<FuncIdx> {
     Ok(FuncIdx::read(reader)?)
 }
 
@@ -641,11 +641,11 @@ pub enum ElemMode {
     Declarative,
 }
 
-fn parse_element_section<R: Read>(reader: &mut R) -> Result<Vec<Elem>> {
+fn parse_element_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Elem>> {
     parse_vec(reader, parse_elem)
 }
 
-fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
+fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
     let bitfield = read_u32(reader)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
@@ -741,7 +741,7 @@ fn parse_elem<R: Read>(reader: &mut R) -> Result<Elem> {
     Ok(Elem { r#type, init, mode })
 }
 
-fn parse_elemkind<R: Read>(reader: &mut R) -> Result<RefType> {
+fn parse_elemkind<R: Read + ?Sized>(reader: &mut R) -> Result<RefType> {
     // we intentionally don't use RefType::read, since the spec uses 0x00
     // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(reader)?;
@@ -763,11 +763,11 @@ pub enum DataMode {
     Active { memory: MemIdx, offset: Expr },
 }
 
-fn parse_data_section<R: Read>(reader: &mut R) -> Result<Vec<Data>> {
+fn parse_data_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Data>> {
     parse_vec(reader, parse_data)
 }
 
-fn parse_data<R: Read>(reader: &mut R) -> Result<Data> {
+fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data> {
     let init: Vec<u8>;
     let mode: DataMode;
 
@@ -801,11 +801,11 @@ fn parse_data<R: Read>(reader: &mut R) -> Result<Data> {
     Ok(Data { init, mode })
 }
 
-fn parse_datacount_section<R: Read>(reader: &mut R) -> Result<u32> {
+fn parse_datacount_section<R: Read + ?Sized>(reader: &mut R) -> Result<u32> {
     Ok(read_u32(reader)?)
 }
 
-fn parse_expr<R: Read>(reader: &mut R) -> Result<Expr> {
+fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr> {
     let mut body = Vec::new();
 
     loop {
