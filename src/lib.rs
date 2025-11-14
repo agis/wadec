@@ -822,30 +822,60 @@ fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr> {
     Ok(body)
 }
 
-fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits> {
-    let has_max = match read_byte(reader)? {
+#[derive(Debug, Error)]
+pub enum ParseLimitsError {
+    #[error("failed determining presence of max limit")]
+    DetermineMaxLimitPresence(io::Error),
+
+    #[error("unexpected limits byte: expected 0x00 (false) or 0x01 (true); got 0x{0:02X}")]
+    UnexpectedMaxLimitByte(u8),
+
+    #[error("failed reading minimum limit")]
+    ReadMinLimit(integer::DecodeError),
+
+    #[error("failed reading maximum limit")]
+    ReadMaxLimit(integer::DecodeError),
+
+    #[error("failed reading limits byte")]
+    ReadLimitsByte(integer::DecodeError),
+}
+
+fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits, ParseLimitsError> {
+    let has_max = match read_byte(reader).map_err(ParseLimitsError::DetermineMaxLimitPresence)? {
         0x00 => false,
         0x01 => true,
-        n => bail!("unexpected limits byte: {:x}", n),
+        n => return Err(ParseLimitsError::UnexpectedMaxLimitByte(n)),
     };
 
-    let min = read_u32(reader)?;
+    let min = read_u32(reader).map_err(ParseLimitsError::ReadMinLimit)?;
     let mut max = None;
 
     if has_max {
-        max = Some(read_u32(reader)?);
+        max = Some(read_u32(reader).map_err(ParseLimitsError::ReadMaxLimit)?);
     }
 
     Ok(Limits { min, max })
 }
 
-fn parse_f32<R: Read + ?Sized>(r: &mut R) -> Result<f32> {
+#[derive(Debug, Error)]
+pub enum DecodeFloat32Error{
+    #[error("failed reading 4 bytes for f32")]
+    ReadPayload(#[from] io::Error),
+}
+
+fn parse_f32<R: Read + ?Sized>(r: &mut R) -> Result<f32, DecodeFloat32Error> {
     let mut buf = [0u8; 4];
     r.read_exact(&mut buf)?;
     Ok(f32::from_le_bytes(buf))
 }
 
-fn parse_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64> {
+#[derive(Debug, Error)]
+pub enum DecodeFloat64Error{
+    #[error("failed reading 8 bytes for f64")]
+    ReadPayload(#[from] io::Error),
+}
+
+fn parse_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64, DecodeFloat64Error> {
     let mut buf = [0u8; 8];
     r.read_exact(&mut buf)?;
     Ok(f64::from_le_bytes(buf))
@@ -883,8 +913,8 @@ pub enum DecodeByteVectorError {
     #[error("failed decoding vector length")]
     DecodeLength(#[from] integer::DecodeError),
 
-    #[error("failed reading vector contents")]
-    ReadByte(#[from] io::Error)
+    #[error("failed reading vector elements")]
+    ReadElements(#[from] io::Error)
 }
 
 fn parse_byte_vec<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>, DecodeByteVectorError> {
