@@ -802,7 +802,14 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data> {
     Ok(Data { init, mode })
 }
 
-fn parse_datacount_section<R: Read + ?Sized>(reader: &mut R) -> Result<u32> {
+
+#[derive(Debug, Error)]
+pub enum DecodeDataCountSectionError {
+    #[error("failed decoding data segment count")]
+    DecodeDataSegmentCount(#[from] integer::DecodeError)
+}
+
+fn parse_datacount_section<R: Read + ?Sized>(reader: &mut R) -> Result<u32, DecodeDataCountSectionError> {
     Ok(read_u32(reader)?)
 }
 
