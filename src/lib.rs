@@ -10,6 +10,7 @@ use anyhow::{Result, bail};
 use integer::*;
 use std::io;
 use std::io::Read;
+use thiserror::Error;
 
 const VERSION: [u8; 4] = [0x01, 0x00, 0x00, 0x00];
 
@@ -864,19 +865,37 @@ where
     Ok(items)
 }
 
-fn parse_name<R: Read + ?Sized>(reader: &mut R) -> Result<String> {
+#[derive(Debug, Error)]
+pub enum DecodeNameError {
+    #[error(transparent)]
+    Utf8(#[from] std::string::FromUtf8Error),
+
+    #[error(transparent)]
+    DecodeByteVector(#[from] DecodeByteVectorError)
+}
+
+fn parse_name<R: Read + ?Sized>(reader: &mut R) -> Result<String, DecodeNameError> {
     Ok(parse_byte_vec(reader)?.try_into()?)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeByteVectorError {
+    #[error("failed decoding vector length")]
+    DecodeLength(#[from] integer::DecodeError),
+
+    #[error("failed reading vector contents")]
+    ReadByte(#[from] io::Error)
+}
+
+fn parse_byte_vec<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>, DecodeByteVectorError> {
+    let len = read_u32(reader)?;
+    let mut b = vec![0u8; len.try_into().unwrap()];
+    reader.read_exact(&mut b)?;
+    Ok(b)
 }
 
 fn read_byte<R: Read + ?Sized>(reader: &mut R) -> Result<u8, io::Error> {
     let mut buf = [0u8];
     reader.read_exact(&mut buf)?;
     Ok(buf[0])
-}
-
-fn parse_byte_vec<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>> {
-    let len = read_u32(reader)?;
-    let mut b = vec![0u8; len.try_into().unwrap()];
-    reader.read_exact(&mut b)?;
-    Ok(b)
 }
