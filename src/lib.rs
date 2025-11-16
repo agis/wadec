@@ -764,17 +764,44 @@ pub enum DataMode {
     Active { memory: MemIdx, offset: Expr },
 }
 
-fn parse_data_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Data>> {
-    parse_vec(reader, parse_data)
+#[derive(Debug, Error)]
+pub enum DecodeDataSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error("failed decoding data segments")]
+    DecodeDataSegments(#[from] DecodeDataSegmentError),
 }
 
-fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data> {
+fn parse_data_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Data>, DecodeDataSectionError> {
+    parse_vec2(reader, parse_data)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeDataSegmentError {
+    #[error("failed decoding bitfield")]
+    DecodeBitfield(integer::DecodeError),
+
+    #[error("invalid data segment bitfield: expected 0 (passive), 1 or 2 (active); got {0}")]
+    InvalidBitfield(u32),
+
+    #[error("failed decoding offset expression")]
+    DecodeOffsetExpr(anyhow::Error),
+
+    #[error("failed decoding init byte vector")]
+    DecodeInitVector(#[from] DecodeByteVectorError),
+
+    #[error("failed decoding Memory index")]
+    DecodeMemIdx(integer::DecodeError),
+}
+
+fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmentError> {
     let init: Vec<u8>;
     let mode: DataMode;
 
-    (init, mode) = match read_u32(reader)? {
+    (init, mode) = match read_u32(reader).map_err(DecodeDataSegmentError::DecodeBitfield)? {
         0 => {
-            let e = parse_expr(reader)?;
+            let e = parse_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
             (
                 parse_byte_vec(reader)?,
                 DataMode::Active {
@@ -785,8 +812,8 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data> {
         }
         1 => (parse_byte_vec(reader)?, DataMode::Passive),
         2 => {
-            let x = read_u32(reader)?;
-            let e = parse_expr(reader)?;
+            let x = read_u32(reader).map_err(DecodeDataSegmentError::DecodeMemIdx)?;
+            let e = parse_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
 
             (
                 parse_byte_vec(reader)?,
@@ -796,7 +823,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data> {
                 },
             )
         }
-        n => bail!("unexpected data bitfield: {n}"),
+        n => return Err(DecodeDataSegmentError::InvalidBitfield(n)),
     };
 
     Ok(Data { init, mode })
@@ -897,6 +924,22 @@ where
     let mut items = Vec::with_capacity(len.try_into().unwrap());
     for _ in 0..len {
         items.push(parse_item(reader)?);
+    }
+
+    Ok(items)
+}
+
+// TODO: replace parse_vec with this one
+fn parse_vec2<R, F, T, E, E2>(reader: &mut R, parse_fn: F) -> Result<Vec<T>, E>
+where
+    R: Read + ?Sized,
+    F: Fn(&mut R) -> Result<T, E2>,
+    E: From<E2> + From<integer::DecodeError>,
+{
+    let len = read_u32(reader)?;
+    let mut items = Vec::with_capacity(len.try_into().unwrap());
+    for _ in 0..len {
+        items.push(parse_fn(reader)?);
     }
 
     Ok(items)
