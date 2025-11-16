@@ -658,12 +658,56 @@ pub enum ElemMode {
     Declarative,
 }
 
-fn parse_element_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Elem>> {
-    parse_vec(reader, parse_elem)
+#[derive(Debug, Error)]
+pub enum DecodeElementSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeElement(#[from] DecodeElementError),
 }
 
-fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
-    let bitfield = read_u32(reader)?;
+fn parse_element_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Elem>, DecodeElementSectionError> {
+    parse_vec2(reader, parse_elem)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeElementError {
+    #[error("failed decoding bitfield")]
+    DecodeBitfield(integer::DecodeError),
+
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error("invalid bitfield: expected value in range (0..7); got {0}")]
+    InvalidBitfield(u32),
+
+    #[error("failed decoding offset expression")]
+    DecodeOffsetExpression(ParseExpressionError),
+
+    // TODO: when this stops relying on anyhow::Error, make it a `[#from]`
+    #[error("failed decoding Element kind")]
+    DecodeElementKind(anyhow::Error),
+
+    #[error("failed decoding Element expression")]
+    DecodeElementExpression(ParseExpressionError),
+
+    #[error("failed decoding Function index")]
+    DecodeFuncIdx(index::Error),
+
+    #[error("failed decoding Table index")]
+    DecodeTableIdx(index::Error),
+
+    // TODO: when this stops relying on anyhow::Error, make it a `[#from]`
+    #[error("failed decoding Reference type")]
+    DecodeReferenceType(anyhow::Error),
+
+    #[error("failed decoding table.init expressions")]
+    DecodeInit(ParseExpressionError),
+}
+
+fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementError> {
+    let bitfield = read_u32(reader).map_err(DecodeElementError::DecodeBitfield)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
         idxs.into_iter()
@@ -673,9 +717,8 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
 
     let (r#type, init, mode) = match bitfield {
         0 => {
-            let e = parse_expr(reader)?;
-            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
-
+            let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (
                 RefType::Func,
                 funcidx_into_reffunc(y),
@@ -686,17 +729,15 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
             )
         }
         1 => {
-            let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
-
+            let et = parse_elemkind(reader).map_err(DecodeElementError::DecodeElementKind)?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
-            let x = TableIdx::read(reader)?;
-            let e = parse_expr(reader)?;
-            let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
-
+            let x = TableIdx::read(reader).map_err(DecodeElementError::DecodeTableIdx)?;
+            let e = parse_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
+            let et = parse_elemkind(reader).map_err(DecodeElementError::DecodeElementKind)?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (
                 et,
                 funcidx_into_reffunc(y),
@@ -707,15 +748,13 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
             )
         }
         3 => {
-            let et = parse_elemkind(reader)?;
-            let y = parse_vec(reader, |r| Ok(FuncIdx::read(r)?))?;
-
+            let et = parse_elemkind(reader).map_err(DecodeElementError::DecodeElementKind)?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
         4 => {
-            let e = parse_expr(reader)?;
-            let el = parse_vec(reader, parse_expr)?;
-
+            let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
             (
                 RefType::Func,
                 el,
@@ -726,16 +765,15 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
             )
         }
         5 => {
-            let et = RefType::read(reader)?;
-            let el = parse_vec(reader, parse_expr)?;
-
+            let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
             (et, el, ElemMode::Passive)
         }
         6 => {
-            let x = TableIdx::read(reader)?;
-            let e = parse_expr(reader)?;
-            let et = RefType::read(reader)?;
-            let el = parse_vec(reader, parse_expr)?;
+            let x = TableIdx::read(reader).map_err(DecodeElementError::DecodeTableIdx)?;
+            let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
 
             (
                 et,
@@ -747,12 +785,12 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem> {
             )
         }
         7 => {
-            let et = RefType::read(reader)?;
-            let el = parse_vec(reader, parse_expr)?;
+            let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
 
             (et, el, ElemMode::Declarative)
         }
-        n => bail!("unexpected elem bitfield: {:x}", n),
+        n => return Err(DecodeElementError::InvalidBitfield(n)),
     };
 
     Ok(Elem { r#type, init, mode })
@@ -802,7 +840,7 @@ pub enum DecodeDataSegmentError {
     InvalidBitfield(u32),
 
     #[error("failed decoding offset expression")]
-    DecodeOffsetExpr(anyhow::Error),
+    DecodeOffsetExpr(ParseExpressionError),
 
     #[error("failed decoding init byte vector")]
     DecodeInitVector(#[from] DecodeByteVectorError),
@@ -856,7 +894,17 @@ fn parse_datacount_section<R: Read + ?Sized>(reader: &mut R) -> Result<u32, Deco
     Ok(read_u32(reader)?)
 }
 
-fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr> {
+
+#[derive(Debug, Error)]
+pub enum ParseExpressionError {
+  #[error("failed parsing instruction")]
+  ParseInstruction(#[from] anyhow::Error),
+
+  #[error("unexpected Else delimiter")]
+  UnexpectedElse,
+}
+
+fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, ParseExpressionError> {
     let mut body = Vec::new();
 
     loop {
@@ -865,7 +913,7 @@ fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr> {
             Parsed::End => break,
 
             // `Else` is only expected to appear when parsing individual `Control` instructions
-            Parsed::Else => bail!("unexpected `Else` delimiter"),
+            Parsed::Else => return Err(ParseExpressionError::UnexpectedElse)
         }
     }
 
@@ -931,6 +979,7 @@ fn parse_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64, DecodeFloat64Error> {
     Ok(f64::from_le_bytes(buf))
 }
 
+// TODO: remove this in favor of parse_vec2
 fn parse_vec<R, T, F>(reader: &mut R, mut parse_item: F) -> Result<Vec<T>>
 where
     R: Read + ?Sized,
