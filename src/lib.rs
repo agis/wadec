@@ -136,20 +136,44 @@ pub struct Global {
 #[derive(Debug, PartialEq)]
 pub struct GlobalType(pub Mut, pub ValType);
 
+#[derive(Debug, Error)]
+pub enum DecodeGlobalTypeError {
+    #[error("failed decoding Value type")]
+    DecodeValueType(anyhow::Error),
+
+    #[error("failed decoding Mutability")]
+    DecodeMutability(std::io::Error),
+
+    #[error(transparent)]
+    InvalidMutability(#[from] InvalidMutabilityByteError),
+}
+
+impl GlobalType {
+    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
+        let valtype = ValType::read(reader).map_err(DecodeGlobalTypeError::DecodeValueType)?;
+        let r#mut: Mut = read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?.try_into()?;
+        Ok(GlobalType(r#mut, valtype))
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Mut {
     Const,
     Var,
 }
 
+#[derive(Debug, Error)]
+#[error("invalid Mutability byte: expected 0x00 (const) or 0x01 (var); got 0x{0:02X}")]
+pub struct InvalidMutabilityByteError(u8);
+
 impl TryFrom<u8> for Mut {
-    type Error = anyhow::Error;
+    type Error = InvalidMutabilityByteError;
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
         Ok(match v {
             0x00 => Mut::Const,
             0x01 => Mut::Var,
-            n => bail!("malformed Mut: {:x}", n),
+            n => return Err(InvalidMutabilityByteError(n)),
         })
     }
 }
@@ -489,7 +513,7 @@ fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import> {
         0x00 => ImportDesc::Type(TypeIdx::read(reader)?),
         0x01 => ImportDesc::Table(parse_table(reader)?),
         0x02 => ImportDesc::Mem(parse_memtype(reader)?),
-        0x03 => ImportDesc::Global(parse_globaltype(reader)?),
+        0x03 => ImportDesc::Global(GlobalType::read(reader)?),
         n => bail!("unexpected import_desc: {n}"),
     };
 
@@ -571,19 +595,33 @@ fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<Mem, DecodeMemoryTy
     Ok(Mem { limits })
 }
 
-fn parse_global_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Global>> {
-    parse_vec(reader, |r| {
-        Ok(Global {
-            r#type: parse_globaltype(r)?,
-            init: parse_expr(r)?,
-        })
-    })
+#[derive(Debug, Error)]
+pub enum DecodeGlobalSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeGlobal(#[from] DecodeGlobalError),
 }
 
-fn parse_globaltype<R: Read + ?Sized>(reader: &mut R) -> Result<GlobalType> {
-    let valtype = ValType::read(reader)?;
-    let r#mut: Mut = read_byte(reader)?.try_into()?;
-    Ok(GlobalType(r#mut, valtype))
+fn parse_global_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Global>, DecodeGlobalSectionError> {
+    parse_vec2(reader, decode_global)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeGlobalError {
+    #[error(transparent)]
+    DecodeGlobalType(#[from] DecodeGlobalTypeError),
+
+    #[error("failed decoding Init")]
+    DecodeInit(#[from] ParseExpressionError),
+}
+
+fn decode_global<R: Read + ?Sized>(reader: &mut R) -> Result<Global, DecodeGlobalError> {
+    Ok(Global {
+        r#type: GlobalType::read(reader)?,
+        init: parse_expr(reader)?,
+    })
 }
 
 #[derive(Debug, PartialEq)]
@@ -685,9 +723,8 @@ pub enum DecodeElementError {
     #[error("failed decoding offset expression")]
     DecodeOffsetExpression(ParseExpressionError),
 
-    // TODO: when this stops relying on anyhow::Error, make it a `[#from]`
     #[error("failed decoding Element kind")]
-    DecodeElementKind(anyhow::Error),
+    DecodeElementKind(#[from] DecodeElementKindError),
 
     #[error("failed decoding Element expression")]
     DecodeElementExpression(ParseExpressionError),
@@ -729,14 +766,14 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         1 => {
-            let et = parse_elemkind(reader).map_err(DecodeElementError::DecodeElementKind)?;
+            let et = parse_elemkind(reader)?;
             let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
             let x = TableIdx::read(reader).map_err(DecodeElementError::DecodeTableIdx)?;
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
-            let et = parse_elemkind(reader).map_err(DecodeElementError::DecodeElementKind)?;
+            let et = parse_elemkind(reader)?;
             let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (
                 et,
@@ -748,7 +785,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         3 => {
-            let et = parse_elemkind(reader).map_err(DecodeElementError::DecodeElementKind)?;
+            let et = parse_elemkind(reader)?;
             let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
@@ -796,12 +833,23 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     Ok(Elem { r#type, init, mode })
 }
 
-fn parse_elemkind<R: Read + ?Sized>(reader: &mut R) -> Result<RefType> {
+
+#[derive(Debug, Error)]
+pub enum DecodeElementKindError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error("expected byte 0x00; got 0x{0:02X}")]
+    InvalidElemKind(u8),
+
+}
+
+fn parse_elemkind<R: Read + ?Sized>(reader: &mut R) -> Result<RefType, DecodeElementKindError> {
     // we intentionally don't use RefType::read, since the spec uses 0x00
     // to mean `funcref`, but only in the legacy Element encodings
     let b = read_byte(reader)?;
     if b != 0x00 {
-        bail!("expected byte `0x00` for elemkind; got {:x}", b);
+        return Err(DecodeElementKindError::InvalidElemKind(b));
     }
     Ok(RefType::Func)
 }
