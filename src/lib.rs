@@ -549,14 +549,26 @@ fn parse_table<R: Read + ?Sized>(reader: &mut R) -> Result<Table> {
     })
 }
 
-fn parse_memory_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Mem>> {
-    parse_vec(reader, parse_memtype)
+#[derive(Debug, Error)]
+pub enum DecodeMemorySectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeMemoryType(#[from] DecodeMemoryTypeError),
 }
 
-fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<Mem> {
-    Ok(Mem {
-        limits: parse_limits(reader)?,
-    })
+fn parse_memory_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Mem>, DecodeMemorySectionError> {
+    parse_vec2(reader, parse_memtype)
+}
+
+#[derive(Debug, Error)]
+#[error("failed decoding Memory type")]
+pub struct DecodeMemoryTypeError(#[from] ParseLimitsError);
+
+fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<Mem, DecodeMemoryTypeError> {
+    let limits = parse_limits(reader)?;
+    Ok(Mem { limits })
 }
 
 fn parse_global_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Global>> {
@@ -773,7 +785,7 @@ pub enum DecodeDataSectionError {
     #[error("failed decoding vector length")]
     DecodeVectorLength(#[from] integer::DecodeError),
 
-    #[error("failed decoding data segments")]
+    #[error(transparent)]
     DecodeDataSegments(#[from] DecodeDataSegmentError),
 }
 
@@ -786,7 +798,7 @@ pub enum DecodeDataSegmentError {
     #[error("failed decoding bitfield")]
     DecodeBitfield(integer::DecodeError),
 
-    #[error("invalid data segment bitfield: expected 0 (passive), 1 or 2 (active); got {0}")]
+    #[error("invalid bitfield: expected 0 (passive), 1 or 2 (active); got {0}")]
     InvalidBitfield(u32),
 
     #[error("failed decoding offset expression")]
