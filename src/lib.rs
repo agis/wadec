@@ -575,14 +575,14 @@ fn parse_globaltype<R: Read + ?Sized>(reader: &mut R) -> Result<GlobalType> {
 }
 
 #[derive(Debug, PartialEq)]
-struct Code {
+pub struct Code {
     size: u32,
     locals: Vec<Local>,
     expr: Expr,
 }
 
 #[derive(Debug, PartialEq)]
-struct Local {
+pub struct Local {
     count: u32,
     t: ValType,
 }
