@@ -4,7 +4,7 @@ pub mod index;
 pub mod instr;
 mod integer;
 
-use crate::index::*;
+use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instr::{Instr, Parsed};
 use anyhow::{Result, bail};
 use integer::*;
@@ -624,8 +624,12 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code> {
     Ok(Code { size, locals, expr })
 }
 
-fn parse_start_section<R: Read + ?Sized>(reader: &mut R) -> Result<FuncIdx> {
-    Ok(FuncIdx::read(reader)?)
+#[derive(Debug, Error)]
+#[error("failed decoding Start section")]
+pub struct DecodeStartSectionError(#[from] index::Error);
+
+fn parse_start_section<R: Read + ?Sized>(reader: &mut R) -> Result<FuncIdx, DecodeStartSectionError> {
+    FuncIdx::read(reader).map_err(DecodeStartSectionError)
 }
 
 #[derive(Debug, PartialEq)]
