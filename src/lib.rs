@@ -100,6 +100,39 @@ pub struct FuncType {
     pub results: Vec<ValType>,
 }
 
+#[derive(Debug, Error)]
+pub enum DecodeFuncTypeError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error("unexpected functype marker byte: expected 0x60; got 0x{0:02X}")]
+    UnexpectedMarkerByte(u8),
+
+    #[error("failed decoding Parameters")]
+    DecodeParameterTypes(DecodeResultTypeError),
+
+    #[error("failed decoding Results")]
+    DecodeResultTypes(DecodeResultTypeError),
+}
+
+impl FuncType {
+    pub fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeFuncTypeError> {
+        let b = read_byte(reader)?;
+        if b != 0x60 {
+            return Err(DecodeFuncTypeError::UnexpectedMarkerByte(b));
+        }
+
+        let parameters =
+            decode_result_type(reader).map_err(DecodeFuncTypeError::DecodeParameterTypes)?;
+        let results = decode_result_type(reader).map_err(DecodeFuncTypeError::DecodeResultTypes)?;
+
+        Ok(FuncType {
+            parameters,
+            results,
+        })
+    }
+}
+
 type Expr = Vec<Instr>;
 
 // https://webassembly.github.io/spec/core/syntax/modules.html#functions
@@ -151,7 +184,9 @@ pub enum DecodeGlobalTypeError {
 impl GlobalType {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
         let valtype = ValType::read(reader)?;
-        let r#mut: Mut = read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?.try_into()?;
+        let r#mut: Mut = read_byte(reader)
+            .map_err(DecodeGlobalTypeError::DecodeMutability)?
+            .try_into()?;
         Ok(GlobalType(r#mut, valtype))
     }
 }
@@ -186,10 +221,12 @@ pub enum ValType {
 }
 
 #[derive(Debug, Error)]
-#[error("invalid ValType byte: expected \
+#[error(
+    "invalid ValType byte: expected \
     0x7F (int32), 0x7E (int64), 0x7D (float32), 0x7C (float64), \
     0x7B (v128), 0x70 (funcref) or 0x6F (externref); \
-    got 0x{0:02X}")]
+    got 0x{0:02X}"
+)]
 pub struct InvalidValTypeByteError(u8);
 
 impl TryFrom<u8> for ValType {
@@ -439,13 +476,14 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
     Ok(module)
 }
 
-
 #[derive(Debug, Error)]
-pub enum DecodePreambleError  {
+pub enum DecodePreambleError {
     #[error("failed decoding preamble")]
     Io(#[from] io::Error),
 
-    #[error("unexpected preamble: expected [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00]; got {0:#X?}")]
+    #[error(
+        "unexpected preamble: expected [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00]; got {0:#X?}"
+    )]
     Unexpected([u8; 8]),
 }
 
@@ -485,7 +523,9 @@ pub enum DecodeCustomSectionError {
     Io(#[from] io::Error),
 }
 
-fn parse_custom_section<R: Read + ?Sized>(reader: &mut R) -> Result<CustomSection, DecodeCustomSectionError> {
+fn parse_custom_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<CustomSection, DecodeCustomSectionError> {
     let name = parse_name(reader)?;
     let mut contents = Vec::new();
     reader.read_to_end(&mut contents)?;
@@ -493,24 +533,18 @@ fn parse_custom_section<R: Read + ?Sized>(reader: &mut R) -> Result<CustomSectio
     Ok(CustomSection { name, contents })
 }
 
-// https://webassembly.github.io/spec/core/binary/modules.html#binary-typesec
-fn parse_type_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<FuncType>> {
-    parse_vec(reader, parse_functype)
+#[derive(Debug, Error)]
+pub enum DecodeTypeSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeFuncType(#[from] DecodeFuncTypeError),
 }
 
-fn parse_functype<R: Read + ?Sized>(reader: &mut R) -> Result<FuncType> {
-    let b = read_byte(reader)?;
-    if b != 0x60 {
-        bail!("expected functype marker 0x60, got {:#X}", b);
-    }
-
-    let parameters = parse_vec(reader, |r| Ok(ValType::read(r)?))?;
-    let results = parse_vec(reader, |r| Ok(ValType::read(r)?))?;
-
-    Ok(FuncType {
-        parameters,
-        results,
-    })
+// https://webassembly.github.io/spec/core/binary/modules.html#binary-typesec
+fn parse_type_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<FuncType>> {
+    parse_vec2(reader, FuncType::read)
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
@@ -618,7 +652,9 @@ pub enum DecodeMemorySectionError {
     DecodeMemoryType(#[from] DecodeMemoryTypeError),
 }
 
-fn parse_memory_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Mem>, DecodeMemorySectionError> {
+fn parse_memory_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Vec<Mem>, DecodeMemorySectionError> {
     parse_vec2(reader, parse_memtype)
 }
 
@@ -640,7 +676,9 @@ pub enum DecodeGlobalSectionError {
     DecodeGlobal(#[from] DecodeGlobalError),
 }
 
-fn parse_global_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Global>, DecodeGlobalSectionError> {
+fn parse_global_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Vec<Global>, DecodeGlobalSectionError> {
     parse_vec2(reader, decode_global)
 }
 
@@ -714,7 +752,9 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code> {
 #[error("failed decoding Start section")]
 pub struct DecodeStartSectionError(#[from] index::Error);
 
-fn parse_start_section<R: Read + ?Sized>(reader: &mut R) -> Result<FuncIdx, DecodeStartSectionError> {
+fn parse_start_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<FuncIdx, DecodeStartSectionError> {
     FuncIdx::read(reader).map_err(DecodeStartSectionError)
 }
 
@@ -741,7 +781,9 @@ pub enum DecodeElementSectionError {
     DecodeElement(#[from] DecodeElementError),
 }
 
-fn parse_element_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Elem>, DecodeElementSectionError> {
+fn parse_element_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Vec<Elem>, DecodeElementSectionError> {
     parse_vec2(reader, parse_elem)
 }
 
@@ -791,7 +833,9 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     let (r#type, init, mode) = match bitfield {
         0 => {
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx)
+            })?;
             (
                 RefType::Func,
                 funcidx_into_reffunc(y),
@@ -803,14 +847,18 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         1 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx)
+            })?;
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
             let x = TableIdx::read(reader).map_err(DecodeElementError::DecodeTableIdx)?;
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
             let et = parse_elemkind(reader)?;
-            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx)
+            })?;
             (
                 et,
                 funcidx_into_reffunc(y),
@@ -822,12 +870,16 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         3 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx))?;
+            let y = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                FuncIdx::read(r).map_err(DecodeElementError::DecodeFuncIdx)
+            })?;
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
         4 => {
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                parse_expr(r).map_err(DecodeElementError::DecodeInit)
+            })?;
             (
                 RefType::Func,
                 el,
@@ -839,14 +891,18 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         5 => {
             let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                parse_expr(r).map_err(DecodeElementError::DecodeInit)
+            })?;
             (et, el, ElemMode::Passive)
         }
         6 => {
             let x = TableIdx::read(reader).map_err(DecodeElementError::DecodeTableIdx)?;
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
             let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                parse_expr(r).map_err(DecodeElementError::DecodeInit)
+            })?;
 
             (
                 et,
@@ -859,7 +915,9 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         7 => {
             let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| parse_expr(r).map_err(DecodeElementError::DecodeInit))?;
+            let el = parse_vec2::<_, _, _, DecodeElementError, _>(reader, |r| {
+                parse_expr(r).map_err(DecodeElementError::DecodeInit)
+            })?;
 
             (et, el, ElemMode::Declarative)
         }
@@ -869,7 +927,6 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     Ok(Elem { r#type, init, mode })
 }
 
-
 #[derive(Debug, Error)]
 pub enum DecodeElementKindError {
     #[error(transparent)]
@@ -877,7 +934,6 @@ pub enum DecodeElementKindError {
 
     #[error("expected byte 0x00; got 0x{0:02X}")]
     InvalidElemKind(u8),
-
 }
 
 fn parse_elemkind<R: Read + ?Sized>(reader: &mut R) -> Result<RefType, DecodeElementKindError> {
@@ -911,7 +967,9 @@ pub enum DecodeDataSectionError {
     DecodeDataSegments(#[from] DecodeDataSegmentError),
 }
 
-fn parse_data_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Data>, DecodeDataSectionError> {
+fn parse_data_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Vec<Data>, DecodeDataSectionError> {
     parse_vec2(reader, parse_data)
 }
 
@@ -967,24 +1025,25 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
     Ok(Data { init, mode })
 }
 
-
 #[derive(Debug, Error)]
 pub enum DecodeDataCountSectionError {
     #[error("failed decoding data segment count")]
-    DecodeDataSegmentCount(#[from] integer::DecodeError)
+    DecodeDataSegmentCount(#[from] integer::DecodeError),
 }
 
-fn parse_datacount_section<R: Read + ?Sized>(reader: &mut R) -> Result<u32, DecodeDataCountSectionError> {
+fn parse_datacount_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<u32, DecodeDataCountSectionError> {
     Ok(read_u32(reader)?)
 }
 
 #[derive(Debug, Error)]
 pub enum ParseExpressionError {
-  #[error("failed parsing instruction")]
-  ParseInstruction(#[from] anyhow::Error),
+    #[error("failed parsing instruction")]
+    ParseInstruction(#[from] anyhow::Error),
 
-  #[error("unexpected Else delimiter")]
-  UnexpectedElse,
+    #[error("unexpected Else delimiter")]
+    UnexpectedElse,
 }
 
 fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, ParseExpressionError> {
@@ -996,7 +1055,7 @@ fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, ParseExpressionE
             Parsed::End => break,
 
             // `Else` is only expected to appear when parsing individual `Control` instructions
-            Parsed::Else => return Err(ParseExpressionError::UnexpectedElse)
+            Parsed::Else => return Err(ParseExpressionError::UnexpectedElse),
         }
     }
 
@@ -1039,7 +1098,22 @@ fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits, ParseLimitsE
 }
 
 #[derive(Debug, Error)]
-pub enum DecodeFloat32Error{
+pub enum DecodeResultTypeError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeValType(#[from] DecodeValTypeError),
+}
+
+pub fn decode_result_type<R: Read + ?Sized>(
+    r: &mut R,
+) -> Result<Vec<ValType>, DecodeResultTypeError> {
+    parse_vec2(r, ValType::read)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeFloat32Error {
     #[error("failed reading 4 bytes for f32")]
     ReadPayload(#[from] io::Error),
 }
@@ -1051,7 +1125,7 @@ fn parse_f32<R: Read + ?Sized>(r: &mut R) -> Result<f32, DecodeFloat32Error> {
 }
 
 #[derive(Debug, Error)]
-pub enum DecodeFloat64Error{
+pub enum DecodeFloat64Error {
     #[error("failed reading 8 bytes for f64")]
     ReadPayload(#[from] io::Error),
 }
@@ -1098,7 +1172,7 @@ pub enum DecodeNameError {
     DecodeByteVector(#[from] DecodeByteVectorError),
 
     #[error(transparent)]
-    Utf8(#[from] std::string::FromUtf8Error)
+    Utf8(#[from] std::string::FromUtf8Error),
 }
 
 fn parse_name<R: Read + ?Sized>(reader: &mut R) -> Result<String, DecodeNameError> {
@@ -1111,7 +1185,7 @@ pub enum DecodeByteVectorError {
     DecodeLength(#[from] integer::DecodeError),
 
     #[error("failed reading vector elements")]
-    ReadElements(#[from] io::Error)
+    ReadElements(#[from] io::Error),
 }
 
 fn parse_byte_vec<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>, DecodeByteVectorError> {
