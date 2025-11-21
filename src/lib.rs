@@ -144,8 +144,26 @@ pub struct Func {
 
 #[derive(Debug, PartialEq)]
 pub struct Table {
-    pub limits: Limits,
     pub reftype: RefType,
+    pub limits: Limits,
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeTableError {
+    #[error(transparent)]
+    DecodeRefType(#[from] anyhow::Error),
+
+    #[error(transparent)]
+    DecodeLimits(#[from] ParseLimitsError),
+}
+
+impl Table {
+    pub fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeTableError> {
+        let reftype = RefType::read(reader)?;
+        let limits = parse_limits(reader)?;
+
+        Ok(Table { reftype, limits })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -589,7 +607,7 @@ fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import> {
     reader.read_exact(&mut desc_kind)?;
     let desc = match desc_kind[0] {
         0x00 => ImportDesc::Type(TypeIdx::read(reader)?),
-        0x01 => ImportDesc::Table(parse_table(reader)?),
+        0x01 => ImportDesc::Table(Table::read(reader)?),
         0x02 => ImportDesc::Mem(parse_memtype(reader)?),
         0x03 => ImportDesc::Global(GlobalType::read(reader)?),
         n => bail!("unexpected import_desc: {n}"),
@@ -640,15 +658,17 @@ fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export> {
     Ok(Export { name, desc })
 }
 
-fn parse_table_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Table>> {
-    parse_vec(reader, parse_table)
+#[derive(Debug, Error)]
+pub enum DecodeTableSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeTable(#[from] DecodeTableError),
 }
 
-fn parse_table<R: Read + ?Sized>(reader: &mut R) -> Result<Table> {
-    Ok(Table {
-        reftype: RefType::read(reader)?,
-        limits: parse_limits(reader)?,
-    })
+fn parse_table_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Table>, DecodeTableSectionError> {
+    parse_vec2(reader, Table::read)
 }
 
 #[derive(Debug, Error)]
