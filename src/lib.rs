@@ -439,13 +439,24 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
     Ok(module)
 }
 
-fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<()> {
+
+#[derive(Debug, Error)]
+pub enum DecodePreambleError  {
+    #[error("failed decoding preamble")]
+    Io(#[from] io::Error),
+
+    #[error("unexpected preamble: expected [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00]; got {0:#X?}")]
+    Unexpected([u8; 8]),
+}
+
+fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<(), DecodePreambleError> {
     const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 
-    let mut preamble: [u8; 8] = [0u8; 8];
+    let mut preamble = [0u8; 8];
     reader.read_exact(&mut preamble)?;
+
     if [MAGIC_NUMBER, VERSION].concat() != preamble {
-        bail!("unexpected preamble: {:#X?}", preamble);
+        return Err(DecodePreambleError::Unexpected(preamble));
     }
 
     Ok(())
