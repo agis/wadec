@@ -139,7 +139,7 @@ pub struct GlobalType(pub Mut, pub ValType);
 #[derive(Debug, Error)]
 pub enum DecodeGlobalTypeError {
     #[error("failed decoding Value type")]
-    DecodeValueType(anyhow::Error),
+    DecodeValueType(#[from] DecodeValTypeError),
 
     #[error("failed decoding Mutability")]
     DecodeMutability(std::io::Error),
@@ -150,7 +150,7 @@ pub enum DecodeGlobalTypeError {
 
 impl GlobalType {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
-        let valtype = ValType::read(reader).map_err(DecodeGlobalTypeError::DecodeValueType)?;
+        let valtype = ValType::read(reader)?;
         let r#mut: Mut = read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?.try_into()?;
         Ok(GlobalType(r#mut, valtype))
     }
@@ -185,8 +185,15 @@ pub enum ValType {
     Ref(RefType),
 }
 
+#[derive(Debug, Error)]
+#[error("invalid ValType byte: expected \
+    0x7F (int32), 0x7E (int64), 0x7D (float32), 0x7C (float64), \
+    0x7B (v128), 0x70 (funcref) or 0x6F (externref); \
+    got 0x{0:02X}")]
+pub struct InvalidValTypeByteError(u8);
+
 impl TryFrom<u8> for ValType {
-    type Error = anyhow::Error;
+    type Error = InvalidValTypeByteError;
 
     fn try_from(b: u8) -> Result<Self, Self::Error> {
         Ok(match b {
@@ -197,14 +204,23 @@ impl TryFrom<u8> for ValType {
             0x7B => ValType::Vec(VecType::V128),
             0x70 => ValType::Ref(RefType::Func),
             0x6F => ValType::Ref(RefType::Extern),
-            n => bail!("unexpected valtype: {:X}", n),
+            n => return Err(InvalidValTypeByteError(n)),
         })
     }
 }
 
+#[derive(Debug, Error)]
+pub enum DecodeValTypeError {
+    #[error("IO error")]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    InvalidValTypeByte(#[from] InvalidValTypeByteError),
+}
+
 impl ValType {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<ValType> {
-        read_byte(reader)?.try_into()
+    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<ValType, DecodeValTypeError> {
+        Ok(read_byte(reader)?.try_into()?)
     }
 }
 
@@ -468,8 +484,8 @@ fn parse_functype<R: Read + ?Sized>(reader: &mut R) -> Result<FuncType> {
         bail!("expected functype marker 0x60, got {:#X}", b);
     }
 
-    let parameters = parse_vec(reader, ValType::read)?;
-    let results = parse_vec(reader, ValType::read)?;
+    let parameters = parse_vec(reader, |r| Ok(ValType::read(r)?))?;
+    let results = parse_vec(reader, |r| Ok(ValType::read(r)?))?;
 
     Ok(FuncType {
         parameters,
@@ -942,7 +958,6 @@ fn parse_datacount_section<R: Read + ?Sized>(reader: &mut R) -> Result<u32, Deco
     Ok(read_u32(reader)?)
 }
 
-
 #[derive(Debug, Error)]
 pub enum ParseExpressionError {
   #[error("failed parsing instruction")]
@@ -1027,7 +1042,6 @@ fn parse_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64, DecodeFloat64Error> {
     Ok(f64::from_le_bytes(buf))
 }
 
-// TODO: remove this in favor of parse_vec2
 fn parse_vec<R, T, F>(reader: &mut R, mut parse_item: F) -> Result<Vec<T>>
 where
     R: Read + ?Sized,
