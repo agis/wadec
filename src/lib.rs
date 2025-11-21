@@ -122,8 +122,7 @@ impl FuncType {
             return Err(DecodeFuncTypeError::UnexpectedMarkerByte(b));
         }
 
-        let parameters =
-            decode_result_type(reader).map_err(DecodeFuncTypeError::DecodeParameterTypes)?;
+        let parameters = decode_result_type(reader).map_err(DecodeFuncTypeError::DecodeParameterTypes)?;
         let results = decode_result_type(reader).map_err(DecodeFuncTypeError::DecodeResultTypes)?;
 
         Ok(FuncType {
@@ -547,9 +546,18 @@ fn parse_type_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<FuncType>>
     parse_vec2(reader, FuncType::read)
 }
 
+#[derive(Debug, Error)]
+pub enum DecodeFunctionSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error("failed decoding Type index")]
+    DecodeTypeIdx(#[from] index::Error),
+}
+
 // https://webassembly.github.io/spec/core/binary/modules.html#function-section
-fn parse_function_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<TypeIdx>> {
-    parse_vec(reader, |r| Ok(TypeIdx::read(r)?))
+fn parse_function_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<TypeIdx>, DecodeFunctionSectionError> {
+    parse_vec2(reader, TypeIdx::read)
 }
 
 #[derive(Debug, PartialEq)]
