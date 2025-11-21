@@ -2467,7 +2467,10 @@ fn it_rejects_overlong_type_index_encoding() {
         0x80, 0x80, 0x80, 0x80, 0x80, // overlong type index encoding
     ];
 
-    let err = decode(module).expect_err("module should fail while reading type index");
-    let msg = err.to_string();
-    assert!(msg.contains("failed to decode TypeIdx"));
+    let err = decode(module)
+        .expect_err("module should fail while reading type index")
+        .downcast::<DecodeFunctionSectionError>()
+        .expect("expected function section error");
+
+    assert!(matches!(err, DecodeFunctionSectionError::DecodeTypeIdx(_)));
 }
