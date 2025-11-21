@@ -476,7 +476,16 @@ fn parse_section_header<R: Read + ?Sized>(reader: &mut R) -> Result<Option<Secti
     Ok(Some(SectionHeader { kind, size }))
 }
 
-fn parse_custom_section<R: Read + ?Sized>(reader: &mut R) -> Result<CustomSection> {
+#[derive(Debug, Error)]
+pub enum DecodeCustomSectionError {
+    #[error(transparent)]
+    DecodeName(#[from] DecodeNameError),
+
+    #[error("failed reading custom section contents")]
+    Io(#[from] io::Error),
+}
+
+fn parse_custom_section<R: Read + ?Sized>(reader: &mut R) -> Result<CustomSection, DecodeCustomSectionError> {
     let name = parse_name(reader)?;
     let mut contents = Vec::new();
     reader.read_to_end(&mut contents)?;
@@ -1086,10 +1095,10 @@ where
 #[derive(Debug, Error)]
 pub enum DecodeNameError {
     #[error(transparent)]
-    Utf8(#[from] std::string::FromUtf8Error),
+    DecodeByteVector(#[from] DecodeByteVectorError),
 
     #[error(transparent)]
-    DecodeByteVector(#[from] DecodeByteVectorError)
+    Utf8(#[from] std::string::FromUtf8Error)
 }
 
 fn parse_name<R: Read + ?Sized>(reader: &mut R) -> Result<String, DecodeNameError> {
