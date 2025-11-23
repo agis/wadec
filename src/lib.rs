@@ -739,22 +739,60 @@ pub struct Local {
     t: ValType,
 }
 
-fn parse_code_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Code>> {
-    parse_vec(reader, parse_code)
+#[derive(Debug, Error)]
+pub enum DecodeCodeSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeCode(#[from] DecodeCodeError),
 }
 
-fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code> {
-    let size = read_u32(reader)?;
+fn parse_code_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Code>, DecodeCodeSectionError> {
+    parse_vec2(reader, parse_code)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeCodeError {
+    #[error("failed decoding size of function code")]
+    DecodeFunctionSize(integer::DecodeError),
+
+    #[error("failed decoding locals vector length")]
+    DecodeLocalsVectorLength(#[from] integer::DecodeError),
+
+    #[error("failed decoding count of function locals")]
+    DecodeLocalsCount(integer::DecodeError),
+
+    #[error("too many locals: expected at most {max_locals}; got {actual_locals}")]
+    LocalsCountOutOfBound{ max_locals: u64, actual_locals: u64 },
+
+    #[error("failed decoding local Value type")]
+    DecodeLocalValType(#[from] DecodeValTypeError),
+
+    #[error("failed decoding function body expression")]
+    DecodeFunctionBody(#[from] ParseExpressionError),
+
+    #[error("code entry size mismatch: declared {declared_bytes} bytes; leftover {leftover_bytes}")]
+    EntrySizeMismatch { declared_bytes: u32, leftover_bytes: u64 },
+}
+
+fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError> {
+    let size = read_u32(reader).map_err(DecodeCodeError::DecodeFunctionSize)?;
 
     let mut reader = reader.take(size.into());
     let mut expanded_locals: u64 = 0;
+    let max_locals = u64::from(u32::MAX);
 
-    let locals = parse_vec(&mut reader, |r| {
+    let locals = parse_vec2::<_, _, _, DecodeCodeError, _>(&mut reader, |r| {
         let count = read_u32(r)?;
 
-        expanded_locals += count as u64;
-        if expanded_locals > u32::MAX.into() {
-            bail!("code locals out of bound: {}", expanded_locals);
+        expanded_locals += u64::from(count);
+        if expanded_locals > max_locals {
+            return Err(DecodeCodeError::LocalsCountOutOfBound {
+                max_locals,
+                actual_locals: expanded_locals,
+            });
+
         }
 
         Ok(Local {
@@ -766,11 +804,10 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code> {
     let expr = parse_expr(&mut reader)?;
 
     if reader.limit() != 0 {
-        bail!(
-            "code entry size mismatch: declared {} bytes, leftover {}",
-            size,
-            reader.limit(),
-        );
+        return Err(DecodeCodeError::EntrySizeMismatch {
+            declared_bytes: size,
+            leftover_bytes: reader.limit(),
+        });
     }
 
     Ok(Code { size, locals, expr })
@@ -780,10 +817,8 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code> {
 #[error("failed decoding Start section")]
 pub struct DecodeStartSectionError(#[from] index::Error);
 
-fn parse_start_section<R: Read + ?Sized>(
-    reader: &mut R,
-) -> Result<FuncIdx, DecodeStartSectionError> {
-    FuncIdx::read(reader).map_err(DecodeStartSectionError)
+fn parse_start_section<R: Read + ?Sized>(reader: &mut R) -> Result<FuncIdx, DecodeStartSectionError> {
+    Ok(FuncIdx::read(reader)?)
 }
 
 #[derive(Debug, PartialEq)]
@@ -809,9 +844,7 @@ pub enum DecodeElementSectionError {
     DecodeElement(#[from] DecodeElementError),
 }
 
-fn parse_element_section<R: Read + ?Sized>(
-    reader: &mut R,
-) -> Result<Vec<Elem>, DecodeElementSectionError> {
+fn parse_element_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Elem>, DecodeElementSectionError> {
     parse_vec2(reader, parse_elem)
 }
 
@@ -995,9 +1028,7 @@ pub enum DecodeDataSectionError {
     DecodeDataSegments(#[from] DecodeDataSegmentError),
 }
 
-fn parse_data_section<R: Read + ?Sized>(
-    reader: &mut R,
-) -> Result<Vec<Data>, DecodeDataSectionError> {
+fn parse_data_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Data>, DecodeDataSectionError> {
     parse_vec2(reader, parse_data)
 }
 
@@ -1059,9 +1090,7 @@ pub enum DecodeDataCountSectionError {
     DecodeDataSegmentCount(#[from] integer::DecodeError),
 }
 
-fn parse_datacount_section<R: Read + ?Sized>(
-    reader: &mut R,
-) -> Result<u32, DecodeDataCountSectionError> {
+fn parse_datacount_section<R: Read + ?Sized>( reader: &mut R) -> Result<u32, DecodeDataCountSectionError> {
     Ok(read_u32(reader)?)
 }
 
@@ -1134,9 +1163,7 @@ pub enum DecodeResultTypeError {
     DecodeValType(#[from] DecodeValTypeError),
 }
 
-pub fn decode_result_type<R: Read + ?Sized>(
-    r: &mut R,
-) -> Result<Vec<ValType>, DecodeResultTypeError> {
+pub fn decode_result_type<R: Read + ?Sized>( r: &mut R) -> Result<Vec<ValType>, DecodeResultTypeError> {
     parse_vec2(r, ValType::read)
 }
 
@@ -1179,10 +1206,10 @@ where
 }
 
 // TODO: replace parse_vec with this one
-fn parse_vec2<R, F, T, E, E2>(reader: &mut R, parse_fn: F) -> Result<Vec<T>, E>
+fn parse_vec2<R, F, T, E, E2>(reader: &mut R, mut parse_fn: F) -> Result<Vec<T>, E>
 where
     R: Read + ?Sized,
-    F: Fn(&mut R) -> Result<T, E2>,
+    F: FnMut(&mut R) -> Result<T, E2>,
     E: From<E2> + From<integer::DecodeError>,
 {
     let len = read_u32(reader)?;
