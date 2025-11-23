@@ -956,9 +956,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     let (r#type, init, mode) = match bitfield {
         0 => {
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, |r| {
-                FuncIdx::read(r)
-            })?;
+            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, FuncIdx::read)?;
             (
                 RefType::Func,
                 funcidx_into_reffunc(y),
@@ -970,18 +968,14 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         1 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, |r| {
-                FuncIdx::read(r)
-            })?;
+            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, FuncIdx::read)?;
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
             let x = TableIdx::read(reader)?;
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
             let et = parse_elemkind(reader)?;
-            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, |r| {
-                FuncIdx::read(r)
-            })?;
+            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, FuncIdx::read)?;
             (
                 et,
                 funcidx_into_reffunc(y),
@@ -993,9 +987,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         3 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, |r| {
-                FuncIdx::read(r)
-            })?;
+            let y = parse_vector::<_, _, _, DecodeElementError, index::FuncIdxError>(reader, FuncIdx::read)?;
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
         4 => {

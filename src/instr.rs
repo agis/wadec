@@ -534,7 +534,7 @@ impl Instr {
             0x1B => Instr::Select(None),
             0x1C => Instr::Select(Some(parse_vector::<_, _, _, anyhow::Error, _>(
                 reader,
-                |r| ValType::read(r),
+                ValType::read,
             )?)),
 
             // --- Variable instructions (5.4.4) ---
