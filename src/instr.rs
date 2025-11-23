@@ -1,7 +1,7 @@
 use crate::index::*;
 use crate::integer::*;
-use crate::{RefType, ValType, parse_f32, parse_f64, parse_vec, parse_vec2, read_byte};
-use anyhow::{Result, bail};
+use crate::{parse_f32, parse_f64, parse_vec, parse_vec2, read_byte, RefType, ValType};
+use anyhow::{bail, Result};
 use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone, PartialEq)]

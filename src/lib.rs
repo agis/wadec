@@ -593,24 +593,60 @@ pub enum ImportDesc {
     Global(GlobalType),
 }
 
-// https://webassembly.github.io/spec/core/binary/modules.html#import-section
-fn parse_import_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Import>> {
-    parse_vec(reader, parse_import)
+#[derive(Debug, Error)]
+pub enum DecodeImportSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeImport(#[from] DecodeImportError),
 }
 
-fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import> {
-    let module = parse_name(reader)?;
-    let name = parse_name(reader)?;
+// https://webassembly.github.io/spec/core/binary/modules.html#import-section
+fn parse_import_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Import>, DecodeImportSectionError> {
+    parse_vec2(reader, parse_import)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeImportError {
+    #[error("failed decoding module name")]
+    DecodeModuleName(DecodeNameError),
+
+    #[error("failed decoding entity name")]
+    DecodeName(DecodeNameError),
+
+    #[error("failed reading Import descriptor marker byte")]
+    ReadDescriptorMarkerByte(io::Error),
+
+    #[error(transparent)]
+    DecodeTypeIdx(#[from] index::Error),
+
+    #[error(transparent)]
+    DecodeTable(#[from] DecodeTableError),
+
+    #[error(transparent)]
+    DecodeMemType(#[from] DecodeMemoryTypeError),
+
+    #[error(transparent)]
+    DecodeGlobalType(#[from] DecodeGlobalTypeError),
+
+    #[error("invalid ImportDesc marker byte: expected 0x00 (type), 0x01 (table), 0x02 (mem) or 0x03 (global); got 0x{0:02X}")]
+    InvalidDescriptorMarkerByte(u8),
+}
+
+fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import, DecodeImportError> {
+    let module = parse_name(reader).map_err(DecodeImportError::DecodeModuleName)?;
+    let name = parse_name(reader).map_err(DecodeImportError::DecodeName)?;
 
     // desc
     let mut desc_kind = [0u8];
-    reader.read_exact(&mut desc_kind)?;
+    reader.read_exact(&mut desc_kind).map_err(DecodeImportError::ReadDescriptorMarkerByte)?;
     let desc = match desc_kind[0] {
         0x00 => ImportDesc::Type(TypeIdx::read(reader)?),
         0x01 => ImportDesc::Table(Table::read(reader)?),
         0x02 => ImportDesc::Mem(parse_memtype(reader)?),
         0x03 => ImportDesc::Global(GlobalType::read(reader)?),
-        n => bail!("unexpected import_desc: {n}"),
+        n => return Err(DecodeImportError::InvalidDescriptorMarkerByte(n)),
     };
 
     Ok(Import { module, name, desc })
