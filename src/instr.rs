@@ -1,6 +1,6 @@
 use crate::index::*;
 use crate::integer::*;
-use crate::{parse_f32, parse_f64, parse_vec, read_byte, RefType, ValType};
+use crate::{parse_f32, parse_f64, parse_vector, read_byte, RefType, ValType};
 use anyhow::{bail, Result};
 use std::io::{Cursor, Read};
 
@@ -511,7 +511,8 @@ impl Instr {
             0x0C => Instr::Br(LabelIdx::read(reader)?),
             0x0D => Instr::BrIf(LabelIdx::read(reader)?),
             0x0E => {
-                let l = parse_vec::<_, _, _, anyhow::Error, LabelIdxError>(reader, LabelIdx::read)?;
+                let l =
+                    parse_vector::<_, _, _, anyhow::Error, LabelIdxError>(reader, LabelIdx::read)?;
                 let ln = LabelIdx::read(reader)?;
                 Instr::BrTable(l, ln)
             }
@@ -531,9 +532,10 @@ impl Instr {
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instr::Drop,
             0x1B => Instr::Select(None),
-            0x1C => Instr::Select(Some(parse_vec::<_, _, _, anyhow::Error, _>(reader, |r| {
-                ValType::read(r)
-            })?)),
+            0x1C => Instr::Select(Some(parse_vector::<_, _, _, anyhow::Error, _>(
+                reader,
+                |r| ValType::read(r),
+            )?)),
 
             // --- Variable instructions (5.4.4) ---
             0x20 => Instr::LocalGet(LocalIdx::read(reader)?),
