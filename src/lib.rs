@@ -631,27 +631,55 @@ pub enum ExportDesc {
     Global(GlobalIdx),
 }
 
+#[derive(Debug, Error)]
+#[error("invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem) or 0x03 (global); got 0x{0:02X}")]
+pub struct InvalidExportDescMarkerByte(u8);
+
 impl ExportDesc {
-    fn from(b: u8, idx: u32) -> Result<Self> {
+    fn from(b: u8, idx: u32) -> Result<Self, InvalidExportDescMarkerByte> {
         Ok(match b {
             0x00 => ExportDesc::Func(FuncIdx(idx)),
             0x01 => ExportDesc::Table(TableIdx(idx)),
             0x02 => ExportDesc::Mem(MemIdx(idx)),
             0x03 => ExportDesc::Global(GlobalIdx(idx)),
-            _ => bail!("unexpected export_desc byte: {:X}", b),
+            _ => return Err(InvalidExportDescMarkerByte(b)),
         })
     }
 }
 
-// TODO: validate that names are unique?
-fn parse_export_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Export>> {
-    parse_vec(reader, parse_export)
+#[derive(Debug, Error)]
+pub enum DecodeExportSectionError {
+    #[error("failed decoding vector length")]
+    DecodeVectorLength(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeExport(#[from] DecodeExportError),
 }
 
-fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export> {
+// TODO: validate that names are unique?
+fn parse_export_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Export>, DecodeExportSectionError> {
+    parse_vec2(reader, parse_export)
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeExportError {
+    #[error(transparent)]
+    DecodeName(#[from] DecodeNameError),
+
+    #[error("failed reading Export descriptor marker byte")]
+    ReadDescriptorMarkerByte(io::Error),
+
+    #[error("failed reading ExportDesc index")]
+    DecodeIndex(#[from] integer::DecodeError),
+
+    #[error(transparent)]
+    InvalidDescriptorMarkerByte(#[from] InvalidExportDescMarkerByte),
+}
+
+fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExportError> {
     let name = parse_name(reader)?;
 
-    let desc_kind = read_byte(reader)?;
+    let desc_kind = read_byte(reader).map_err(DecodeExportError::ReadDescriptorMarkerByte)?;
     let idx = read_u32(reader)?;
     let desc = ExportDesc::from(desc_kind, idx)?;
 
@@ -680,9 +708,7 @@ pub enum DecodeMemorySectionError {
     DecodeMemoryType(#[from] DecodeMemoryTypeError),
 }
 
-fn parse_memory_section<R: Read + ?Sized>(
-    reader: &mut R,
-) -> Result<Vec<Mem>, DecodeMemorySectionError> {
+fn parse_memory_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<Mem>, DecodeMemorySectionError> {
     parse_vec2(reader, parse_memtype)
 }
 
