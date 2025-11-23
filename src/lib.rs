@@ -103,10 +103,10 @@ pub struct FuncType {
 #[derive(Debug, Error)]
 pub enum DecodeFuncTypeError {
     #[error(transparent)]
-    Io(#[from] io::Error),
+    ReadMarkerByte(#[from] io::Error),
 
-    #[error("unexpected functype marker byte: expected 0x60; got 0x{0:02X}")]
-    UnexpectedMarkerByte(u8),
+    #[error("unexpected FuncType marker byte: expected 0x{expected:02X}; got 0x{0:02X}", expected = FuncType::MARKER_BYTE)]
+    InvalidMarkerByte(u8),
 
     #[error("failed decoding Parameters")]
     DecodeParameterTypes(DecodeResultTypeError),
@@ -116,10 +116,12 @@ pub enum DecodeFuncTypeError {
 }
 
 impl FuncType {
+    const MARKER_BYTE: u8 = 0x60;
+
     pub fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeFuncTypeError> {
         let b = read_byte(reader)?;
-        if b != 0x60 {
-            return Err(DecodeFuncTypeError::UnexpectedMarkerByte(b));
+        if b != Self::MARKER_BYTE {
+            return Err(DecodeFuncTypeError::InvalidMarkerByte(b));
         }
 
         let parameters = decode_result_type(reader).map_err(DecodeFuncTypeError::DecodeParameterTypes)?;
