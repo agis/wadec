@@ -179,7 +179,7 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
         Import {
             module: "env".to_owned(),
             name: "table".to_owned(),
-            desc: ImportDesc::Table(Table {
+            desc: ImportDesc::Table(TableType {
                 limits: Limits { min: 1, max: None },
                 reftype: RefType::Func,
             }),
@@ -187,7 +187,7 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
         Import {
             module: "env".to_owned(),
             name: "memory".to_owned(),
-            desc: ImportDesc::Mem(Mem {
+            desc: ImportDesc::Mem(MemType {
                 limits: Limits { min: 1, max: None },
             }),
         },
@@ -413,7 +413,7 @@ fn it_decodes_control_instructions() {
         },
     ];
 
-    let tables = vec![Table {
+    let tables = vec![TableType {
         limits: Limits { min: 1, max: None },
         reftype: RefType::Func,
     }];
@@ -509,11 +509,11 @@ fn it_decodes_element_section_all_alts() {
     ];
 
     let tables = vec![
-        Table {
+        TableType {
             limits: Limits { min: 12, max: None },
             reftype: RefType::Func,
         },
-        Table {
+        TableType {
             limits: Limits { min: 12, max: None },
             reftype: RefType::Func,
         },
@@ -669,7 +669,7 @@ fn it_decodes_reference_instructions() {
         },
     ];
 
-    let tables = vec![Table {
+    let tables = vec![TableType {
         limits: Limits { min: 1, max: None },
         reftype: RefType::Func,
     }];
@@ -945,11 +945,11 @@ fn it_decodes_table_instructions() {
     ];
 
     let tables = vec![
-        Table {
+        TableType {
             limits: Limits { min: 4, max: None },
             reftype: RefType::Func,
         },
-        Table {
+        TableType {
             limits: Limits { min: 4, max: None },
             reftype: RefType::Func,
         },
@@ -1205,7 +1205,7 @@ fn it_decodes_memory_instructions() {
         ],
     }];
 
-    let mems = vec![Mem {
+    let mems = vec![MemType {
         limits: Limits { min: 1, max: None },
     }];
 
@@ -1398,12 +1398,12 @@ fn it_accepts_foo() {
         desc: ImportDesc::Type(TypeIdx(0)),
     }];
 
-    let tables = vec![Table {
+    let tables = vec![TableType {
         limits: Limits { min: 1, max: None },
         reftype: RefType::Func,
     }];
 
-    let mems = vec![Mem {
+    let mems = vec![MemType {
         limits: Limits { min: 1, max: None },
     }];
 
@@ -1570,12 +1570,12 @@ fn it_accepts_kitchensink() {
         },
     ];
 
-    let tables = vec![Table {
+    let tables = vec![TableType {
         limits: Limits { min: 1, max: None },
         reftype: RefType::Func,
     }];
 
-    let mems = vec![Mem {
+    let mems = vec![MemType {
         limits: Limits { min: 1, max: None },
     }];
 
@@ -1663,7 +1663,7 @@ fn it_decodes_data_section_multiple_segments() {
         },
     ];
 
-    let mems = vec![Mem {
+    let mems = vec![MemType {
         limits: Limits { min: 1, max: None },
     }];
 
@@ -2337,7 +2337,7 @@ fn it_decodes_vector_instructions() {
 
     assert_eq!(
         module.mems,
-        vec![Mem {
+        vec![MemType {
             limits: Limits { min: 1, max: None },
         }]
     );
@@ -2410,7 +2410,7 @@ fn it_respects_mem_limits() {
         size: 5,
     }];
 
-    let mems = vec![Mem {
+    let mems = vec![MemType {
         limits: Limits {
             min: 1,
             max: Some(129),
