@@ -112,6 +112,13 @@ pub struct Module {
     /// <https://www.w3.org/TR/wasm-core-2/#element-section>
     pub elems: Vec<Elem>,
 
+    /// The optional data count section (id 12) declares the number of data segments that follow.
+    /// It is required when data indices appear in code, and when present its count must match the
+    /// length of [`Self::datas`].
+    ///
+    /// <https://www.w3.org/TR/wasm-core-2/#data-count-section>
+    pub data_count: Option<u32>,
+
     /// The initial contents of a memory are zero bytes. Data segments can be used to initialize
     /// a range of memory from a static vector of bytes. The datas component of a module
     /// defines a vector of data segments. Like element segments, data segments have a mode
@@ -124,13 +131,6 @@ pub struct Module {
     /// <https://www.w3.org/TR/wasm-core-2/#data-segments>
     /// <https://www.w3.org/TR/wasm-core-2/#data-section>
     pub datas: Vec<Data>,
-
-    /// The optional data count section (id 12) declares the number of data segments that follow.
-    /// It is required when data indices appear in code, and when present its count must match the
-    /// length of [`Self::datas`].
-    ///
-    /// <https://www.w3.org/TR/wasm-core-2/#data-count-section>
-    pub data_count: Option<u32>,
 
     /// The start component of a module declares the function index of a start function that is
     /// automatically invoked when the module is instantiated, after tables and memories have
