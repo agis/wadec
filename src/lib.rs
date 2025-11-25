@@ -269,7 +269,6 @@ impl FuncType {
     }
 }
 
-
 type Expr = Vec<Instr>;
 
 /// The funcs component of a module defines a vector of functions.
