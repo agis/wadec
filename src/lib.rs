@@ -315,7 +315,7 @@ pub struct TableType {
 #[derive(Debug, Error)]
 pub enum DecodeTableError {
     #[error(transparent)]
-    DecodeRefType(#[from] anyhow::Error),
+    DecodeRefType(#[from] DecodeRefTypeError),
 
     #[error(transparent)]
     DecodeLimits(#[from] ParseLimitsError),
@@ -432,15 +432,15 @@ pub enum ValType {
 
 #[derive(Debug, Error)]
 #[error(
-    "invalid ValType byte: expected \
+    "invalid ValType marker byte: expected \
     0x7F (int32), 0x7E (int64), 0x7D (float32), 0x7C (float64), \
     0x7B (v128), 0x70 (funcref) or 0x6F (externref); \
     got 0x{0:02X}"
 )]
-pub struct InvalidValTypeByteError(u8);
+pub struct InvalidValTypeMarkerError(u8);
 
 impl TryFrom<u8> for ValType {
-    type Error = InvalidValTypeByteError;
+    type Error = InvalidValTypeMarkerError;
 
     fn try_from(b: u8) -> Result<Self, Self::Error> {
         Ok(match b {
@@ -451,18 +451,18 @@ impl TryFrom<u8> for ValType {
             0x7B => ValType::Vec(VecType::V128),
             0x70 => ValType::Ref(RefType::Func),
             0x6F => ValType::Ref(RefType::Extern),
-            n => return Err(InvalidValTypeByteError(n)),
+            n => return Err(InvalidValTypeMarkerError(n)),
         })
     }
 }
 
 #[derive(Debug, Error)]
 pub enum DecodeValTypeError {
-    #[error("IO error")]
+    #[error(transparent)]
     Io(#[from] io::Error),
 
     #[error(transparent)]
-    InvalidValTypeByte(#[from] InvalidValTypeByteError),
+    InvalidMarkerByte(#[from] InvalidValTypeMarkerError),
 }
 
 impl ValType {
@@ -574,20 +574,33 @@ pub enum RefType {
     Extern,
 }
 
+#[derive(Debug, Error)]
+pub enum DecodeRefTypeError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    InvalidMarkerByte(#[from] InvalidRefTypeMarkerError),
+}
+
 impl RefType {
-    fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self> {
-        read_byte(r)?.try_into()
+    fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self, DecodeRefTypeError> {
+        Ok(read_byte(r)?.try_into()?)
     }
 }
 
+#[derive(Debug, Error)]
+#[error("invalid RefType marker byte: expected 0x70 (funcref) or 0x6F (externref); got 0x{0:02X}")]
+pub struct InvalidRefTypeMarkerError(u8);
+
 impl TryFrom<u8> for RefType {
-    type Error = anyhow::Error;
+    type Error = InvalidRefTypeMarkerError;
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
         Ok(match v {
             0x70 => RefType::Func,
             0x6F => RefType::Extern,
-            n => bail!("malformed reftype: {:x}", n),
+            n => return Err(InvalidRefTypeMarkerError(n)),
         })
     }
 }
@@ -1231,15 +1244,14 @@ pub enum DecodeElementError {
     #[error("failed decoding Element expression")]
     DecodeElementExpression(ParseExpressionError),
 
-    #[error("failed decoding Function index")]
+    #[error(transparent)]
     DecodeFuncIdx(#[from] index::FuncIdxError),
 
-    #[error("failed decoding Table index")]
+    #[error(transparent)]
     DecodeTableIdx(#[from] index::TableIdxError),
 
-    // TODO: when this stops relying on anyhow::Error, make it a `[#from]`
-    #[error("failed decoding Reference type")]
-    DecodeReferenceType(anyhow::Error),
+    #[error(transparent)]
+    DecodeReferenceType(#[from] DecodeRefTypeError),
 
     #[error("failed decoding table.init expressions")]
     DecodeInit(ParseExpressionError),

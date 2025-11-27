@@ -5,7 +5,7 @@ use thiserror::Error;
 macro_rules! define_index {
     ($name:ident, $errorname:ident) => {
         #[derive(Debug, Error)]
-        #[error("failed decoding index")]
+        #[error("failed decoding {name} index", name = stringify!($name))]
         pub struct $errorname(#[from] integer::DecodeError);
 
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
