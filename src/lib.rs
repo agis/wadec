@@ -204,6 +204,10 @@ impl Default for Module {
     }
 }
 
+/// Each section constists of a one-byte section id, the u32 size of the contents
+/// (in bytes), and the actual contents, whose structure is dependent on the section id.
+///
+/// Note: 'Section header' is not a term defined in the specification.
 #[derive(PartialEq, Debug)]
 pub struct SectionHeader {
     pub kind: SectionKind,
@@ -524,8 +528,12 @@ pub enum SectionKind {
     Data,
 }
 
+#[derive(Debug, Error)]
+#[error("invalid section ID: expected 0-12; got {0}")]
+pub struct InvalidSectionIdError(u8);
+
 impl TryFrom<u8> for SectionKind {
-    type Error = anyhow::Error;
+    type Error = InvalidSectionIdError;
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
         Ok(match v {
@@ -542,7 +550,7 @@ impl TryFrom<u8> for SectionKind {
             10 => SectionKind::Code,
             11 => SectionKind::Data,
             12 => SectionKind::DataCount,
-            n => bail!("malformed section id {:x}", n),
+            n => return Err(InvalidSectionIdError(n)),
         })
     }
 }
@@ -746,15 +754,26 @@ fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<(), DecodePreamble
     Ok(())
 }
 
-fn decode_section_header<R: Read + ?Sized>(reader: &mut R) -> Result<Option<SectionHeader>> {
-    let b = read_byte(reader);
-    match b {
-        Ok(_) => Ok::<(), anyhow::Error>(()),
+#[derive(Debug, Error)]
+pub enum DecodeSectionHeaderError {
+    #[error("failed reading section ID byte")]
+    ReadSectionIdByte(#[from] io::Error),
+
+    #[error(transparent)]
+    InvalidSectionId(#[from] InvalidSectionIdError),
+
+    #[error("failed decoding section size")]
+    DecodeSectionSize(#[from] integer::DecodeError),
+}
+
+fn decode_section_header<R: Read + ?Sized>(reader: &mut R) -> Result<Option<SectionHeader>, DecodeSectionHeaderError> {
+    let id = match read_byte(reader) {
+        Ok(id) => id,
         Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
         Err(e) => return Err(e.into()),
-    }?;
+    };
 
-    let kind = SectionKind::try_from(b.unwrap())?;
+    let kind = SectionKind::try_from(id)?;
     let size = read_u32(reader)?;
 
     Ok(Some(SectionHeader { kind, size }))
