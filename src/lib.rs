@@ -744,7 +744,7 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
 }
 
 #[derive(Debug, Error)]
-pub enum DecodePreambleError {
+pub enum ParsePreambleError {
     #[error("failed decoding preamble")]
     Io(#[from] io::Error),
 
@@ -754,14 +754,14 @@ pub enum DecodePreambleError {
     Unexpected([u8; 8]),
 }
 
-fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<(), DecodePreambleError> {
+fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<(), ParsePreambleError> {
     const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 
     let mut preamble = [0u8; 8];
     reader.read_exact(&mut preamble)?;
 
     if [MAGIC_NUMBER, VERSION].concat() != preamble {
-        return Err(DecodePreambleError::Unexpected(preamble));
+        return Err(ParsePreambleError::Unexpected(preamble));
     }
 
     Ok(())
@@ -779,7 +779,9 @@ pub enum DecodeSectionHeaderError {
     DecodeSectionSize(#[from] integer::DecodeError),
 }
 
-fn decode_section_header<R: Read + ?Sized>(reader: &mut R) -> Result<Option<SectionHeader>, DecodeSectionHeaderError> {
+fn decode_section_header<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Option<SectionHeader>, DecodeSectionHeaderError> {
     let id = match read_byte(reader) {
         Ok(id) => id,
         Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),

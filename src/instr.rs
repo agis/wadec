@@ -1,8 +1,11 @@
 use crate::index::*;
-use crate::integer::*;
-use crate::{RefType, ValType, parse_f32, parse_f64, parse_vector, read_byte};
-use anyhow::{Result, bail};
-use std::io::{Cursor, Read};
+use crate::integer::{self, *};
+use crate::{
+    parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
+    DecodeRefTypeError, DecodeValTypeError, InvalidValTypeMarkerError, RefType, ValType,
+};
+use std::io::{self, Cursor, Read};
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instr {
@@ -457,16 +460,177 @@ pub enum Instr {
     F64x2PromoteLowF32x4,
 }
 
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("failed reading opcode")]
+    ReadOpcode(#[from] io::Error),
+
+    #[error("failed decoding control instruction")]
+    Control(#[from] ControlError),
+
+    #[error("failed decoding reference instruction")]
+    Reference(#[from] ReferenceError),
+
+    #[error("failed decoding parametric instruction")]
+    Parametric(#[from] ParametricError),
+
+    #[error("failed decoding variable instruction")]
+    Variable(#[from] VariableError),
+
+    #[error("failed decoding table instruction")]
+    Table(#[from] TableError),
+
+    #[error("failed decoding memory instruction")]
+    Memory(#[from] MemoryError),
+
+    #[error("failed decoding numeric instruction")]
+    Numeric(#[from] NumericError),
+
+    #[error("failed decoding vector instruction")]
+    Vector(#[from] VectorError),
+
+    #[error("unexpected opcode: 0x{0:02X}")]
+    InvalidOpcode(u8),
+
+    #[error("unexpected opcode after 0xFC marker byte: 0x{0:02X}")]
+    InvalidMarkerByteAfterFC(u32),
+}
+
+#[derive(Debug, Error)]
+pub enum ControlError {
+    #[error("failed decoding label index")]
+    LabelIdx(#[from] LabelIdxError),
+
+    #[error("failed decoding function index")]
+    FuncIdx(FuncIdxError),
+
+    #[error("failed decoding table index")]
+    TableIdx(TableIdxError),
+
+    #[error("failed decoding type index")]
+    TypeIdx(TypeIdxError),
+
+    #[error("failed decoding branch table labels")]
+    LabelIdxVector(#[from] integer::DecodeError),
+
+    #[error("failed decoding block type")]
+    BlockType(BlockTypeError),
+
+    #[error("unexpected `Else` token")]
+    UnexpectedElse,
+}
+
+#[derive(Debug, Error)]
+pub enum ReferenceError {
+    #[error("failed decoding reference type")]
+    RefType(DecodeRefTypeError),
+
+    #[error("failed decoding function index")]
+    FuncIdx(FuncIdxError),
+}
+
+#[derive(Debug, Error)]
+pub enum ParametricError {
+    #[error("failed decoding value type")]
+    ValType(#[from] DecodeValTypeError),
+
+    #[error("failed decoding value type vector length")]
+    VectorLength(#[from] integer::DecodeError),
+}
+
+#[derive(Debug, Error)]
+pub enum VariableError {
+    #[error("failed decoding Local index")]
+    LocalIdx(LocalIdxError),
+
+    #[error("failed decoding Global index")]
+    GlobalIdx(GlobalIdxError),
+}
+
+#[derive(Debug, Error)]
+pub enum TableError {
+    #[error("failed decoding table index")]
+    TableIdx(TableIdxError),
+
+    #[error("failed decoding element index")]
+    ElemIdx(ElemIdxError),
+}
+
+#[derive(Debug, Error)]
+pub enum MemoryError {
+    #[error("failed decoding Memarg")]
+    DecodeMemarg(MemargError),
+
+    #[error("failed decoding data index")]
+    DecodeDataIdx(DataIdxError),
+
+    #[error("failed reading reserved byte")]
+    ReadReservedByte(io::Error),
+
+    #[error("failed reading reserved bytes")]
+    ReadReservedBytes(io::Error),
+
+    #[error("unexpected opcode: 0x{0:02X}")]
+    InvalidOpcode(u8),
+
+    #[error("unexpected byte 0x{0:02X} for memory.size")]
+    InvalidMemorySizeByte(u8),
+
+    #[error("unexpected byte 0x{0:02X} for memory.grow")]
+    InvalidMemoryGrowByte(u8),
+
+    #[error("unexpected byte 0x{0:02X} for memory.init")]
+    InvalidMemoryInitByte(u8),
+
+    #[error("unexpected bytes {0:?} for memory.copy")]
+    InvalidMemoryCopyBytes([u8; 2]),
+
+    #[error("unexpected byte 0x{0:02X} for memory.fill")]
+    InvalidMemoryFillByte(u8),
+}
+
+#[derive(Debug, Error)]
+pub enum NumericError {
+    #[error("failed reading prefixed numeric opcode")]
+    ReadOpcode(integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeI32(integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeI64(integer::DecodeError),
+
+    #[error(transparent)]
+    DecodeF32(DecodeFloat32Error),
+
+    #[error(transparent)]
+    DecodeF64(DecodeFloat64Error),
+}
+
+#[derive(Debug, Error)]
+pub enum VectorError {
+    #[error("failed reading Vector opcode")]
+    ReadOpcode(integer::DecodeError),
+
+    #[error(transparent)]
+    Memarg(MemargError),
+
+    #[error(transparent)]
+    LaneIdx(LaneIdxError),
+
+    #[error("failed reading immediate bytes")]
+    ReadImmediateBytes(io::Error),
+
+    #[error("unexpected Vector opcode: 0x{0:02X}")]
+    InvalidOpcode(u32),
+}
+
 impl Instr {
-    pub fn parse<R: Read + ?Sized>(reader: &mut R) -> Result<Parsed> {
-        let mut buf = [0u8];
+    pub fn parse<R: Read + ?Sized>(reader: &mut R) -> Result<Parsed, ParseError> {
+        let mut opcode = [0u8];
+        reader.read_exact(&mut opcode)?;
 
-        let _ = match reader.read_exact(&mut buf) {
-            Ok(_) => Ok::<(), anyhow::Error>(()),
-            Err(e) => return Err(e.into()),
-        };
-
-        let ins = match buf[0] {
+        let ins = match opcode[0] {
             0x0B => return Ok(Parsed::End),
             0x05 => return Ok(Parsed::Else),
 
@@ -474,7 +638,7 @@ impl Instr {
             0x00 => Instr::Unreachable,
             0x01 => Instr::Nop,
             op @ 0x02..=0x04 => {
-                let bt = BlockType::read(reader)?;
+                let bt = BlockType::read(reader).map_err(ControlError::BlockType)?;
                 let mut in1 = Vec::new();
                 let mut parsed;
 
@@ -498,7 +662,7 @@ impl Instr {
                                 match parsed {
                                     Parsed::Instr(i) => in2.push(i),
                                     Parsed::End => break,
-                                    _ => bail!("unexpected `Else`"),
+                                    _ => return Err(ControlError::UnexpectedElse.into()),
                                 }
                             }
                             Instr::If(bt, in1, Some(in2))
@@ -508,49 +672,49 @@ impl Instr {
                     _ => unreachable!(),
                 }
             }
-            0x0C => Instr::Br(LabelIdx::read(reader)?),
-            0x0D => Instr::BrIf(LabelIdx::read(reader)?),
+            0x0C => Instr::Br(LabelIdx::read(reader).map_err(ControlError::LabelIdx)?),
+            0x0D => Instr::BrIf(LabelIdx::read(reader).map_err(ControlError::LabelIdx)?),
             0x0E => {
                 let l =
-                    parse_vector::<_, _, _, anyhow::Error, LabelIdxError>(reader, LabelIdx::read)?;
-                let ln = LabelIdx::read(reader)?;
+                    parse_vector::<_, _, _, ControlError, LabelIdxError>(reader, LabelIdx::read)?;
+                let ln = LabelIdx::read(reader).map_err(ControlError::LabelIdx)?;
                 Instr::BrTable(l, ln)
             }
             0x0F => Instr::Return,
-            0x10 => Instr::Call(FuncIdx::read(reader)?),
+            0x10 => Instr::Call(FuncIdx::read(reader).map_err(ControlError::FuncIdx)?),
             0x11 => {
-                let y = TypeIdx::read(reader)?;
-                let x = TableIdx::read(reader)?;
+                let y = TypeIdx::read(reader).map_err(ControlError::TypeIdx)?;
+                let x = TableIdx::read(reader).map_err(ControlError::TableIdx)?;
                 Instr::CallIndirect(x, y)
             }
 
             // --- Reference instructions (5.4.2) ---
-            0xD0 => Instr::RefNull(RefType::read(reader)?),
+            0xD0 => Instr::RefNull(RefType::read(reader).map_err(ReferenceError::RefType)?),
             0xD1 => Instr::RefIsNull,
-            0xD2 => Instr::RefFunc(FuncIdx::read(reader)?),
+            0xD2 => Instr::RefFunc(FuncIdx::read(reader).map_err(ReferenceError::FuncIdx)?),
 
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instr::Drop,
             0x1B => Instr::Select(None),
-            0x1C => Instr::Select(Some(parse_vector::<_, _, _, anyhow::Error, _>(
+            0x1C => Instr::Select(Some(parse_vector::<_, _, _, ParametricError, _>(
                 reader,
                 ValType::read,
             )?)),
 
             // --- Variable instructions (5.4.4) ---
-            0x20 => Instr::LocalGet(LocalIdx::read(reader)?),
-            0x21 => Instr::LocalSet(LocalIdx::read(reader)?),
-            0x22 => Instr::LocalTee(LocalIdx::read(reader)?),
-            0x23 => Instr::GlobalGet(GlobalIdx::read(reader)?),
-            0x24 => Instr::GlobalSet(GlobalIdx::read(reader)?),
+            0x20 => Instr::LocalGet(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),
+            0x21 => Instr::LocalSet(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),
+            0x22 => Instr::LocalTee(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),
+            0x23 => Instr::GlobalGet(GlobalIdx::read(reader).map_err(VariableError::GlobalIdx)?),
+            0x24 => Instr::GlobalSet(GlobalIdx::read(reader).map_err(VariableError::GlobalIdx)?),
 
             // --- Table instructions (5.4.5) ---
-            0x25 => Instr::TableGet(TableIdx::read(reader)?),
-            0x26 => Instr::TableSet(TableIdx::read(reader)?),
+            0x25 => Instr::TableGet(TableIdx::read(reader).map_err(TableError::TableIdx)?),
+            0x26 => Instr::TableSet(TableIdx::read(reader).map_err(TableError::TableIdx)?),
 
             // --- Memory instructions (5.4.6) ---
             op @ 0x28..=0x3E => {
-                let m = Memarg::read(reader)?;
+                let m = Memarg::read(reader).map_err(MemoryError::DecodeMemarg)?;
                 match op {
                     0x28 => Instr::I32Load(m),
                     0x29 => Instr::I64Load(m),
@@ -575,29 +739,29 @@ impl Instr {
                     0x3C => Instr::I64Store8(m),
                     0x3D => Instr::I64Store16(m),
                     0x3E => Instr::I64Store32(m),
-                    n => bail!("unexpected memory opcode: {:X}", n),
+                    n => return Err(MemoryError::InvalidOpcode(n).into()),
                 }
             }
             0x3F => {
-                let b = read_byte(reader)?;
+                let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
                 if b != 0x00 {
-                    bail!("unexpected byte {:X} for memory.size", b);
+                    return Err(MemoryError::InvalidMemorySizeByte(b))?;
                 }
                 Instr::MemorySize
             }
             0x40 => {
-                let b = read_byte(reader)?;
+                let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
                 if b != 0x00 {
-                    bail!("unexpected byte {:X} for memory.grow", b);
+                    return Err(MemoryError::InvalidMemoryGrowByte(b))?;
                 }
                 Instr::MemoryGrow
             }
 
             // --- Numeric instructions (5.4.7) ---
-            0x41 => Instr::I32Const(read_i32(reader)?),
-            0x42 => Instr::I64Const(read_i64(reader)?),
-            0x43 => Instr::F32Const(parse_f32(reader)?),
-            0x44 => Instr::F64Const(parse_f64(reader)?),
+            0x41 => Instr::I32Const(read_i32(reader).map_err(NumericError::DecodeI32)?),
+            0x42 => Instr::I64Const(read_i64(reader).map_err(NumericError::DecodeI64)?),
+            0x43 => Instr::F32Const(parse_f32(reader).map_err(NumericError::DecodeF32)?),
+            0x44 => Instr::F64Const(parse_f64(reader).map_err(NumericError::DecodeF64)?),
             0x45 => Instr::I32Eqz,
             0x46 => Instr::I32Eq,
             0x47 => Instr::I32Ne,
@@ -728,7 +892,7 @@ impl Instr {
             0xC4 => Instr::I64Extend32S,
 
             // 0xFC is shared by Table, Memory and Numeric instructions
-            0xFC => match read_u32(reader)? {
+            0xFC => match read_u32(reader).map_err(NumericError::ReadOpcode)? {
                 // --- Numeric saturating truncation ---
                 0 => Instr::I32TruncSatF32S,
                 1 => Instr::I32TruncSatF32U,
@@ -741,47 +905,55 @@ impl Instr {
 
                 // --- Memory ---
                 8 => {
-                    let x = DataIdx::read(reader)?;
-                    let b = read_byte(reader)?;
+                    let x = DataIdx::read(reader).map_err(MemoryError::DecodeDataIdx)?;
+                    let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
                     if b != 0x00 {
-                        bail!("unexpected byte {:X} for memory.init", b);
+                        return Err(MemoryError::InvalidMemoryInitByte(b))?;
                     }
                     Instr::MemoryInit(x)
                 }
-                9 => Instr::DataDrop(DataIdx::read(reader)?),
+                9 => Instr::DataDrop(DataIdx::read(reader).map_err(MemoryError::DecodeDataIdx)?),
                 10 => {
                     let mut buf = [0u8; 2];
-                    reader.read_exact(&mut buf)?;
+                    reader
+                        .read_exact(&mut buf)
+                        .map_err(MemoryError::ReadReservedBytes)?;
                     if buf != [0u8, 0u8] {
-                        bail!("unexpected bytes {:?} for memory.copy", buf);
+                        return Err(MemoryError::InvalidMemoryCopyBytes(buf))?;
                     }
                     Instr::MemoryCopy
                 }
                 11 => {
-                    let b = read_byte(reader)?;
+                    let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
                     if b != 0x00 {
-                        bail!("unexpected byte {:X} for memory.fill", b);
+                        return Err(MemoryError::InvalidMemoryFillByte(b))?;
                     }
                     Instr::MemoryFill
                 }
 
                 // --- Table ---
                 12 => {
-                    let y = ElemIdx::read(reader)?;
-                    let x = TableIdx::read(reader)?;
+                    let y = ElemIdx::read(reader).map_err(TableError::ElemIdx)?;
+                    let x = TableIdx::read(reader).map_err(TableError::TableIdx)?;
                     Instr::TableInit(x, y)
                 }
-                13 => Instr::ElemDrop(ElemIdx::read(reader)?),
-                14 => Instr::TableCopy(TableIdx::read(reader)?, TableIdx::read(reader)?),
-                15 => Instr::TableGrow(TableIdx::read(reader)?),
-                16 => Instr::TableSize(TableIdx::read(reader)?),
-                17 => Instr::TableFill(TableIdx::read(reader)?),
-                n => bail!("unexpected table instr prefix byte `{:x}`", n),
+                13 => Instr::ElemDrop(ElemIdx::read(reader).map_err(TableError::ElemIdx)?),
+                14 => Instr::TableCopy(
+                    TableIdx::read(reader).map_err(TableError::TableIdx)?,
+                    TableIdx::read(reader).map_err(TableError::TableIdx)?,
+                ),
+                15 => Instr::TableGrow(TableIdx::read(reader).map_err(TableError::TableIdx)?),
+                16 => Instr::TableSize(TableIdx::read(reader).map_err(TableError::TableIdx)?),
+                17 => Instr::TableFill(TableIdx::read(reader).map_err(TableError::TableIdx)?),
+
+                // --- Invalid ---
+                n => return Err(ParseError::InvalidMarkerByteAfterFC(n)),
             },
 
-            0xFD => match read_u32(reader)? {
+            // --- Vector instructions (5.4.8) ---
+            0xFD => match read_u32(reader).map_err(VectorError::ReadOpcode)? {
                 op @ (0..=11 | 92 | 93) => {
-                    let m = Memarg::read(reader)?;
+                    let m = Memarg::read(reader).map_err(VectorError::Memarg)?;
                     match op {
                         0 => Instr::V128Load(m),
                         1 => Instr::V128Load8x8S(m),
@@ -801,8 +973,8 @@ impl Instr {
                     }
                 }
                 op @ 84..=91 => {
-                    let m = Memarg::read(reader)?;
-                    let l = LaneIdx::read(reader)?;
+                    let m = Memarg::read(reader).map_err(VectorError::Memarg)?;
+                    let l = LaneIdx::read(reader).map_err(VectorError::LaneIdx)?;
                     match op {
                         84 => Instr::V128Load8Lane(m, l),
                         85 => Instr::V128Load16Lane(m, l),
@@ -817,16 +989,20 @@ impl Instr {
                 }
                 12 => {
                     let mut buf = [0u8; 16];
-                    reader.read_exact(&mut buf)?;
+                    reader
+                        .read_exact(&mut buf)
+                        .map_err(VectorError::ReadImmediateBytes)?;
                     Instr::V128Const(buf)
                 }
                 13 => {
-                    let mut buf = [0u8; 16];
-                    reader.read_exact(&mut buf)?;
-                    Instr::I8x16Shuffle(buf.map(LaneIdx))
+                    let mut immediates = [0u8; 16];
+                    reader
+                        .read_exact(&mut immediates)
+                        .map_err(VectorError::ReadImmediateBytes)?;
+                    Instr::I8x16Shuffle(immediates.map(LaneIdx))
                 }
                 op @ 21..=34 => {
-                    let l = LaneIdx::read(reader)?;
+                    let l = LaneIdx::read(reader).map_err(VectorError::LaneIdx)?;
                     match op {
                         21 => Instr::I8x16ExtractLaneS(l),
                         22 => Instr::I8x16ExtractLaneU(l),
@@ -882,7 +1058,6 @@ impl Instr {
                 62 => Instr::I32x4LeU,
                 63 => Instr::I32x4GeS,
                 64 => Instr::I32x4GeU,
-
                 65 => Instr::F32x4Eq,
                 66 => Instr::F32x4Ne,
                 67 => Instr::F32x4Lt,
@@ -902,8 +1077,6 @@ impl Instr {
                 81 => Instr::V128Xor,
                 82 => Instr::V128Bitselect,
                 83 => Instr::V128AnyTrue,
-                94 => Instr::F32x4DemoteF64x2Zero,
-                95 => Instr::F64x2PromoteLowF32x4,
                 96 => Instr::I8x16Abs,
                 97 => Instr::I8x16Neg,
                 98 => Instr::I8x16Popcnt,
@@ -911,10 +1084,7 @@ impl Instr {
                 100 => Instr::I8x16Bitmask,
                 101 => Instr::I8x16NarrowI16x8S,
                 102 => Instr::I8x16NarrowI16x8U,
-                103 => Instr::F32x4Ceil,
-                104 => Instr::F32x4Floor,
-                105 => Instr::F32x4Trunc,
-                106 => Instr::F32x4Nearest,
+
                 107 => Instr::I8x16Shl,
                 108 => Instr::I8x16ShrS,
                 109 => Instr::I8x16ShrU,
@@ -924,16 +1094,14 @@ impl Instr {
                 113 => Instr::I8x16Sub,
                 114 => Instr::I8x16SubSatS,
                 115 => Instr::I8x16SubSatU,
-                116 => Instr::F64x2Ceil,
-                117 => Instr::F64x2Floor,
                 118 => Instr::I8x16MinS,
                 119 => Instr::I8x16MinU,
                 120 => Instr::I8x16MaxS,
                 121 => Instr::I8x16MaxU,
-                122 => Instr::F64x2Trunc,
                 123 => Instr::I8x16AvgrU,
                 124 => Instr::I16x8ExtaddPairwiseI8x16S,
                 125 => Instr::I16x8ExtaddPairwiseI8x16U,
+
                 126 => Instr::I32x4ExtaddPairwiseI16x8S,
                 127 => Instr::I32x4ExtaddPairwiseI16x8U,
                 128 => Instr::I16x8Abs,
@@ -956,7 +1124,6 @@ impl Instr {
                 145 => Instr::I16x8Sub,
                 146 => Instr::I16x8SubSatS,
                 147 => Instr::I16x8SubSatU,
-                148 => Instr::F64x2Nearest,
                 149 => Instr::I16x8Mul,
                 150 => Instr::I16x8MinS,
                 151 => Instr::I16x8MinU,
@@ -1014,6 +1181,11 @@ impl Instr {
                 221 => Instr::I64x2ExtmulHighI32x4S,
                 222 => Instr::I64x2ExtmulLowI32x4U,
                 223 => Instr::I64x2ExtmulHighI32x4U,
+
+                103 => Instr::F32x4Ceil,
+                104 => Instr::F32x4Floor,
+                105 => Instr::F32x4Trunc,
+                106 => Instr::F32x4Nearest,
                 224 => Instr::F32x4Abs,
                 225 => Instr::F32x4Neg,
                 227 => Instr::F32x4Sqrt,
@@ -1025,6 +1197,11 @@ impl Instr {
                 233 => Instr::F32x4Max,
                 234 => Instr::F32x4PMin,
                 235 => Instr::F32x4PMax,
+
+                116 => Instr::F64x2Ceil,
+                117 => Instr::F64x2Floor,
+                122 => Instr::F64x2Trunc,
+                148 => Instr::F64x2Nearest,
                 236 => Instr::F64x2Abs,
                 237 => Instr::F64x2Neg,
                 239 => Instr::F64x2Sqrt,
@@ -1044,9 +1221,12 @@ impl Instr {
                 253 => Instr::I32x4TruncSatF64x2UZero,
                 254 => Instr::F64x2ConvertLowI32x4S,
                 255 => Instr::F64x2ConvertLowI32x4U,
-                n => bail!("unexpected vector instr: 0x{:X}", n),
+                94 => Instr::F32x4DemoteF64x2Zero,
+                95 => Instr::F64x2PromoteLowF32x4,
+
+                n => return Err(VectorError::InvalidOpcode(n).into()),
             },
-            n => bail!("unexpected instr: {:#X}", n),
+            n => return Err(ParseError::InvalidOpcode(n)),
         };
 
         Ok(Parsed::Instr(ins))
@@ -1059,26 +1239,52 @@ pub enum Parsed {
     End,
 }
 
+impl From<ParseError> for crate::ParseExpressionError {
+    fn from(err: ParseError) -> Self {
+        crate::ParseExpressionError::ParseInstruction(err.into())
+    }
+}
+
+/// Memory is accessed with load and store instructions for the different number types. They all
+/// take a memory immediate memarg that contains an address offset and the expected alignment
+/// (expressed as the exponent of a power of 2).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Memarg {
     pub align: u32,
     pub offset: u32,
 }
 
+#[derive(Debug, Error)]
+pub enum MemargError {
+    #[error("failed decoding alignment")]
+    Align(integer::DecodeError),
+
+    #[error("failed decoding offset")]
+    Offset(integer::DecodeError),
+}
+
 impl Memarg {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Memarg> {
-        Ok(Self {
-            align: read_u32(reader)?,
-            offset: read_u32(reader)?,
-        })
+    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Memarg, MemargError> {
+        let align = read_u32(reader).map_err(MemargError::Align)?;
+        let offset = read_u32(reader).map_err(MemargError::Offset)?;
+
+        Ok(Self { align, offset })
     }
 }
 
+/// Vector loads can specify a shape that is half the bit width of v128. Each lane is half its
+/// usual size, and the sign extension mode sx then specifies how the smaller lane is extended to
+/// the larger lane. Alternatively, vector loads can perform a splat, such that only a single lane
+/// of the specified storage size is loaded, and the result is duplicated to all lanes
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LaneIdx(u8);
 
+#[derive(Debug, Error)]
+#[error("failed decoding Lane index")]
+pub struct LaneIdxError(#[from] io::Error);
+
 impl LaneIdx {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self> {
+    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, LaneIdxError> {
         Ok(Self(read_byte(reader)?))
     }
 }
@@ -1090,10 +1296,27 @@ pub enum BlockType {
     X(u32),
 }
 
-impl BlockType {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self> {
-        let b = read_byte(reader)?;
+#[derive(Debug, Error)]
+pub enum BlockTypeError {
+    #[error("failed reading block type marker byte")]
+    ReadMarkerByte(io::Error),
 
+    #[error(transparent)]
+    InvalidValType(InvalidValTypeMarkerError),
+
+    #[error("failed decoding block type index")]
+    DecodeIndex(integer::DecodeError),
+
+    #[error("blocktype Type index negative: {0}")]
+    NegativeTypeIndex(i64),
+
+    #[error("blocktype Type index too large (max={max}): {0}", max = u32::MAX)]
+    TypeIndexTooLarge(i64),
+}
+
+impl BlockType {
+    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, BlockTypeError> {
+        let b = read_byte(reader).map_err(BlockTypeError::ReadMarkerByte)?;
         if b == 0x40 {
             return Ok(Self::Empty);
         }
@@ -1102,12 +1325,19 @@ impl BlockType {
             return Ok(Self::T(t));
         }
 
+        // Unlike any other occurrence, the type index in a block type is encoded as a positive
+        // signed integer, so that its signed LEB128 bit pattern cannot collide with the encoding
+        // of value types or the special code 0x40, which correspond to the LEB128 encoding of
+        // negative integers. To avoid any loss in the range of allowed indices, it is treated as a
+        // 33 bit signed integer.
         let mut chain = Cursor::new([b]).chain(reader);
-        let x = read_i64(&mut chain)?;
+        let x = read_i64(&mut chain).map_err(BlockTypeError::DecodeIndex)?;
         if x < 0 {
-            bail!("blocktype integer negative");
+            return Err(BlockTypeError::NegativeTypeIndex(x));
         }
 
-        Ok(Self::X(x.try_into()?))
+        let x = u32::try_from(x).map_err(|_| BlockTypeError::TypeIndexTooLarge(x))?;
+
+        Ok(Self::X(x))
     }
 }
