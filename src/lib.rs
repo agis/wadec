@@ -6,7 +6,6 @@ mod integer;
 
 use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instr::{Instr, Parsed};
-use anyhow::{Result, bail};
 use integer::*;
 use std::io;
 use std::io::Read;
@@ -164,18 +163,27 @@ pub struct Module {
 }
 
 impl Module {
-    fn validate_section_kind_expected(&self, next: &SectionHeader) -> Result<()> {
-        let prev_kind = self.parsed_section_kinds.last();
-        let next_kind = next.kind;
+    fn validate_section_kind_expected(
+        &self,
+        current: &SectionHeader,
+    ) -> Result<(), DecodeModuleError> {
+        let previous = self.parsed_section_kinds.last();
+        let current = current.kind;
 
         // Every section is valid if it's the first one we're encountering.
         // Custom sections may appear anywhere in the module and multiple times
-        if prev_kind.is_none() || next_kind == SectionKind::Custom {
+        if previous.is_none() || current == SectionKind::Custom {
             return Ok(());
         }
 
-        if next_kind <= *prev_kind.unwrap() {
-            bail!("unexpected {:?} section", next_kind);
+        let previous = *previous.unwrap();
+
+        if current < previous {
+            return Err(DecodeModuleError::SectionOutOfOrder { current, previous });
+        }
+
+        if current == previous {
+            return Err(DecodeModuleError::DuplicateSection(current));
         }
 
         Ok(())
@@ -605,7 +613,89 @@ impl TryFrom<u8> for RefType {
     }
 }
 
-pub fn decode(mut input: impl Read) -> Result<Module> {
+#[derive(Debug, Error)]
+pub enum DecodeModuleError {
+    #[error(transparent)]
+    ParsePreamble(#[from] ParsePreambleError),
+
+    #[error("number of Code entries does not match number of Function entries")]
+    CodeFuncEntriesLenMismatch { codes_len: usize, funcs_len: usize },
+
+    #[error("number of Data segments does not match the Data Count section")]
+    DataCountMismatch { datas_len: usize, data_count: u32 },
+
+    #[error("out of order section: {current:?} cannot appear after {previous:?}")]
+    SectionOutOfOrder {
+        current: SectionKind,
+        previous: SectionKind,
+    },
+
+    #[error("duplicate section: {0:?}")]
+    DuplicateSection(SectionKind),
+
+    #[error("{section_kind:?} section size mismatch: declared {declared} bytes; got {got}")]
+    SectionSizeMismatch {
+        section_kind: SectionKind,
+        declared: u32,
+        got: u64,
+    },
+
+    #[error(
+        "Data Count section does not match Datas length: declared {data_count}; got {datas_len}"
+    )]
+    DataCountDatasLenMismatch { datas_len: usize, data_count: u32 },
+
+    #[error("failed decoding Data Count section")]
+    DecodeDataCount(std::num::TryFromIntError),
+
+    #[error("Data index was present in Code section, but Data Count section is missing")]
+    DataIndexWithoutDataCount,
+
+    // section-specific errors
+    #[error(transparent)]
+    DecodeSectionHeader(#[from] DecodeSectionHeaderError),
+
+    #[error(transparent)]
+    DecodeCustomSection(#[from] DecodeCustomSectionError),
+
+    #[error(transparent)]
+    DecodeTypeSection(#[from] DecodeTypeSectionError),
+
+    #[error(transparent)]
+    DecodeImportSection(#[from] DecodeImportSectionError),
+
+    #[error(transparent)]
+    DecodeFunctionSection(#[from] DecodeFunctionSectionError),
+
+    #[error(transparent)]
+    DecodeTableSection(#[from] DecodeTableSectionError),
+
+    #[error(transparent)]
+    DecodeMemorySection(#[from] DecodeMemorySectionError),
+
+    #[error(transparent)]
+    DecodeGlobalSection(#[from] DecodeGlobalSectionError),
+
+    #[error(transparent)]
+    DecodeExportSection(#[from] DecodeExportSectionError),
+
+    #[error(transparent)]
+    DecodeStartSection(#[from] DecodeStartSectionError),
+
+    #[error(transparent)]
+    DecodeElementSection(#[from] DecodeElementSectionError),
+
+    #[error(transparent)]
+    DecodeDatacountSection(#[from] DecodeDataCountSectionError),
+
+    #[error(transparent)]
+    DecodeCodeSection(#[from] DecodeCodeSectionError),
+
+    #[error(transparent)]
+    DecodeDataSection(#[from] DecodeDataSectionError),
+}
+
+pub fn decode(mut input: impl Read) -> Result<Module, DecodeModuleError> {
     parse_preamble(&mut input)?;
 
     let mut module = Module {
@@ -659,7 +749,10 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
 
                 let codes = decode_code_section(section_reader)?;
                 if codes.len() != module.funcs.len() {
-                    bail!("code entries len do not match with funcs entries len");
+                    return Err(DecodeModuleError::CodeFuncEntriesLenMismatch {
+                        codes_len: codes.len(),
+                        funcs_len: module.funcs.len(),
+                    });
                 }
 
                 for (i, code) in codes.into_iter().enumerate() {
@@ -686,26 +779,23 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
                 let datas = decode_data_section(section_reader)?;
 
                 if let Some(data_count) = module.data_count
-                    && datas.len() != data_count.try_into()?
+                    && datas.len() != data_count.try_into().unwrap()
                 {
-                    bail!(
-                        "number of data segments ({}) do not match the data count section ({})",
+                    return Err(DecodeModuleError::DataCountMismatch {
+                        datas_len: datas.len(),
                         data_count,
-                        datas.len()
-                    );
+                    });
                 }
-
                 module.datas = datas;
             }
         }
 
         if section_reader.limit() != 0 {
-            bail!(
-                "section {:?} size mismatch: declared {} bytes, got {}",
+            return Err(DecodeModuleError::SectionSizeMismatch {
                 section_kind,
-                section_header.size,
-                u64::from(section_header.size) - section_reader.limit(),
-            );
+                declared: section_header.size,
+                got: u64::from(section_header.size) - section_reader.limit(),
+            });
         }
 
         module.section_headers.push(section_header);
@@ -723,21 +813,27 @@ pub fn decode(mut input: impl Read) -> Result<Module> {
         // if we encountered a Code section, it means we already checked that
         // its count matches the Function section count. (Function section comes
         // before Code section.)
-        bail!("function section has non-zero count but code section was absent")
+        return Err(DecodeModuleError::CodeFuncEntriesLenMismatch {
+            funcs_len: module.funcs.len(),
+            codes_len: 0,
+        });
     }
 
     // Section 5.5.16: Similarly, the optional data count must match the length
     // of the data segment vector
     if let Some(n) = module.data_count
-        && usize::try_from(n)? != module.datas.len()
+        && usize::try_from(n).map_err(DecodeModuleError::DecodeDataCount)? != module.datas.len()
     {
-        bail!("data count ({n}) was present but data segment did not match it",)
+        return Err(DecodeModuleError::DataCountDatasLenMismatch {
+            datas_len: module.datas.len(),
+            data_count: n,
+        });
     }
 
     // Section 5.5.16: Furthermore, it must be present if any data index
     // occurs in the code section
     if encountered_data_idx_in_code_section && module.data_count.is_none() {
-        bail!("data count section required because of data index in code section")
+        return Err(DecodeModuleError::DataIndexWithoutDataCount);
     }
 
     Ok(module)
@@ -822,7 +918,9 @@ pub enum DecodeTypeSectionError {
     DecodeFuncType(#[from] DecodeFuncTypeError),
 }
 
-fn decode_type_section<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<FuncType>> {
+fn decode_type_section<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Vec<FuncType>, DecodeTypeSectionError> {
     parse_vector(reader, FuncType::read)
 }
 
@@ -1144,7 +1242,7 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
     let max_locals = u64::from(u32::MAX);
 
     let locals = parse_vector::<_, _, _, DecodeCodeError, _>(&mut reader, |r| {
-        let count = read_u32(r)?;
+        let count = read_u32(r).map_err(DecodeCodeError::DecodeLocalsCount)?;
 
         expanded_locals += u64::from(count);
         if expanded_locals > max_locals {
@@ -1493,7 +1591,7 @@ fn decode_datacount_section<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum ParseExpressionError {
     #[error("failed parsing instruction")]
-    ParseInstruction(#[from] anyhow::Error),
+    ParseInstruction(#[from] instr::ParseError),
 
     #[error("unexpected Else delimiter")]
     UnexpectedElse,
@@ -1528,9 +1626,6 @@ pub enum ParseLimitsError {
 
     #[error("failed reading maximum limit")]
     ReadMaxLimit(integer::DecodeError),
-
-    #[error("failed reading limits byte")]
-    ReadLimitsByte(integer::DecodeError),
 }
 
 fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits, ParseLimitsError> {

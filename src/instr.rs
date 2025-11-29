@@ -1,8 +1,8 @@
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{
-    parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
-    DecodeRefTypeError, DecodeValTypeError, InvalidValTypeMarkerError, RefType, ValType,
+    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError, RefType,
+    ValType, parse_f32, parse_f64, parse_vector, read_byte,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -1239,12 +1239,6 @@ pub enum Parsed {
     End,
 }
 
-impl From<ParseError> for crate::ParseExpressionError {
-    fn from(err: ParseError) -> Self {
-        crate::ParseExpressionError::ParseInstruction(err.into())
-    }
-}
-
 /// Memory is accessed with load and store instructions for the different number types. They all
 /// take a memory immediate memarg that contains an address offset and the expected alignment
 /// (expressed as the exponent of a power of 2).
@@ -1300,9 +1294,6 @@ pub enum BlockType {
 pub enum BlockTypeError {
     #[error("failed reading block type marker byte")]
     ReadMarkerByte(io::Error),
-
-    #[error(transparent)]
-    InvalidValType(InvalidValTypeMarkerError),
 
     #[error("failed decoding block type index")]
     DecodeIndex(integer::DecodeError),
