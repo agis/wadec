@@ -1,8 +1,8 @@
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{
-    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError, RefType,
-    ValType, parse_f32, parse_f64, parse_vector, read_byte,
+    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError,
+    DecodeVectorError, RefType, ValType, parse_f32, parse_f64, parse_vector, read_byte,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -501,6 +501,9 @@ pub enum ControlError {
     #[error("failed decoding label index")]
     LabelIdx(#[from] LabelIdxError),
 
+    #[error("failed decoding label index")]
+    DecodeLabelIdxVector(#[from] DecodeVectorError<LabelIdxError>),
+
     #[error("failed decoding function index")]
     FuncIdx(FuncIdxError),
 
@@ -531,11 +534,8 @@ pub enum ReferenceError {
 
 #[derive(Debug, Error)]
 pub enum ParametricError {
-    #[error("failed decoding value type")]
-    ValType(#[from] DecodeValTypeError),
-
-    #[error("failed decoding value type vector length")]
-    VectorLength(#[from] integer::DecodeU32Error),
+    #[error("failed decoding value type vector")]
+    DecodeVector(#[from] DecodeVectorError<DecodeValTypeError>),
 }
 
 #[derive(Debug, Error)]
@@ -675,8 +675,8 @@ impl Instr {
             0x0C => Instr::Br(LabelIdx::read(reader).map_err(ControlError::LabelIdx)?),
             0x0D => Instr::BrIf(LabelIdx::read(reader).map_err(ControlError::LabelIdx)?),
             0x0E => {
-                let l =
-                    parse_vector::<_, _, _, ControlError, LabelIdxError>(reader, LabelIdx::read)?;
+                let l = parse_vector(reader, LabelIdx::read)
+                    .map_err(ControlError::DecodeLabelIdxVector)?;
                 let ln = LabelIdx::read(reader).map_err(ControlError::LabelIdx)?;
                 Instr::BrTable(l, ln)
             }
@@ -696,10 +696,9 @@ impl Instr {
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instr::Drop,
             0x1B => Instr::Select(None),
-            0x1C => Instr::Select(Some(parse_vector::<_, _, _, ParametricError, _>(
-                reader,
-                ValType::read,
-            )?)),
+            0x1C => Instr::Select(Some(
+                parse_vector(reader, ValType::read).map_err(ParametricError::DecodeVector)?,
+            )),
 
             // --- Variable instructions (5.4.4) ---
             0x20 => Instr::LocalGet(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),

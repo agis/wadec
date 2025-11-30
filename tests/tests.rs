@@ -2450,6 +2450,29 @@ fn it_enforces_section_ordering() {
 }
 
 #[test]
+fn it_surfaces_vector_element_index_on_type_decode_failure() {
+    let f = File::open("tests/fixtures/type_section_invalid_functype.wasm").unwrap();
+
+    let err = decode(f).expect_err("type section should fail on bad functype marker");
+
+    match err {
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+            DecodeVectorError::ParseElement {
+                position: nth_element,
+                source,
+            },
+        )) => {
+            assert_eq!(nth_element, 1);
+            assert!(matches!(
+                source,
+                DecodeFuncTypeError::InvalidMarkerByte(0x00)
+            ));
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn it_rejects_overlong_type_index_encoding() {
     // Construct a minimal module containing a function section whose type index
     // is encoded with five continuation bytes, which exceeds the allowed
