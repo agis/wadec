@@ -872,7 +872,7 @@ pub enum DecodeSectionHeaderError {
     InvalidSectionId(#[from] InvalidSectionIdError),
 
     #[error("failed decoding section size")]
-    DecodeSectionSize(#[from] integer::DecodeError),
+    DecodeSectionSize(#[from] integer::DecodeU32Error),
 }
 
 fn decode_section_header<R: Read + ?Sized>(
@@ -912,7 +912,7 @@ fn decode_section_custom<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum DecodeTypeSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeFuncType(#[from] DecodeFuncTypeError),
@@ -927,7 +927,7 @@ fn decode_type_section<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum DecodeFunctionSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error("failed decoding Type index")]
     DecodeTypeIdx(#[from] index::TypeIdxError),
@@ -968,7 +968,7 @@ pub enum ImportDesc {
 #[derive(Debug, Error)]
 pub enum DecodeImportSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeImport(#[from] DecodeImportError),
@@ -1071,7 +1071,7 @@ impl ExportDesc {
 #[derive(Debug, Error)]
 pub enum DecodeExportSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeExport(#[from] DecodeExportError),
@@ -1093,7 +1093,7 @@ pub enum DecodeExportError {
     ReadDescriptorMarkerByte(io::Error),
 
     #[error("failed reading ExportDesc index")]
-    DecodeIndex(#[from] integer::DecodeError),
+    DecodeIndex(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     InvalidDescriptorMarkerByte(#[from] InvalidExportDescMarkerByte),
@@ -1112,7 +1112,7 @@ fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExport
 #[derive(Debug, Error)]
 pub enum DecodeTableSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeTable(#[from] DecodeTableError),
@@ -1127,7 +1127,7 @@ fn decode_table_section<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum DecodeMemorySectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeMemoryType(#[from] DecodeMemoryTypeError),
@@ -1151,7 +1151,7 @@ fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<MemType, DecodeMemo
 #[derive(Debug, Error)]
 pub enum DecodeGlobalSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeGlobal(#[from] DecodeGlobalError),
@@ -1195,7 +1195,7 @@ pub struct Local {
 #[derive(Debug, Error)]
 pub enum DecodeCodeSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeCode(#[from] DecodeCodeError),
@@ -1210,13 +1210,13 @@ fn decode_code_section<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum DecodeCodeError {
     #[error("failed decoding size of function code")]
-    DecodeFunctionSize(integer::DecodeError),
+    DecodeFunctionSize(integer::DecodeU32Error),
 
     #[error("failed decoding locals vector length")]
-    DecodeLocalsVectorLength(#[from] integer::DecodeError),
+    DecodeLocalsVectorLength(#[from] integer::DecodeU32Error),
 
     #[error("failed decoding count of function locals")]
-    DecodeLocalsCount(integer::DecodeError),
+    DecodeLocalsCount(integer::DecodeU32Error),
 
     #[error("too many locals: expected at most {max_locals}; got {actual_locals}")]
     LocalsCountOutOfBound { max_locals: u64, actual_locals: u64 },
@@ -1312,7 +1312,7 @@ pub enum ElemMode {
 #[derive(Debug, Error)]
 pub enum DecodeElementSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeElement(#[from] DecodeElementError),
@@ -1327,10 +1327,10 @@ fn decode_element_section<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum DecodeElementError {
     #[error("failed decoding bitfield")]
-    DecodeBitfield(integer::DecodeError),
+    DecodeBitfield(integer::DecodeU32Error),
 
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error("invalid bitfield: expected value in range (0..7); got {0}")]
     InvalidBitfield(u32),
@@ -1512,7 +1512,7 @@ pub enum DataMode {
 #[derive(Debug, Error)]
 pub enum DecodeDataSectionError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeDataSegments(#[from] DecodeDataSegmentError),
@@ -1527,7 +1527,7 @@ fn decode_data_section<R: Read + ?Sized>(
 #[derive(Debug, Error)]
 pub enum DecodeDataSegmentError {
     #[error("failed decoding bitfield")]
-    DecodeBitfield(integer::DecodeError),
+    DecodeBitfield(integer::DecodeU32Error),
 
     #[error("invalid bitfield: expected 0 (passive), 1 or 2 (active); got {0}")]
     InvalidBitfield(u32),
@@ -1539,7 +1539,7 @@ pub enum DecodeDataSegmentError {
     DecodeInitVector(#[from] DecodeByteVectorError),
 
     #[error("failed decoding Memory index")]
-    DecodeMemIdx(integer::DecodeError),
+    DecodeMemIdx(#[from] index::MemIdxError),
 }
 
 fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmentError> {
@@ -1559,13 +1559,13 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
         }
         1 => (parse_byte_vec(reader)?, DataMode::Passive),
         2 => {
-            let x = read_u32(reader).map_err(DecodeDataSegmentError::DecodeMemIdx)?;
+            let x = index::MemIdx::read(reader)?;
             let e = parse_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
 
             (
                 parse_byte_vec(reader)?,
                 DataMode::Active {
-                    memory: MemIdx(x),
+                    memory: x,
                     offset: e,
                 },
             )
@@ -1579,7 +1579,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
 #[derive(Debug, Error)]
 pub enum DecodeDataCountSectionError {
     #[error("failed decoding data segment count")]
-    DecodeDataSegmentCount(#[from] integer::DecodeError),
+    DecodeDataSegmentCount(#[from] integer::DecodeU32Error),
 }
 
 fn decode_datacount_section<R: Read + ?Sized>(
@@ -1622,10 +1622,10 @@ pub enum ParseLimitsError {
     UnexpectedMaxLimitByte(u8),
 
     #[error("failed reading minimum limit")]
-    ReadMinLimit(integer::DecodeError),
+    ReadMinLimit(integer::DecodeU32Error),
 
     #[error("failed reading maximum limit")]
-    ReadMaxLimit(integer::DecodeError),
+    ReadMaxLimit(integer::DecodeU32Error),
 }
 
 fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits, ParseLimitsError> {
@@ -1648,7 +1648,7 @@ fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits, ParseLimitsE
 #[derive(Debug, Error)]
 pub enum DecodeResultTypeError {
     #[error("failed decoding vector length")]
-    DecodeVectorLength(#[from] integer::DecodeError),
+    DecodeVectorLength(#[from] integer::DecodeU32Error),
 
     #[error(transparent)]
     DecodeValType(#[from] DecodeValTypeError),
@@ -1688,7 +1688,7 @@ fn parse_vector<R, F, T, E, E2>(reader: &mut R, mut parse_fn: F) -> Result<Vec<T
 where
     R: Read + ?Sized,
     F: FnMut(&mut R) -> Result<T, E2>,
-    E: From<E2> + From<integer::DecodeError>,
+    E: From<E2> + From<integer::DecodeU32Error>,
 {
     let len = read_u32(reader)?;
     let mut items = Vec::with_capacity(len.try_into().unwrap());
@@ -1715,7 +1715,7 @@ fn parse_name<R: Read + ?Sized>(reader: &mut R) -> Result<String, DecodeNameErro
 #[derive(Debug, Error)]
 pub enum DecodeByteVectorError {
     #[error("failed decoding vector length")]
-    DecodeLength(#[from] integer::DecodeError),
+    DecodeLength(#[from] integer::DecodeU32Error),
 
     #[error("failed reading vector elements")]
     ReadElements(#[from] io::Error),

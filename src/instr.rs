@@ -511,7 +511,7 @@ pub enum ControlError {
     TypeIdx(TypeIdxError),
 
     #[error("failed decoding branch table labels")]
-    LabelIdxVector(#[from] integer::DecodeError),
+    LabelIdxVector(#[from] integer::DecodeU32Error),
 
     #[error("failed decoding block type")]
     BlockType(BlockTypeError),
@@ -535,7 +535,7 @@ pub enum ParametricError {
     ValType(#[from] DecodeValTypeError),
 
     #[error("failed decoding value type vector length")]
-    VectorLength(#[from] integer::DecodeError),
+    VectorLength(#[from] integer::DecodeU32Error),
 }
 
 #[derive(Debug, Error)]
@@ -591,14 +591,14 @@ pub enum MemoryError {
 
 #[derive(Debug, Error)]
 pub enum NumericError {
-    #[error("failed reading prefixed numeric opcode")]
-    ReadOpcode(integer::DecodeError),
+    #[error("failed reading 0xFC-prefixed numeric opcode")]
+    ReadOpcode(integer::DecodeU32Error),
 
     #[error(transparent)]
-    DecodeI32(integer::DecodeError),
+    DecodeI32(integer::DecodeI32Error),
 
     #[error(transparent)]
-    DecodeI64(integer::DecodeError),
+    DecodeI64(integer::DecodeI64Error),
 
     #[error(transparent)]
     DecodeF32(DecodeFloat32Error),
@@ -610,7 +610,7 @@ pub enum NumericError {
 #[derive(Debug, Error)]
 pub enum VectorError {
     #[error("failed reading Vector opcode")]
-    ReadOpcode(integer::DecodeError),
+    ReadOpcode(integer::DecodeU32Error),
 
     #[error(transparent)]
     Memarg(MemargError),
@@ -1251,10 +1251,10 @@ pub struct Memarg {
 #[derive(Debug, Error)]
 pub enum MemargError {
     #[error("failed decoding alignment")]
-    Align(integer::DecodeError),
+    Align(integer::DecodeU32Error),
 
     #[error("failed decoding offset")]
-    Offset(integer::DecodeError),
+    Offset(integer::DecodeU32Error),
 }
 
 impl Memarg {
@@ -1296,7 +1296,7 @@ pub enum BlockTypeError {
     ReadMarkerByte(io::Error),
 
     #[error("failed decoding block type index")]
-    DecodeIndex(integer::DecodeError),
+    DecodeIndex(#[from] integer::DecodeI64Error),
 
     #[error("blocktype Type index negative: {0}")]
     NegativeTypeIndex(i64),
@@ -1322,7 +1322,7 @@ impl BlockType {
         // negative integers. To avoid any loss in the range of allowed indices, it is treated as a
         // 33 bit signed integer.
         let mut chain = Cursor::new([b]).chain(reader);
-        let x = read_i64(&mut chain).map_err(BlockTypeError::DecodeIndex)?;
+        let x = read_i64(&mut chain)?;
         if x < 0 {
             return Err(BlockTypeError::NegativeTypeIndex(x));
         }

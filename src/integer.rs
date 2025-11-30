@@ -2,33 +2,19 @@ use crate::read_byte;
 use std::io;
 use thiserror::Error;
 
-type Result<T> = std::result::Result<T, DecodeError>;
-
 #[derive(Error, Debug)]
-pub enum DecodeError {
+pub enum DecodeU32Error {
     #[error("uint32 too large")]
-    Uint32TooLarge,
+    TooLarge,
 
     #[error("uint32 representation too long")]
-    Uint32RepresentationTooLong,
-
-    #[error("int32 too large")]
-    Int32TooLarge,
-
-    #[error("int32 representation too long")]
-    Int32RepresentationTooLong,
-
-    #[error("int64 representation too long")]
-    Int64RepresentationTooLong,
-
-    #[error("int64 incorrect sign extension")]
-    Int64IncorrectSignExtension,
+    RepresentationTooLong,
 
     #[error(transparent)]
     Io(#[from] io::Error),
 }
 
-pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
+pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32, DecodeU32Error> {
     let mut result: u32 = 0;
     let mut shift: u8 = 0;
 
@@ -47,7 +33,7 @@ pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
                 //
                 // Therefore, ensure that the rest of those bits do not carry
                 // any payload.
-                return Err(DecodeError::Uint32TooLarge);
+                return Err(DecodeU32Error::TooLarge);
             }
             return Ok(result);
         }
@@ -57,10 +43,22 @@ pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32> {
         shift += 7;
     }
 
-    Err(DecodeError::Uint32RepresentationTooLong)
+    Err(DecodeU32Error::RepresentationTooLong)
 }
 
-pub(crate) fn read_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32> {
+#[derive(Error, Debug)]
+pub enum DecodeI32Error {
+    #[error("int32 too large")]
+    TooLarge,
+
+    #[error("int32 representation too long")]
+    RepresentationTooLong,
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+pub(crate) fn read_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32, DecodeI32Error> {
     let mut result: i64 = 0;
     let mut shift: u8 = 0;
 
@@ -81,17 +79,29 @@ pub(crate) fn read_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32> {
             }
 
             if !(MIN..=MAX).contains(&result) {
-                return Err(DecodeError::Int32TooLarge);
+                return Err(DecodeI32Error::TooLarge);
             }
 
             return Ok(i32::try_from(result).unwrap());
         }
     }
 
-    Err(DecodeError::Int32RepresentationTooLong)
+    Err(DecodeI32Error::RepresentationTooLong)
 }
 
-pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
+#[derive(Error, Debug)]
+pub enum DecodeI64Error {
+    #[error("int64 representation too long")]
+    RepresentationTooLong,
+
+    #[error("int64 incorrect sign extension")]
+    IncorrectSignExtension,
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64, DecodeI64Error> {
     let mut result: i64 = 0;
     let mut shift: u8 = 0;
 
@@ -111,11 +121,11 @@ pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
                 let padding = byte & 0b0011_1111 /* 0x3F */;
                 if is_negative && padding != 0b0011_1111 {
                     // six low-order bits must be all 1s
-                    return Err(DecodeError::Int64IncorrectSignExtension);
+                    return Err(DecodeI64Error::IncorrectSignExtension);
                 }
                 if !is_negative && padding != 0b0000_0000 {
                     // six low-order bits must be all 0s
-                    return Err(DecodeError::Int64IncorrectSignExtension);
+                    return Err(DecodeI64Error::IncorrectSignExtension);
                 }
             } else if is_negative {
                 // fill remaining high bits with ones, to sign-extend the
@@ -127,7 +137,7 @@ pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64> {
         }
     }
 
-    Err(DecodeError::Int64RepresentationTooLong)
+    Err(DecodeI64Error::RepresentationTooLong)
 }
 
 #[cfg(test)]
@@ -168,17 +178,17 @@ mod tests {
         out
     }
 
-    fn read_u32_from(bytes: Vec<u8>) -> Result<u32> {
+    fn read_u32_from(bytes: Vec<u8>) -> Result<u32, DecodeU32Error> {
         let mut cursor = Cursor::new(bytes);
         read_u32(&mut cursor)
     }
 
-    fn read_i32_from(bytes: Vec<u8>) -> Result<i32> {
+    fn read_i32_from(bytes: Vec<u8>) -> Result<i32, DecodeI32Error> {
         let mut cursor = Cursor::new(bytes);
         read_i32(&mut cursor)
     }
 
-    fn read_i64_from(bytes: Vec<u8>) -> Result<i64> {
+    fn read_i64_from(bytes: Vec<u8>) -> Result<i64, DecodeI64Error> {
         let mut cursor = Cursor::new(bytes);
         read_i64(&mut cursor)
     }
@@ -194,7 +204,7 @@ mod tests {
     #[test]
     fn read_u32_rejects_payload_bits_in_last_byte() {
         let err = read_u32_from(vec![0xFF, 0xFF, 0xFF, 0xFF, 0x10]).unwrap_err();
-        matches!(err, DecodeError::Uint32TooLarge);
+        matches!(err, DecodeU32Error::TooLarge);
     }
 
     #[test]
@@ -205,7 +215,7 @@ mod tests {
     #[test]
     fn read_u32_rejects_representation_too_long() {
         let err = read_u32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
-        matches!(err, DecodeError::Uint32RepresentationTooLong);
+        matches!(err, DecodeU32Error::RepresentationTooLong);
     }
 
     #[test]
@@ -225,20 +235,20 @@ mod tests {
     fn read_i32_rejects_out_of_range_positive() {
         let bytes = encode_sleb64(i64::from(i32::MAX) + 1);
         let err = read_i32_from(bytes).unwrap_err();
-        matches!(err, DecodeError::Int32TooLarge);
+        matches!(err, DecodeI32Error::TooLarge);
     }
 
     #[test]
     fn read_i32_rejects_out_of_range_negative() {
         let bytes = encode_sleb64(i64::from(i32::MIN) - 1);
         let err = read_i32_from(bytes).unwrap_err();
-        matches!(err, DecodeError::Int32TooLarge);
+        matches!(err, DecodeI32Error::TooLarge);
     }
 
     #[test]
     fn read_i32_rejects_representation_too_long() {
         let err = read_i32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
-        matches!(err, DecodeError::Int32RepresentationTooLong);
+        matches!(err, DecodeI32Error::RepresentationTooLong);
     }
 
     #[test]
@@ -266,7 +276,7 @@ mod tests {
         let last = bytes.last_mut().unwrap();
         *last &= !0x01; // flip one of the padding bits
         let err = read_i64_from(bytes).unwrap_err();
-        matches!(err, DecodeError::Int64IncorrectSignExtension);
+        matches!(err, DecodeI64Error::IncorrectSignExtension);
     }
 
     #[test]
@@ -274,13 +284,13 @@ mod tests {
         let mut bytes = vec![0x80; 9];
         bytes.push(0x02);
         let err = read_i64_from(bytes).unwrap_err();
-        matches!(err, DecodeError::Int64IncorrectSignExtension);
+        matches!(err, DecodeI64Error::IncorrectSignExtension);
     }
 
     #[test]
     fn read_i64_rejects_representation_too_long() {
         let err = read_i64_from(vec![0x80; 10]).unwrap_err();
-        matches!(err, DecodeError::Int64IncorrectSignExtension);
+        matches!(err, DecodeI64Error::IncorrectSignExtension);
     }
 
     #[test]
