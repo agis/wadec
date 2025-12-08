@@ -1,8 +1,8 @@
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{
-    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError,
-    DecodeVectorError, RefType, ValType, parse_f32, parse_f64, parse_vector, read_byte,
+    parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
+    DecodeRefTypeError, DecodeValTypeError, DecodeVectorError, FromMarkerByte, RefType, ValType,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -1311,7 +1311,7 @@ impl BlockType {
             return Ok(Self::Empty);
         }
 
-        if let Ok(t) = ValType::try_from(b) {
+        if let Ok(t) = ValType::from_marker(b) {
             return Ok(Self::T(t));
         }
 

@@ -7,11 +7,43 @@ mod integer;
 use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instr::{Instr, Parsed};
 use integer::*;
+use phf::phf_ordered_map;
 use std::io;
 use std::io::Read;
 use thiserror::Error;
 
+const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 const VERSION: [u8; 4] = [0x01, 0x00, 0x00, 0x00];
+
+static EXPECTED_PREAMBLE: [u8; 8] = [
+    MAGIC_NUMBER[0], MAGIC_NUMBER[1], MAGIC_NUMBER[2], MAGIC_NUMBER[3],
+    VERSION[0], VERSION[1], VERSION[2], VERSION[3]
+];
+
+trait FromMarkerByte
+where
+    Self: Sized + Copy + std::fmt::Debug + 'static
+{
+    type Error: From<u8>;
+
+    // defines the mapping between expected bytes and the corresponding value type
+    fn markers() -> &'static phf::OrderedMap<u8, Self>;
+
+    fn markers_formatted() -> String {
+        Self::markers()
+            .entries()
+            .map(|(marker, variant)| format!("0x{marker:02X} ({variant:?})"))
+            .collect::<Vec<String>>()
+            .join(", ")
+    }
+
+    fn from_marker(b: u8) -> Result<Self, Self::Error> {
+        match Self::markers().get(&b) {
+            Some(n) => Ok(*n),
+            None => Err(b.into()),
+        }
+    }
+}
 
 /// WebAssembly programs are organized into modules, which are the unit of deployment,
 /// loading, and compilation. A module collects definitions for types, functions, tables,
@@ -255,10 +287,10 @@ pub enum DecodeFuncTypeError {
     InvalidMarkerByte(u8),
 
     #[error("failed decoding Parameters")]
-    DecodeParameterTypes(DecodeResultTypeError),
+    DecodeParameterTypes(#[source] DecodeResultTypeError),
 
     #[error("failed decoding Results")]
-    DecodeResultTypes(DecodeResultTypeError),
+    DecodeResultTypes(#[source] DecodeResultTypeError),
 }
 
 impl FuncType {
@@ -396,9 +428,9 @@ pub enum DecodeGlobalTypeError {
 impl GlobalType {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
         let valtype = ValType::read(reader)?;
-        let r#mut: Mut = read_byte(reader)
-            .map_err(DecodeGlobalTypeError::DecodeMutability)?
-            .try_into()?;
+        let r#mut: Mut = Mut::from_marker(read_byte(reader)
+            .map_err(DecodeGlobalTypeError::DecodeMutability)?)?;
+
         Ok(GlobalType(r#mut, valtype))
     }
 }
@@ -409,19 +441,28 @@ pub enum Mut {
     Var,
 }
 
+// Valid marker bytes for [Mut].
+#[expect(non_upper_case_globals)]
+static Mut_MARKERS: phf::OrderedMap<u8, Mut> = phf_ordered_map! {
+    0x00u8 => Mut::Const,
+    0x01u8 => Mut::Var,
+};
+
 #[derive(Debug, Error)]
-#[error("invalid Mutability byte: expected 0x00 (const) or 0x01 (var); got 0x{0:02X}")]
+#[error("invalid Mutability marker byte - expected one of {markers}; got 0x{0:02X}", markers=Mut::markers_formatted())]
 pub struct InvalidMutabilityByteError(u8);
 
-impl TryFrom<u8> for Mut {
+impl From<u8> for InvalidMutabilityByteError {
+    fn from(b: u8) -> Self {
+        Self(b)
+    }
+}
+
+impl FromMarkerByte for Mut {
     type Error = InvalidMutabilityByteError;
 
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        Ok(match v {
-            0x00 => Mut::Const,
-            0x01 => Mut::Var,
-            n => return Err(InvalidMutabilityByteError(n)),
-        })
+    fn markers() -> &'static phf::OrderedMap<u8, Self> {
+        &Mut_MARKERS
     }
 }
 
@@ -438,29 +479,36 @@ pub enum ValType {
     Ref(RefType),
 }
 
+// Valid marker bytes for [ValType].
+#[expect(non_upper_case_globals)]
+static ValType_MARKERS: phf::OrderedMap<u8, ValType> = phf_ordered_map! {
+    0x7Fu8 => ValType::Num(NumType::Int32),
+    0x7Eu8 => ValType::Num(NumType::Int64),
+    0x7Du8 => ValType::Num(NumType::Float32),
+    0x7Cu8 => ValType::Num(NumType::Float64),
+    0x7Bu8 => ValType::Vec(VecType::V128),
+    0x70u8 => ValType::Ref(RefType::Func),
+    0x6Fu8 => ValType::Ref(RefType::Extern),
+};
+
 #[derive(Debug, Error)]
 #[error(
-    "invalid ValType marker byte: expected \
-    0x7F (int32), 0x7E (int64), 0x7D (float32), 0x7C (float64), \
-    0x7B (v128), 0x70 (funcref) or 0x6F (externref); \
-    got 0x{0:02X}"
+    "invalid ValType marker byte - expected one of {markers}; got 0x{0:02X}",
+    markers=ValType::markers_formatted()
 )]
 pub struct InvalidValTypeMarkerError(u8);
 
-impl TryFrom<u8> for ValType {
+impl From<u8> for InvalidValTypeMarkerError {
+    fn from(b: u8) -> Self {
+        Self(b)
+    }
+}
+
+impl FromMarkerByte for ValType {
     type Error = InvalidValTypeMarkerError;
 
-    fn try_from(b: u8) -> Result<Self, Self::Error> {
-        Ok(match b {
-            0x7F => ValType::Num(NumType::Int32),
-            0x7E => ValType::Num(NumType::Int64),
-            0x7D => ValType::Num(NumType::Float32),
-            0x7C => ValType::Num(NumType::Float64),
-            0x7B => ValType::Vec(VecType::V128),
-            0x70 => ValType::Ref(RefType::Func),
-            0x6F => ValType::Ref(RefType::Extern),
-            n => return Err(InvalidValTypeMarkerError(n)),
-        })
+    fn markers() -> &'static phf::OrderedMap<u8, Self> {
+        &ValType_MARKERS
     }
 }
 
@@ -475,7 +523,7 @@ pub enum DecodeValTypeError {
 
 impl ValType {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<ValType, DecodeValTypeError> {
-        Ok(read_byte(reader)?.try_into()?)
+        Ok(Self::from_marker(read_byte(reader)?)?)
     }
 }
 
@@ -593,23 +641,36 @@ pub enum DecodeRefTypeError {
 
 impl RefType {
     fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self, DecodeRefTypeError> {
-        Ok(read_byte(r)?.try_into()?)
+        let marker = read_byte(r)?;
+        Ok(Self::from_marker(marker)?)
     }
 }
 
+// Valid marker bytes for [RefType].
+#[expect(non_upper_case_globals)]
+static RefType_MARKERS: phf::OrderedMap<u8, RefType> = phf_ordered_map! {
+  0x70u8 => RefType::Func,
+  0x6Fu8 => RefType::Extern,
+};
+
 #[derive(Debug, Error)]
-#[error("invalid RefType marker byte: expected 0x70 (funcref) or 0x6F (externref); got 0x{0:02X}")]
+#[error(
+    "invalid RefType marker byte - expected one of {markers}; got 0x{0:02X}",
+    markers=ValType::markers_formatted()
+)]
 pub struct InvalidRefTypeMarkerError(u8);
 
-impl TryFrom<u8> for RefType {
+impl From<u8> for InvalidRefTypeMarkerError {
+    fn from(b: u8) -> Self {
+        Self(b)
+    }
+}
+
+impl FromMarkerByte for RefType {
     type Error = InvalidRefTypeMarkerError;
 
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        Ok(match v {
-            0x70 => RefType::Func,
-            0x6F => RefType::Extern,
-            n => return Err(InvalidRefTypeMarkerError(n)),
-        })
+    fn markers() -> &'static phf::OrderedMap<u8, Self> {
+        &RefType_MARKERS
     }
 }
 
@@ -844,19 +905,15 @@ pub enum ParsePreambleError {
     #[error("failed decoding preamble")]
     Io(#[from] io::Error),
 
-    #[error(
-        "unexpected preamble: expected [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00]; got {0:#X?}"
-    )]
+    #[error("unexpected preamble: expected {preamble:#X?}; got {0:#X?}", preamble=EXPECTED_PREAMBLE)]
     Unexpected([u8; 8]),
 }
 
 fn parse_preamble<R: Read + ?Sized>(reader: &mut R) -> Result<(), ParsePreambleError> {
-    const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
-
     let mut preamble = [0u8; 8];
     reader.read_exact(&mut preamble)?;
 
-    if [MAGIC_NUMBER, VERSION].concat() != preamble {
+    if preamble != EXPECTED_PREAMBLE {
         return Err(ParsePreambleError::Unexpected(preamble));
     }
 
@@ -1009,6 +1066,7 @@ fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import, DecodeImport
     reader
         .read_exact(&mut desc_kind)
         .map_err(DecodeImportError::ReadDescriptorMarkerByte)?;
+
     let desc = match desc_kind[0] {
         0x00 => ImportDesc::Type(TypeIdx::read(reader)?),
         0x01 => ImportDesc::Table(TableType::read(reader)?),
@@ -1639,7 +1697,7 @@ pub enum DecodeVectorError<E> {
     #[error("failed decoding vector length")]
     DecodeLength(#[from] integer::DecodeU32Error),
 
-    #[error("failed parsing element at position #{position}")]
+    #[error("failed parsing element at position {position}")]
     ParseElement { position: u32, source: E },
 }
 

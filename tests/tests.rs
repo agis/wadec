@@ -2473,6 +2473,29 @@ fn it_surfaces_vector_element_index_on_type_decode_failure() {
 }
 
 #[test]
+fn it_surfaces_invalid_valtype_marker() {
+    let f = File::open("tests/fixtures/type_section_invalid_valtype_marker.wasm").unwrap();
+
+    let err = decode(f).expect_err("type section should fail on bad value type marker");
+
+    match err {
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+            DecodeVectorError::ParseElement {
+                position: 0,
+                source:
+                    DecodeFuncTypeError::DecodeParameterTypes(DecodeResultTypeError::DecodeVector(
+                        DecodeVectorError::ParseElement {
+                            position: 0,
+                            source: DecodeValTypeError::InvalidMarkerByte(err),
+                        },
+                    )),
+            },
+        )) => assert!(err.to_string().contains("0xAA")),
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn it_rejects_overlong_type_index_encoding() {
     // Construct a minimal module containing a function section whose type index
     // is encoded with five continuation bytes, which exceeds the allowed
