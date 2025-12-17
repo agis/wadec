@@ -291,6 +291,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wadec-cli"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "wadec",
+]
+
+[[package]]
 name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use googletest::prelude::*;
 use serde::Deserialize;
 use std::fs;
@@ -122,7 +122,7 @@ fn it_passes_upstream_spec_tests() {
 }
 
 fn setup() {
-    const TEST_SCRIPTS_PATHS: [&str; 2] = ["./spec/test/core/", "./spec/test/core/simd/"];
+    const TEST_SCRIPTS_PATHS: [&str; 2] = ["../spec/test/core/", "../spec/test/core/simd/"];
 
     TEST_SCRIPTS_PATHS.iter().for_each(|path| {
         for fname in files_with_ext(path, ".wast") {

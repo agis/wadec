@@ -1,0 +1,12 @@
+[package]
+name = "wadec-cli"
+version = "0.0.0"
+edition = "2024"
+
+[[bin]]
+name = "wadec"
+path = "src/main.rs"
+
+[dependencies]
+wadec = { path = "../wadec" }
+anyhow = "1.0.99"
