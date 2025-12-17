@@ -8,5 +8,5 @@ name = "wadec"
 path = "src/main.rs"
 
 [dependencies]
-wadec = { path = "../wadec" }
+wadec = { path = ".." }
 anyhow = "1.0.99"
