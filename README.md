@@ -1,4 +1,7 @@
-# wadec
+# wadec [![Latest Version]][crates.io]
+
+[Latest Version]: https://img.shields.io/crates/v/wadec.svg
+[crates.io]: https://crates.io/crates/wadec
 
 wadec is a decoder for WebAssembly modules, focusing on developer experience,
 informative errors and other helpful diagnostics.
