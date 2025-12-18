@@ -1,7 +1,13 @@
 [package]
 name = "wadec-cli"
 version = "0.0.0"
+authors = ["Agis Anastasopoulos <a@xz0.org>"]
+description = "A WebAssembly binary decoder."
 edition = "2024"
+repository = "https://github.com/agis/wadec/wadec-cli"
+keywords = ["wasm", "webassembly", "wasm-parser", "wasm-decoder", "decoder"]
+categories = ["wasm", "parser-implementations", "command-line-utilities"]
+license = "Apache-2.0"
 
 [[bin]]
 name = "wadec"
