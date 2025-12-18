@@ -1376,7 +1376,7 @@ pub enum DecodeElementError {
     #[error("failed decoding bitfield")]
     DecodeBitfield(integer::DecodeU32Error),
 
-    #[error("invalid bitfield: expected value in range (0..7); got {0}")]
+    #[error("invalid bitfield: expected value in range [0,7]; got {0}")]
     InvalidBitfield(u32),
 
     #[error("failed decoding offset expression")]
