@@ -662,7 +662,7 @@ static RefType_MARKERS: phf::OrderedMap<u8, RefType> = phf_ordered_map! {
 #[derive(Debug, Error)]
 #[error(
     "invalid RefType marker byte - expected one of {markers}; got {0:#04X}",
-    markers=ValType::markers_formatted()
+    markers=RefType::markers_formatted()
 )]
 pub struct InvalidRefTypeMarkerError(u8);
 
