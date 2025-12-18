@@ -32,7 +32,7 @@ where
     fn markers_formatted() -> String {
         Self::markers()
             .entries()
-            .map(|(marker, variant)| format!("0x{marker:02X} ({variant:?})"))
+            .map(|(marker, variant)| format!("{marker:#04X} ({variant:?})"))
             .collect::<Vec<String>>()
             .join(", ")
     }
@@ -283,7 +283,7 @@ pub enum DecodeFuncTypeError {
     #[error(transparent)]
     ReadMarkerByte(#[from] io::Error),
 
-    #[error("unexpected FuncType marker byte: expected 0x{expected:02X}; got 0x{0:02X}", expected = FuncType::MARKER_BYTE)]
+    #[error("unexpected FuncType marker byte: expected {expected:#04X}; got {0:#04X}", expected = FuncType::MARKER_BYTE)]
     InvalidMarkerByte(u8),
 
     #[error("failed decoding Parameters")]
@@ -449,7 +449,7 @@ static Mut_MARKERS: phf::OrderedMap<u8, Mut> = phf_ordered_map! {
 };
 
 #[derive(Debug, Error)]
-#[error("invalid Mutability marker byte - expected one of {markers}; got 0x{0:02X}", markers=Mut::markers_formatted())]
+#[error("invalid Mutability marker byte - expected one of {markers}; got {0:#04X}", markers=Mut::markers_formatted())]
 pub struct InvalidMutabilityByteError(u8);
 
 impl From<u8> for InvalidMutabilityByteError {
@@ -493,7 +493,7 @@ static ValType_MARKERS: phf::OrderedMap<u8, ValType> = phf_ordered_map! {
 
 #[derive(Debug, Error)]
 #[error(
-    "invalid ValType marker byte - expected one of {markers}; got 0x{0:02X}",
+    "invalid ValType marker byte - expected one of {markers}; got {0:#04X}",
     markers=ValType::markers_formatted()
 )]
 pub struct InvalidValTypeMarkerError(u8);
@@ -655,7 +655,7 @@ static RefType_MARKERS: phf::OrderedMap<u8, RefType> = phf_ordered_map! {
 
 #[derive(Debug, Error)]
 #[error(
-    "invalid RefType marker byte - expected one of {markers}; got 0x{0:02X}",
+    "invalid RefType marker byte - expected one of {markers}; got {0:#04X}",
     markers=ValType::markers_formatted()
 )]
 pub struct InvalidRefTypeMarkerError(u8);
@@ -1052,7 +1052,7 @@ pub enum DecodeImportError {
     DecodeGlobalType(#[from] DecodeGlobalTypeError),
 
     #[error(
-        "invalid ImportDesc marker byte: expected 0x00 (type), 0x01 (table), 0x02 (mem) or 0x03 (global); got 0x{0:02X}"
+        "invalid ImportDesc marker byte: expected 0x00 (type), 0x01 (table), 0x02 (mem) or 0x03 (global); got {0:#04X}"
     )]
     InvalidDescriptorMarkerByte(u8),
 }
@@ -1101,7 +1101,7 @@ pub enum ExportDesc {
 
 #[derive(Debug, Error)]
 #[error(
-    "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem) or 0x03 (global); got 0x{0:02X}"
+    "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem) or 0x03 (global); got {0:#04X}"
 )]
 pub struct InvalidExportDescMarkerByte(u8);
 
@@ -1486,7 +1486,7 @@ pub enum DecodeElementKindError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error("expected byte 0x00; got 0x{0:02X}")]
+    #[error("expected byte 0x00; got {0:#04X}")]
     InvalidElemKind(u8),
 }
 
@@ -1629,7 +1629,7 @@ pub enum ParseLimitsError {
     #[error("failed determining presence of max limit")]
     DetermineMaxLimitPresence(io::Error),
 
-    #[error("unexpected limits byte: expected 0x00 (false) or 0x01 (true); got 0x{0:02X}")]
+    #[error("unexpected limits byte: expected 0x00 (false) or 0x01 (true); got {0:#04X}")]
     UnexpectedMaxLimitByte(u8),
 
     #[error("failed reading minimum limit")]

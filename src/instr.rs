@@ -489,10 +489,10 @@ pub enum ParseError {
     #[error("failed decoding vector instruction")]
     Vector(#[from] VectorError),
 
-    #[error("unexpected opcode: 0x{0:02X}")]
+    #[error("unexpected opcode: {0:#04X}")]
     InvalidOpcode(u8),
 
-    #[error("unexpected opcode after 0xFC marker byte: 0x{0:02X}")]
+    #[error("unexpected opcode after 0xFC marker byte: {0:#04X}")]
     InvalidMarkerByteAfterFC(u32),
 }
 
@@ -570,22 +570,22 @@ pub enum MemoryError {
     #[error("failed reading reserved bytes")]
     ReadReservedBytes(io::Error),
 
-    #[error("unexpected opcode: 0x{0:02X}")]
+    #[error("unexpected opcode: {0:#04X}")]
     InvalidOpcode(u8),
 
-    #[error("unexpected byte 0x{0:02X} for memory.size")]
+    #[error("unexpected byte {0:#04X} for memory.size")]
     InvalidMemorySizeByte(u8),
 
-    #[error("unexpected byte 0x{0:02X} for memory.grow")]
+    #[error("unexpected byte {0:#04X} for memory.grow")]
     InvalidMemoryGrowByte(u8),
 
-    #[error("unexpected byte 0x{0:02X} for memory.init")]
+    #[error("unexpected byte {0:#04X} for memory.init")]
     InvalidMemoryInitByte(u8),
 
     #[error("unexpected bytes {0:?} for memory.copy")]
     InvalidMemoryCopyBytes([u8; 2]),
 
-    #[error("unexpected byte 0x{0:02X} for memory.fill")]
+    #[error("unexpected byte {0:#04X} for memory.fill")]
     InvalidMemoryFillByte(u8),
 }
 
@@ -621,7 +621,7 @@ pub enum VectorError {
     #[error("failed reading immediate bytes")]
     ReadImmediateBytes(io::Error),
 
-    #[error("unexpected Vector opcode: 0x{0:02X}")]
+    #[error("unexpected Vector opcode: {0:#04X}")]
     InvalidOpcode(u32),
 }
 
