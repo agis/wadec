@@ -8,6 +8,15 @@ informative errors and other helpful diagnostics.
 
 It can be used as a library or a command-line tool.
 
+## Status
+
+This project is currently in early development stage of development. It passes
+100% of the official suite for [version
+2](https://webassembly.github.io/spec/versions/core/WebAssembly-2.0.pdf) of the
+specification. (Support for version 3 is planned.)
+
+The API is still unstable and subject to change.
+
 ## Rationale
 
 wadec aims to serve as an educational tool for those looking to understand the
@@ -17,14 +26,21 @@ wadec does _not_ aim to be a highly-efficient decoder for
 performance-critical tasks. For such use-cases, consider using a streaming
 decoder.
 
-## Status
+## Installation
 
-This project is currently in early development stage of development. It passes
-100% of the official suite for [version
-2](https://webassembly.github.io/spec/versions/core/WebAssembly-2.0.pdf) of the
-specification. (Support for version 3 is planned.)
+You can install the CLI using [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
 
-The API is still unstable and subject to change.
+```shell
+$ cargo install wadec-cli
+```
+
+Note: We do not distribute binaries yet, but we may do so in the future.
+
+To use the library, similarly:
+
+```shell
+$ cargo add wadec
+```
 
 ## Usage
 
