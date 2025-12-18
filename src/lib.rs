@@ -16,13 +16,19 @@ const MAGIC_NUMBER: [u8; 4] = [0x00, 0x61, 0x73, 0x6D];
 const VERSION: [u8; 4] = [0x01, 0x00, 0x00, 0x00];
 
 static EXPECTED_PREAMBLE: [u8; 8] = [
-    MAGIC_NUMBER[0], MAGIC_NUMBER[1], MAGIC_NUMBER[2], MAGIC_NUMBER[3],
-    VERSION[0], VERSION[1], VERSION[2], VERSION[3]
+    MAGIC_NUMBER[0],
+    MAGIC_NUMBER[1],
+    MAGIC_NUMBER[2],
+    MAGIC_NUMBER[3],
+    VERSION[0],
+    VERSION[1],
+    VERSION[2],
+    VERSION[3],
 ];
 
 trait FromMarkerByte
 where
-    Self: Sized + Copy + std::fmt::Debug + 'static
+    Self: Sized + Copy + std::fmt::Debug + 'static,
 {
     type Error: From<u8>;
 
@@ -428,8 +434,8 @@ pub enum DecodeGlobalTypeError {
 impl GlobalType {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
         let valtype = ValType::read(reader)?;
-        let r#mut: Mut = Mut::from_marker(read_byte(reader)
-            .map_err(DecodeGlobalTypeError::DecodeMutability)?)?;
+        let r#mut: Mut =
+            Mut::from_marker(read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?)?;
 
         Ok(GlobalType(r#mut, valtype))
     }
@@ -691,7 +697,7 @@ pub enum DecodeModuleError {
         previous: SectionKind,
     },
 
-    #[error("duplicate section: {0:?}")]
+    #[error("encountered duplicate section: {0:?}")]
     DuplicateSection(SectionKind),
 
     #[error("{section_kind:?} section size mismatch: declared {declared} bytes; got {got}")]
@@ -925,7 +931,7 @@ pub enum DecodeSectionHeaderError {
     #[error("failed reading section ID byte")]
     ReadSectionIdByte(#[from] io::Error),
 
-    #[error(transparent)]
+    #[error("invalid section ID")]
     InvalidSectionId(#[from] InvalidSectionIdError),
 
     #[error("failed decoding section size")]
@@ -949,7 +955,7 @@ fn decode_section_header<R: Read + ?Sized>(
 
 #[derive(Debug, Error)]
 pub enum DecodeCustomSectionError {
-    #[error(transparent)]
+    #[error("failed decoding custom section name")]
     DecodeName(#[from] DecodeNameError),
 
     #[error("failed reading custom section contents")]
@@ -968,7 +974,7 @@ fn decode_section_custom<R: Read + ?Sized>(
 
 #[derive(Debug, Error)]
 pub enum DecodeTypeSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Type section")]
     DecodeVector(#[from] DecodeVectorError<DecodeFuncTypeError>),
 }
 
@@ -980,7 +986,7 @@ fn decode_type_section<R: Read + ?Sized>(
 
 #[derive(Debug, Error)]
 pub enum DecodeFunctionSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Function section")]
     DecodeVector(#[from] DecodeVectorError<index::TypeIdxError>),
 }
 
@@ -1018,7 +1024,7 @@ pub enum ImportDesc {
 
 #[derive(Debug, Error)]
 pub enum DecodeImportSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Import section")]
     DecodeVector(#[from] DecodeVectorError<DecodeImportError>),
 }
 
@@ -1119,7 +1125,7 @@ impl ExportDesc {
 
 #[derive(Debug, Error)]
 pub enum DecodeExportSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Export section")]
     DecodeVector(#[from] DecodeVectorError<DecodeExportError>),
 }
 
@@ -1157,7 +1163,7 @@ fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExport
 
 #[derive(Debug, Error)]
 pub enum DecodeTableSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Table section")]
     DecodeVector(#[from] DecodeVectorError<DecodeTableError>),
 }
 
@@ -1169,7 +1175,7 @@ fn decode_table_section<R: Read + ?Sized>(
 
 #[derive(Debug, Error)]
 pub enum DecodeMemorySectionError {
-    #[error(transparent)]
+    #[error("failed decoding Memory section")]
     DecodeVector(#[from] DecodeVectorError<DecodeMemoryTypeError>),
 }
 
@@ -1190,7 +1196,7 @@ fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<MemType, DecodeMemo
 
 #[derive(Debug, Error)]
 pub enum DecodeGlobalSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Global section")]
     DecodeVector(#[from] DecodeVectorError<DecodeGlobalError>),
 }
 
@@ -1231,7 +1237,7 @@ pub struct Local {
 
 #[derive(Debug, Error)]
 pub enum DecodeCodeSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Code section")]
     DecodeVector(#[from] DecodeVectorError<DecodeCodeError>),
 }
 
@@ -1255,10 +1261,13 @@ pub enum DecodeCodeError {
     #[error("failed decoding function body expression")]
     DecodeFunctionBody(#[from] ParseExpressionError),
 
-    #[error("code entry size mismatch: declared {declared_bytes} bytes; leftover {leftover_bytes}")]
+    #[error(
+        "Code entry size mismatch: declared {declared_bytes} bytes; consumed {consumed_bytes} (leftover: {leftover_bytes})"
+    )]
     EntrySizeMismatch {
         declared_bytes: u32,
         leftover_bytes: u64,
+        consumed_bytes: u64,
     },
 }
 
@@ -1304,6 +1313,7 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
         return Err(DecodeCodeError::EntrySizeMismatch {
             declared_bytes: size,
             leftover_bytes: reader.limit(),
+            consumed_bytes: u64::from(size) - reader.limit(),
         });
     }
 
@@ -1351,7 +1361,7 @@ pub enum ElemMode {
 
 #[derive(Debug, Error)]
 pub enum DecodeElementSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Element section")]
     DecodeVector(#[from] DecodeVectorError<DecodeElementError>),
 }
 
@@ -1525,7 +1535,7 @@ pub enum DataMode {
 
 #[derive(Debug, Error)]
 pub enum DecodeDataSectionError {
-    #[error(transparent)]
+    #[error("failed decoding Data section")]
     DecodeVector(#[from] DecodeVectorError<DecodeDataSegmentError>),
 }
 
@@ -1589,7 +1599,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
 
 #[derive(Debug, Error)]
 pub enum DecodeDataCountSectionError {
-    #[error("failed decoding data segment count")]
+    #[error("failed decoding Data Segment count")]
     DecodeDataSegmentCount(#[from] integer::DecodeU32Error),
 }
 
@@ -1692,13 +1702,40 @@ fn parse_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64, DecodeFloat64Error> {
     Ok(f64::from_le_bytes(buf))
 }
 
-#[derive(Debug, Error)]
+#[derive(Error)]
 pub enum DecodeVectorError<E> {
     #[error("failed decoding vector length")]
     DecodeLength(#[from] integer::DecodeU32Error),
 
-    #[error("failed parsing element at position {position}")]
+    #[error("failed parsing vector element at position {position}")]
     ParseElement { position: u32, source: E },
+}
+
+// we want any DecodeVectorError::ParseElement errors to also display the inner
+// error type pointed to by source.
+impl<E: std::fmt::Debug> std::fmt::Debug for DecodeVectorError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DecodeLength(e) => f
+                .debug_tuple("DecodeLength")
+                .field(e)
+                .finish(),
+            Self::ParseElement { position, source } => f
+                .debug_struct("ParseElement")
+                .field("position", position)
+                .field(
+                    "source",
+                    &format_args!(
+                        "{}::{source:#?}",
+                        std::any::type_name::<E>()
+                            .rsplit("::")
+                            .next()
+                            .unwrap_or_else(|| std::any::type_name::<E>())
+                    ),
+                )
+                .finish(),
+        }
+    }
 }
 
 fn parse_vector<R, F, T, E>(reader: &mut R, mut parse_fn: F) -> Result<Vec<T>, DecodeVectorError<E>>

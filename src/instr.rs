@@ -1,8 +1,9 @@
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{
-    parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
-    DecodeRefTypeError, DecodeValTypeError, DecodeVectorError, FromMarkerByte, RefType, ValType,
+    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError,
+    DecodeVectorError, FromMarkerByte, RefType, ValType, parse_f32, parse_f64, parse_vector,
+    read_byte,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -462,7 +463,7 @@ pub enum Instr {
 
 #[derive(Debug, Error)]
 pub enum ParseError {
-    #[error("failed reading opcode")]
+    #[error("failed reading instruction opcode")]
     ReadOpcode(#[from] io::Error),
 
     #[error("failed decoding control instruction")]

@@ -1,22 +1,51 @@
-use std::fs::File;
-use std::io::BufReader;
-use std::process;
+use clap::Parser;
+use patharg::InputArg;
+use std::error::Error;
+use std::process::exit;
 
-use anyhow::{Context, Result};
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+pub struct Cli {
+    /// The module to decode. If not provided or is '-', read from
+    /// standard input.
+    #[arg(default_value_t)]
+    pub input: InputArg,
+
+    /// Enable verbose output, including a debug representation of
+    /// the decoded module.
+    #[arg(long, default_value_t = false)]
+    pub verbose: bool,
+}
 
 fn main() {
-    if let Err(err) = run() {
-        eprintln!("{err:#}");
-        process::exit(1);
+    let cli = Cli::parse();
+    let input = cli.input.open().unwrap_or_else(|e| abort(&cli, e));
+    let module = wadec::decode(input).unwrap_or_else(|e| abort(&cli, e));
+
+    if cli.verbose {
+        println!("{module:#?}");
     }
 }
 
-fn run() -> Result<()> {
-    let path = std::env::args().nth(1).context("usage: wadec <FILE>")?;
+fn abort<T>(cli: &Cli, err: impl Error) -> T {
+    eprintln!("ERROR: {err}");
 
-    let file = File::open(&path).with_context(|| format!("failed to open file `{path}`"))?;
-    let reader = BufReader::new(file);
+    let mut sources = Vec::new();
+    let mut current = err.source();
+    while let Some(cause) = current {
+        sources.push(cause);
+        current = cause.source();
+    }
+    if !sources.is_empty() {
+        eprintln!("\nCaused by:");
+        for (i, cause) in sources.iter().enumerate() {
+            eprintln!("    {i}: {cause}");
+        }
+    }
 
-    wadec::decode(reader).context("failed to decode module")?;
-    Ok(())
+    if cli.verbose {
+        eprintln!("\nDEBUG OUTPUT:\n{err:#?}");
+    }
+
+    exit(1)
 }

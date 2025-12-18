@@ -9,4 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 wadec = { path = ".." }
-anyhow = "1.0.99"
+clap = { version = "4.5.53", features = ["derive"] }
+patharg = "0.4.1"
+thiserror = "2.0.17"
