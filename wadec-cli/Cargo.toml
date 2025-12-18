@@ -1,20 +1,19 @@
 [package]
 name = "wadec-cli"
-version = "0.0.0"
-authors = ["Agis Anastasopoulos <a@xz0.org>"]
 description = "A WebAssembly binary decoder."
-edition = "2024"
-repository = "https://github.com/agis/wadec/wadec-cli"
-keywords = ["wasm", "webassembly", "wasm-parser", "wasm-decoder", "decoder"]
-categories = ["wasm", "parser-implementations", "command-line-utilities"]
-license = "Apache-2.0"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
 
 [[bin]]
 name = "wadec"
 path = "src/main.rs"
 
 [dependencies]
-wadec = { path = ".." }
+wadec.workspace = true
 clap = { version = "4.5.53", features = ["derive"] }
 patharg = "0.4.1"
-thiserror = "2.0.17"

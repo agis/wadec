@@ -1,13 +1,25 @@
-[package]
-name = "wadec"
+[workspace.package]
 version = "0.0.0"
 authors = ["Agis Anastasopoulos <a@xz0.org>"]
-description = "A WebAssembly binary decoder library."
 edition = "2024"
 repository = "https://github.com/agis/wadec"
 keywords = ["wasm", "webassembly", "wasm-parser", "wasm-decoder", "decoder"]
 categories = ["wasm", "parser-implementations", "command-line-utilities"]
 license = "Apache-2.0"
+
+[workspace.dependencies]
+wadec = { version = "0.0.0", path = "." }
+
+[package]
+name = "wadec"
+description = "A library for decoding WebAssembly modules."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
 
 [dependencies]
 thiserror = "2.0.17"
