@@ -26,7 +26,8 @@ The API is still unstable and subject to change.
 ## Usage
 
 ```
-# a module that encodes an invalid Value Type marker in its Type section
+# a module that encodes an invalid Value Type marker byte (0xAA) in its
+# Type section
 $ hexdump -C type_section_invalid_valtype_marker.wasm
 00000000  00 61 73 6d 01 00 00 00  01 05 01 60 01 aa 00     |.asm.......`...|
 0000000f
