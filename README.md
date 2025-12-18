@@ -25,7 +25,7 @@ The API is still unstable and subject to change.
 
 ## Usage
 
-```
+```bash
 # a module that encodes an invalid Value Type marker byte (0xAA) in its
 # Type section
 $ hexdump -C type_section_invalid_valtype_marker.wasm
