@@ -2,7 +2,7 @@
 TODO
 WebAssembly-2.0.pdf
 WebAssembly-2.0.txt
-wadec/tests/fixtures/*.wat
-wadec/tests/fixtures/spec/*.json
-wadec/tests/fixtures/spec/*.wasm
-wadec/tests/fixtures/spec/*.wat
+tests/fixtures/*.wat
+tests/fixtures/spec/*.json
+tests/fixtures/spec/*.wasm
+tests/fixtures/spec/*.wat

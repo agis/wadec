@@ -514,9 +514,6 @@ pub enum ControlError {
     #[error("failed decoding type index")]
     TypeIdx(TypeIdxError),
 
-    #[error("failed decoding branch table labels")]
-    LabelIdxVector(#[from] integer::DecodeU32Error),
-
     #[error("failed decoding block type")]
     BlockType(BlockTypeError),
 
@@ -570,9 +567,6 @@ pub enum MemoryError {
 
     #[error("failed reading reserved bytes")]
     ReadReservedBytes(io::Error),
-
-    #[error("unexpected opcode: {0:#04X}")]
-    InvalidOpcode(u8),
 
     #[error("unexpected byte {0:#04X} for memory.size")]
     InvalidMemorySizeByte(u8),
@@ -739,7 +733,7 @@ impl Instr {
                     0x3C => Instr::I64Store8(m),
                     0x3D => Instr::I64Store16(m),
                     0x3E => Instr::I64Store32(m),
-                    n => return Err(MemoryError::InvalidOpcode(n).into()),
+                    _ => unreachable!(),
                 }
             }
             0x3F => {
@@ -1275,7 +1269,7 @@ pub struct LaneIdx(u8);
 
 #[derive(Debug, Error)]
 #[error("failed decoding Lane index")]
-pub struct LaneIdxError(#[from] io::Error);
+pub struct LaneIdxError(#[from] pub io::Error);
 
 impl LaneIdx {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, LaneIdxError> {

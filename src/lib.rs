@@ -6,6 +6,7 @@ mod integer;
 
 use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instr::{Instr, Parsed};
+pub use crate::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
 use integer::*;
 use phf::phf_ordered_map;
 use std::io;
@@ -456,7 +457,7 @@ static Mut_MARKERS: phf::OrderedMap<u8, Mut> = phf_ordered_map! {
 
 #[derive(Debug, Error)]
 #[error("invalid Mutability marker byte - expected one of {markers}; got {0:#04X}", markers=Mut::markers_formatted())]
-pub struct InvalidMutabilityByteError(u8);
+pub struct InvalidMutabilityByteError(pub u8);
 
 impl From<u8> for InvalidMutabilityByteError {
     fn from(b: u8) -> Self {
@@ -502,7 +503,7 @@ static ValType_MARKERS: phf::OrderedMap<u8, ValType> = phf_ordered_map! {
     "invalid ValType marker byte - expected one of {markers}; got {0:#04X}",
     markers=ValType::markers_formatted()
 )]
-pub struct InvalidValTypeMarkerError(u8);
+pub struct InvalidValTypeMarkerError(pub u8);
 
 impl From<u8> for InvalidValTypeMarkerError {
     fn from(b: u8) -> Self {
@@ -592,7 +593,7 @@ pub enum SectionKind {
 
 #[derive(Debug, Error)]
 #[error("invalid section ID: expected 0-12; got {0}")]
-pub struct InvalidSectionIdError(u8);
+pub struct InvalidSectionIdError(pub u8);
 
 impl TryFrom<u8> for SectionKind {
     type Error = InvalidSectionIdError;
@@ -662,9 +663,9 @@ static RefType_MARKERS: phf::OrderedMap<u8, RefType> = phf_ordered_map! {
 #[derive(Debug, Error)]
 #[error(
     "invalid RefType marker byte - expected one of {markers}; got {0:#04X}",
-    markers=ValType::markers_formatted()
+    markers=RefType::markers_formatted()
 )]
-pub struct InvalidRefTypeMarkerError(u8);
+pub struct InvalidRefTypeMarkerError(pub u8);
 
 impl From<u8> for InvalidRefTypeMarkerError {
     fn from(b: u8) -> Self {
@@ -1109,7 +1110,7 @@ pub enum ExportDesc {
 #[error(
     "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem) or 0x03 (global); got {0:#04X}"
 )]
-pub struct InvalidExportDescMarkerByte(u8);
+pub struct InvalidExportDescMarkerByte(pub u8);
 
 impl ExportDesc {
     fn from(b: u8, idx: u32) -> Result<Self, InvalidExportDescMarkerByte> {
@@ -1187,7 +1188,7 @@ fn decode_memory_section<R: Read + ?Sized>(
 
 #[derive(Debug, Error)]
 #[error("failed decoding Memory type")]
-pub struct DecodeMemoryTypeError(#[from] ParseLimitsError);
+pub struct DecodeMemoryTypeError(#[from] pub ParseLimitsError);
 
 fn parse_memtype<R: Read + ?Sized>(reader: &mut R) -> Result<MemType, DecodeMemoryTypeError> {
     let limits = parse_limits(reader)?;
@@ -1322,7 +1323,7 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
 
 #[derive(Debug, Error)]
 #[error("failed decoding Start section")]
-pub struct DecodeStartSectionError(#[from] index::FuncIdxError);
+pub struct DecodeStartSectionError(#[from] pub index::FuncIdxError);
 
 fn decode_start_section<R: Read + ?Sized>(
     reader: &mut R,
@@ -1376,7 +1377,7 @@ pub enum DecodeElementError {
     #[error("failed decoding bitfield")]
     DecodeBitfield(integer::DecodeU32Error),
 
-    #[error("invalid bitfield: expected value in range (0..7); got {0}")]
+    #[error("invalid bitfield: expected value in range [0,7]; got {0}")]
     InvalidBitfield(u32),
 
     #[error("failed decoding offset expression")]
@@ -1716,10 +1717,7 @@ pub enum DecodeVectorError<E> {
 impl<E: std::fmt::Debug> std::fmt::Debug for DecodeVectorError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DecodeLength(e) => f
-                .debug_tuple("DecodeLength")
-                .field(e)
-                .finish(),
+            Self::DecodeLength(e) => f.debug_tuple("DecodeLength").field(e).finish(),
             Self::ParseElement { position, source } => f
                 .debug_struct("ParseElement")
                 .field("position", position)
