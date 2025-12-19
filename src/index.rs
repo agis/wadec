@@ -6,7 +6,7 @@ macro_rules! define_index {
     ($name:ident, $errorname:ident) => {
         #[derive(Debug, Error)]
         #[error("failed decoding {name} index", name = stringify!($name))]
-        pub struct $errorname(#[from] integer::DecodeU32Error);
+        pub struct $errorname(#[from] pub integer::DecodeU32Error);
 
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
         pub struct $name(pub u32);

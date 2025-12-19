@@ -1,8 +1,9 @@
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{
-    parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
-    DecodeRefTypeError, DecodeValTypeError, DecodeVectorError, FromMarkerByte, RefType, ValType,
+    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError,
+    DecodeVectorError, FromMarkerByte, RefType, ValType, parse_f32, parse_f64, parse_vector,
+    read_byte,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -1268,7 +1269,7 @@ pub struct LaneIdx(u8);
 
 #[derive(Debug, Error)]
 #[error("failed decoding Lane index")]
-pub struct LaneIdxError(#[from] io::Error);
+pub struct LaneIdxError(#[from] pub io::Error);
 
 impl LaneIdx {
     fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, LaneIdxError> {
