@@ -4,6 +4,9 @@ pub mod index;
 pub mod instr;
 mod integer;
 
+pub use crate::integer::{
+    DecodeI32Error, DecodeI64Error, DecodeU32Error,
+};
 use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instr::{Instr, Parsed};
 use integer::*;
