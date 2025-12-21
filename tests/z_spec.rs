@@ -38,14 +38,30 @@ enum ModuleType {
 #[serde(rename_all(deserialize = "snake_case"))]
 #[derive(PartialEq)]
 enum Assertion {
-    #[serde(alias = "module")]
-    AssertValid { line: u64, filename: String },
+    // 'malformed' means the module is not well-formed according to the spec
+    // (Binary format), so the Decoding phase itself must fail.
     AssertMalformed {
         line: u64,
         filename: String,
         text: String,
         module_type: ModuleType,
     },
+
+    // 'invalid' means the Validation phase rejected the module, which however
+    // implies that Decoding phase (which comes before the Validation phase)
+    // succeeded.
+    AssertInvalid {
+        line: u64,
+        filename: String,
+        text: String,
+        module_type: ModuleType,
+    },
+
+    // A valid module is one that both its Decoding and Validation phases
+    // succeed (we only care about the former).
+    #[serde(alias = "module")]
+    AssertValid { line: u64, filename: String },
+
     #[serde(other)]
     Other,
 }
@@ -55,8 +71,8 @@ impl Assertion {
         // these tests are bogus in the upstream v2.0 branch
         // (see https://github.com/WebAssembly/spec/issues/2012).
         //
-        // TODO: re-enable them when we migrate to the v3.0, since they're fixed
-        // in that one
+        // TODO: re-enable them when we migrate to the v3.0, since those
+        // fixtures are fixed in that branch of WebAssembly/spec.
         "align.109.wasm",
         "align.110.wasm",
         "align.111.wasm",
@@ -68,6 +84,10 @@ impl Assertion {
         matches!(
             self,
             Assertion::AssertValid { .. }
+                | Assertion::AssertInvalid {
+                    module_type: ModuleType::Binary,
+                    ..
+                }
                 | Assertion::AssertMalformed {
                     module_type: ModuleType::Binary,
                     ..
@@ -81,13 +101,13 @@ impl Assertion {
         }
 
         match self {
-            Self::AssertValid { filename, .. } => {
+            Self::AssertValid { filename, .. } | Self::AssertInvalid { filename, .. } => {
                 if Self::EXCLUDED.contains(&filename.as_str()) {
                     return Ok(());
                 }
                 match decode(File::open(resolve_fixture(filename)).expect(filename)) {
                     Ok(_) => Ok(()),
-                    Err(e) => bail!("expected {filename} to be valid; got: {e}"),
+                    Err(e) => bail!("expected {filename} to be considered well-formed; got: {e}"),
                 }
             }
             Self::AssertMalformed { filename, .. } => {
@@ -126,8 +146,9 @@ fn setup() {
 
     TEST_SCRIPTS_PATHS.iter().for_each(|path| {
         for fname in files_with_ext(path, ".wast") {
-            let output = Command::new("wast2json")
+            let output = Command::new("wasm-tools")
                 .current_dir(FIXTURE_PATH)
+                .arg("json-from-wast")
                 .arg("../../../".to_owned() + fname.to_str().unwrap())
                 .output()
                 .unwrap();
@@ -135,7 +156,6 @@ fn setup() {
             if !output.status.success() {
                 io::stderr().write_all(&output.stderr).unwrap();
             }
-            io::stdout().write_all(&output.stdout).unwrap();
         }
     })
 }
