@@ -4,9 +4,8 @@
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{
-    DecodeFloat32Error, DecodeFloat64Error, DecodeRefTypeError, DecodeValTypeError,
-    DecodeVectorError, FromMarkerByte, RefType, ValType, parse_f32, parse_f64, parse_vector,
-    read_byte,
+    parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
+    DecodeRefTypeError, DecodeValTypeError, DecodeVectorError, FromMarkerByte, RefType, ValType,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -636,7 +635,7 @@ impl Instr {
             0x00 => Instr::Unreachable,
             0x01 => Instr::Nop,
             op @ 0x02..=0x04 => {
-                let bt = BlockType::read(reader).map_err(ControlError::BlockType)?;
+                let bt = BlockType::decode(reader).map_err(ControlError::BlockType)?;
                 let mut in1 = Vec::new();
                 let mut parsed;
 
@@ -670,48 +669,48 @@ impl Instr {
                     _ => unreachable!(),
                 }
             }
-            0x0C => Instr::Br(LabelIdx::read(reader).map_err(ControlError::LabelIdx)?),
-            0x0D => Instr::BrIf(LabelIdx::read(reader).map_err(ControlError::LabelIdx)?),
+            0x0C => Instr::Br(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
+            0x0D => Instr::BrIf(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0E => {
-                let l = parse_vector(reader, LabelIdx::read)
+                let l = parse_vector(reader, LabelIdx::decode)
                     .map_err(ControlError::DecodeLabelIdxVector)?;
-                let ln = LabelIdx::read(reader).map_err(ControlError::LabelIdx)?;
+                let ln = LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?;
                 Instr::BrTable(l, ln)
             }
             0x0F => Instr::Return,
-            0x10 => Instr::Call(FuncIdx::read(reader).map_err(ControlError::FuncIdx)?),
+            0x10 => Instr::Call(FuncIdx::decode(reader).map_err(ControlError::FuncIdx)?),
             0x11 => {
-                let y = TypeIdx::read(reader).map_err(ControlError::TypeIdx)?;
-                let x = TableIdx::read(reader).map_err(ControlError::TableIdx)?;
+                let y = TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?;
+                let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
                 Instr::CallIndirect(x, y)
             }
 
-            // --- Reference instructions (5.4.2) ---
-            0xD0 => Instr::RefNull(RefType::read(reader).map_err(ReferenceError::RefType)?),
+            // --- Reference instructions (5decode) ---
+            0xD0 => Instr::RefNull(RefType::decode(reader).map_err(ReferenceError::RefType)?),
             0xD1 => Instr::RefIsNull,
-            0xD2 => Instr::RefFunc(FuncIdx::read(reader).map_err(ReferenceError::FuncIdx)?),
+            0xD2 => Instr::RefFunc(FuncIdx::decode(reader).map_err(ReferenceError::FuncIdx)?),
 
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instr::Drop,
             0x1B => Instr::Select(None),
             0x1C => Instr::Select(Some(
-                parse_vector(reader, ValType::read).map_err(ParametricError::DecodeVector)?,
+                parse_vector(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
             )),
 
             // --- Variable instructions (5.4.4) ---
-            0x20 => Instr::LocalGet(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),
-            0x21 => Instr::LocalSet(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),
-            0x22 => Instr::LocalTee(LocalIdx::read(reader).map_err(VariableError::LocalIdx)?),
-            0x23 => Instr::GlobalGet(GlobalIdx::read(reader).map_err(VariableError::GlobalIdx)?),
-            0x24 => Instr::GlobalSet(GlobalIdx::read(reader).map_err(VariableError::GlobalIdx)?),
+            0x20 => Instr::LocalGet(LocalIdx::decode(reader).map_err(VariableError::LocalIdx)?),
+            0x21 => Instr::LocalSet(LocalIdx::decode(reader).map_err(VariableError::LocalIdx)?),
+            0x22 => Instr::LocalTee(LocalIdx::decode(reader).map_err(VariableError::LocalIdx)?),
+            0x23 => Instr::GlobalGet(GlobalIdx::decode(reader).map_err(VariableError::GlobalIdx)?),
+            0x24 => Instr::GlobalSet(GlobalIdx::decode(reader).map_err(VariableError::GlobalIdx)?),
 
             // --- Table instructions (5.4.5) ---
-            0x25 => Instr::TableGet(TableIdx::read(reader).map_err(TableError::TableIdx)?),
-            0x26 => Instr::TableSet(TableIdx::read(reader).map_err(TableError::TableIdx)?),
+            0x25 => Instr::TableGet(TableIdx::decode(reader).map_err(TableError::TableIdx)?),
+            0x26 => Instr::TableSet(TableIdx::decode(reader).map_err(TableError::TableIdx)?),
 
             // --- Memory instructions (5.4.6) ---
             op @ 0x28..=0x3E => {
-                let m = Memarg::read(reader).map_err(MemoryError::DecodeMemarg)?;
+                let m = Memarg::decode(reader).map_err(MemoryError::DecodeMemarg)?;
                 match op {
                     0x28 => Instr::I32Load(m),
                     0x29 => Instr::I64Load(m),
@@ -902,14 +901,14 @@ impl Instr {
 
                 // --- Memory ---
                 8 => {
-                    let x = DataIdx::read(reader).map_err(MemoryError::DecodeDataIdx)?;
+                    let x = DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?;
                     let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
                     if b != 0x00 {
                         return Err(MemoryError::InvalidMemoryInitByte(b))?;
                     }
                     Instr::MemoryInit(x)
                 }
-                9 => Instr::DataDrop(DataIdx::read(reader).map_err(MemoryError::DecodeDataIdx)?),
+                9 => Instr::DataDrop(DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?),
                 10 => {
                     let mut buf = [0u8; 2];
                     reader
@@ -930,18 +929,18 @@ impl Instr {
 
                 // --- Table ---
                 12 => {
-                    let y = ElemIdx::read(reader).map_err(TableError::ElemIdx)?;
-                    let x = TableIdx::read(reader).map_err(TableError::TableIdx)?;
+                    let y = ElemIdx::decode(reader).map_err(TableError::ElemIdx)?;
+                    let x = TableIdx::decode(reader).map_err(TableError::TableIdx)?;
                     Instr::TableInit(x, y)
                 }
-                13 => Instr::ElemDrop(ElemIdx::read(reader).map_err(TableError::ElemIdx)?),
+                13 => Instr::ElemDrop(ElemIdx::decode(reader).map_err(TableError::ElemIdx)?),
                 14 => Instr::TableCopy(
-                    TableIdx::read(reader).map_err(TableError::TableIdx)?,
-                    TableIdx::read(reader).map_err(TableError::TableIdx)?,
+                    TableIdx::decode(reader).map_err(TableError::TableIdx)?,
+                    TableIdx::decode(reader).map_err(TableError::TableIdx)?,
                 ),
-                15 => Instr::TableGrow(TableIdx::read(reader).map_err(TableError::TableIdx)?),
-                16 => Instr::TableSize(TableIdx::read(reader).map_err(TableError::TableIdx)?),
-                17 => Instr::TableFill(TableIdx::read(reader).map_err(TableError::TableIdx)?),
+                15 => Instr::TableGrow(TableIdx::decode(reader).map_err(TableError::TableIdx)?),
+                16 => Instr::TableSize(TableIdx::decode(reader).map_err(TableError::TableIdx)?),
+                17 => Instr::TableFill(TableIdx::decode(reader).map_err(TableError::TableIdx)?),
 
                 // --- Invalid ---
                 n => return Err(ParseError::InvalidMarkerByteAfterFC(n)),
@@ -950,7 +949,7 @@ impl Instr {
             // --- Vector instructions (5.4.8) ---
             0xFD => match read_u32(reader).map_err(VectorError::ReadOpcode)? {
                 op @ (0..=11 | 92 | 93) => {
-                    let m = Memarg::read(reader).map_err(VectorError::Memarg)?;
+                    let m = Memarg::decode(reader).map_err(VectorError::Memarg)?;
                     match op {
                         0 => Instr::V128Load(m),
                         1 => Instr::V128Load8x8S(m),
@@ -970,8 +969,8 @@ impl Instr {
                     }
                 }
                 op @ 84..=91 => {
-                    let m = Memarg::read(reader).map_err(VectorError::Memarg)?;
-                    let l = LaneIdx::read(reader).map_err(VectorError::LaneIdx)?;
+                    let m = Memarg::decode(reader).map_err(VectorError::Memarg)?;
+                    let l = LaneIdx::decode(reader).map_err(VectorError::LaneIdx)?;
                     match op {
                         84 => Instr::V128Load8Lane(m, l),
                         85 => Instr::V128Load16Lane(m, l),
@@ -999,7 +998,7 @@ impl Instr {
                     Instr::I8x16Shuffle(immediates.map(LaneIdx))
                 }
                 op @ 21..=34 => {
-                    let l = LaneIdx::read(reader).map_err(VectorError::LaneIdx)?;
+                    let l = LaneIdx::decode(reader).map_err(VectorError::LaneIdx)?;
                     match op {
                         21 => Instr::I8x16ExtractLaneS(l),
                         22 => Instr::I8x16ExtractLaneU(l),
@@ -1255,7 +1254,7 @@ pub enum MemargError {
 }
 
 impl Memarg {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Memarg, MemargError> {
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Memarg, MemargError> {
         let align = read_u32(reader).map_err(MemargError::Align)?;
         let offset = read_u32(reader).map_err(MemargError::Offset)?;
 
@@ -1275,7 +1274,7 @@ pub struct LaneIdx(u8);
 pub struct LaneIdxError(#[from] pub io::Error);
 
 impl LaneIdx {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, LaneIdxError> {
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, LaneIdxError> {
         Ok(Self(read_byte(reader)?))
     }
 }
@@ -1303,7 +1302,7 @@ pub enum BlockTypeError {
 }
 
 impl BlockType {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, BlockTypeError> {
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, BlockTypeError> {
         let b = read_byte(reader).map_err(BlockTypeError::ReadMarkerByte)?;
         if b == 0x40 {
             return Ok(Self::Empty);

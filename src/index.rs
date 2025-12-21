@@ -16,7 +16,7 @@ macro_rules! define_index {
         pub struct $name(pub u32);
 
         impl $name {
-            pub fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self, $errorname> {
+            pub fn decode<R: Read + ?Sized>(r: &mut R) -> Result<Self, $errorname> {
                 let idx = integer::read_u32(r)?;
                 Ok(Self(idx))
             }

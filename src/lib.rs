@@ -312,7 +312,7 @@ pub enum DecodeFuncTypeError {
 impl FuncType {
     const MARKER_BYTE: u8 = 0x60;
 
-    pub fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeFuncTypeError> {
+    pub fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeFuncTypeError> {
         let b = read_byte(reader)?;
         if b != Self::MARKER_BYTE {
             return Err(DecodeFuncTypeError::InvalidMarkerByte(b));
@@ -378,8 +378,8 @@ pub enum DecodeTableError {
 }
 
 impl TableType {
-    pub fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeTableError> {
-        let reftype = RefType::read(reader)?;
+    pub fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeTableError> {
+        let reftype = RefType::decode(reader)?;
         let limits = parse_limits(reader)?;
         Ok(TableType { reftype, limits })
     }
@@ -442,8 +442,8 @@ pub enum DecodeGlobalTypeError {
 }
 
 impl GlobalType {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
-        let valtype = ValType::read(reader)?;
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
+        let valtype = ValType::decode(reader)?;
         let r#mut: Mut =
             Mut::from_marker(read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?)?;
 
@@ -538,7 +538,7 @@ pub enum DecodeValTypeError {
 }
 
 impl ValType {
-    fn read<R: Read + ?Sized>(reader: &mut R) -> Result<ValType, DecodeValTypeError> {
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<ValType, DecodeValTypeError> {
         Ok(Self::from_marker(read_byte(reader)?)?)
     }
 }
@@ -665,7 +665,7 @@ pub enum DecodeRefTypeError {
 }
 
 impl RefType {
-    fn read<R: Read + ?Sized>(r: &mut R) -> Result<Self, DecodeRefTypeError> {
+    fn decode<R: Read + ?Sized>(r: &mut R) -> Result<Self, DecodeRefTypeError> {
         let marker = read_byte(r)?;
         Ok(Self::from_marker(marker)?)
     }
@@ -1006,7 +1006,7 @@ pub enum DecodeTypeSectionError {
 fn decode_type_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<FuncType>, DecodeTypeSectionError> {
-    Ok(parse_vector(reader, FuncType::read)?)
+    Ok(parse_vector(reader, FuncType::decode)?)
 }
 
 #[derive(Debug, Error)]
@@ -1018,7 +1018,7 @@ pub enum DecodeFunctionSectionError {
 fn decode_function_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<TypeIdx>, DecodeFunctionSectionError> {
-    Ok(parse_vector(reader, TypeIdx::read)?)
+    Ok(parse_vector(reader, TypeIdx::decode)?)
 }
 
 /// The imports component of a module defines a set of imports that are required for
@@ -1099,10 +1099,10 @@ fn parse_import<R: Read + ?Sized>(reader: &mut R) -> Result<Import, DecodeImport
         .map_err(DecodeImportError::ReadDescriptorMarkerByte)?;
 
     let desc = match desc_kind[0] {
-        0x00 => ImportDesc::Type(TypeIdx::read(reader)?),
-        0x01 => ImportDesc::Table(TableType::read(reader)?),
+        0x00 => ImportDesc::Type(TypeIdx::decode(reader)?),
+        0x01 => ImportDesc::Table(TableType::decode(reader)?),
         0x02 => ImportDesc::Mem(parse_memtype(reader)?),
-        0x03 => ImportDesc::Global(GlobalType::read(reader)?),
+        0x03 => ImportDesc::Global(GlobalType::decode(reader)?),
         n => return Err(DecodeImportError::InvalidDescriptorMarkerByte(n)),
     };
 
@@ -1195,7 +1195,7 @@ pub enum DecodeTableSectionError {
 fn decode_table_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<TableType>, DecodeTableSectionError> {
-    Ok(parse_vector(reader, TableType::read)?)
+    Ok(parse_vector(reader, TableType::decode)?)
 }
 
 #[derive(Debug, Error)]
@@ -1242,7 +1242,7 @@ pub enum DecodeGlobalError {
 
 fn parse_global<R: Read + ?Sized>(reader: &mut R) -> Result<Global, DecodeGlobalError> {
     Ok(Global {
-        r#type: GlobalType::read(reader)?,
+        r#type: GlobalType::decode(reader)?,
         init: parse_expr(reader)?,
     })
 }
@@ -1328,7 +1328,7 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
 
         Ok(Local {
             count,
-            t: ValType::read(r)?,
+            t: ValType::decode(r)?,
         })
     })?;
 
@@ -1352,7 +1352,7 @@ pub struct DecodeStartSectionError(#[from] pub index::FuncIdxError);
 fn decode_start_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<FuncIdx, DecodeStartSectionError> {
-    Ok(FuncIdx::read(reader)?)
+    Ok(FuncIdx::decode(reader)?)
 }
 
 /// The initial contents of a table is uninitialized. Element segments can be used to
@@ -1438,7 +1438,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     let (r#type, init, mode) = match bitfield {
         0 => {
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let y = parse_vector(reader, FuncIdx::read)?;
+            let y = parse_vector(reader, FuncIdx::decode)?;
             (
                 RefType::Func,
                 funcidx_into_reffunc(y),
@@ -1450,14 +1450,14 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         1 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vector(reader, FuncIdx::read)?;
+            let y = parse_vector(reader, FuncIdx::decode)?;
             (et, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
-            let x = TableIdx::read(reader)?;
+            let x = TableIdx::decode(reader)?;
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
             let et = parse_elemkind(reader)?;
-            let y = parse_vector(reader, FuncIdx::read)?;
+            let y = parse_vector(reader, FuncIdx::decode)?;
             (
                 et,
                 funcidx_into_reffunc(y),
@@ -1469,7 +1469,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         3 => {
             let et = parse_elemkind(reader)?;
-            let y = parse_vector(reader, FuncIdx::read)?;
+            let y = parse_vector(reader, FuncIdx::decode)?;
             (et, funcidx_into_reffunc(y), ElemMode::Declarative)
         }
         4 => {
@@ -1485,14 +1485,14 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         5 => {
-            let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = parse_vector(reader, parse_expr).map_err(DecodeElementError::DecodeInit)?;
             (et, el, ElemMode::Passive)
         }
         6 => {
-            let x = TableIdx::read(reader)?;
+            let x = TableIdx::decode(reader)?;
             let e = parse_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = parse_vector(reader, parse_expr).map_err(DecodeElementError::DecodeInit)?;
 
             (
@@ -1505,7 +1505,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         7 => {
-            let et = RefType::read(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = parse_vector(reader, parse_expr).map_err(DecodeElementError::DecodeInit)?;
 
             (et, el, ElemMode::Declarative)
@@ -1605,7 +1605,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
         }
         1 => (parse_byte_vec(reader)?, DataMode::Passive),
         2 => {
-            let x = index::MemIdx::read(reader)?;
+            let x = index::MemIdx::decode(reader)?;
             let e = parse_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
 
             (
@@ -1700,7 +1700,7 @@ pub enum DecodeResultTypeError {
 pub fn decode_result_type<R: Read + ?Sized>(
     r: &mut R,
 ) -> Result<Vec<ValType>, DecodeResultTypeError> {
-    Ok(parse_vector(r, ValType::read)?)
+    Ok(parse_vector(r, ValType::decode)?)
 }
 
 #[derive(Debug, Error)]
