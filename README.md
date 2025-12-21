@@ -1,4 +1,4 @@
-# wadec [![Latest Version]][crates.io]
+# wadec [![Latest Version]][crates.io] [![Documentation](https://docs.rs/wadec/badge.svg)](https://docs.rs/wadec) ![License](https://img.shields.io/crates/l/wadec.svg)
 
 [Latest Version]: https://img.shields.io/crates/v/wadec.svg
 [crates.io]: https://crates.io/crates/wadec
