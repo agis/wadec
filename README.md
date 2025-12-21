@@ -6,16 +6,12 @@
 wadec is a decoder for WebAssembly modules, focusing on developer experience,
 informative errors and other helpful diagnostics.
 
-It can be used as a library or a command-line tool.
+It can be used as a library or a command-line tool and is [fully conforming to the specification](#specification-conformance-testing).
 
 ## Status
 
-This project is currently in early development stage of development. It passes
-100% of the official suite for [version
-2](https://webassembly.github.io/spec/versions/core/WebAssembly-2.0.pdf) of the
-specification. (Support for version 3 is planned.)
-
-The API is still unstable and subject to change.
+This project is currently in early development stage of development. The API is
+unstable and subject to change.
 
 ## Rationale
 
@@ -25,6 +21,26 @@ Wasm binary format, or for developers debugging Wasm modules.
 wadec does _not_ aim to be a highly-efficient decoder for
 performance-critical tasks. For such use-cases, consider using a streaming
 decoder.
+
+
+## Specification-conformance testing
+
+wadec is 100% conforming to the official WebAssembly specification, [version
+2](https://www.w3.org/TR/wasm-core-2/). (Version 3 is on the roadmap.)
+
+This is ensured by running the official specification [test
+suite](https://github.com/WebAssembly/spec/tree/wg-2.0/test/core) (`wg-2.0` tag)
+against our decoder. Specifically, we go through all the test scripts (`.wast`) and ensure that:
+
+✔️ all modules marked with `assert_malformed` are *rejected* by our decoder
+
+✔️ all modules marked with `assert_invalid` are *accepted* (note: that 'invalid' modules are those rejected during the Validation phase, which implies that the Decoding phase has succeeded first.)
+
+✔️ all modules marked with `module` are *accepted*
+
+✔️ all modules marked with `assert_unlinkable` are *accepted*
+
+The relevant tests can be foundat [tests/z_spec.rs](tests/z_spec.rs).
 
 ## Installation
 
@@ -82,10 +98,12 @@ DecodeTypeSection(
 )
 ```
 
+
 ## Roadmap
 
-- [ ] Support for [spec version 3](https://webassembly.github.io/spec/core/)
-- [ ] Support for performing the [Validation phase](https://webassembly.github.io/spec/core/valid/index.html)
+- [x] Implement the Decoding phase for specification [version 2](https://www.w3.org/TR/wasm-core-2/)
+- [ ] Implement the Decoding phase for specification [version 3](https://webassembly.github.io/spec/core/)
+- [ ] Implement the [Validation phase](https://webassembly.github.io/spec/core/valid/index.html)
 - [ ] Optional support for WebAssembly extensions
 
 ## License
