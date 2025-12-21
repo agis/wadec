@@ -1,3 +1,6 @@
+//! WebAssembly instructions representation and decoding.
+//!
+//! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
 use crate::index::*;
 use crate::integer::{self, *};
 use crate::{

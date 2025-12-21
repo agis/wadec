@@ -1,3 +1,7 @@
+//! Types and constructors for Web Assembly indices,
+//! as defined in Section 5.5.1.
+//!
+//! See <https://www.w3.org/TR/wasm-core-2/#indices>
 use crate::integer;
 use std::io::Read;
 use thiserror::Error;
