@@ -1,3 +1,12 @@
+//! A decoder for WebAssembly modules in the binary format.
+//!
+//! This library implements the Binary format of the WebAssembly [specification],
+//! version 2.
+//!
+//! The main entry point is the [`decode`] function.
+//!
+//! [specification]: https://www.w3.org/TR/wasm-core-2/
+
 #![forbid(unsafe_code)]
 
 pub mod index;
@@ -690,6 +699,11 @@ impl FromMarkerByte for RefType {
     }
 }
 
+/// The top-level error that may occur when attempting to decode bytes into
+/// a [Module].
+///
+/// Encompasses all possible errors that may occur during decoding,
+/// including section-specific errors.
 #[derive(Debug, Error)]
 pub enum DecodeModuleError {
     #[error(transparent)]
@@ -772,6 +786,7 @@ pub enum DecodeModuleError {
     DecodeDataSection(#[from] DecodeDataSectionError),
 }
 
+/// Decode `input` into a WebAssembly [Module].
 pub fn decode(mut input: impl Read) -> Result<Module, DecodeModuleError> {
     parse_preamble(&mut input)?;
 

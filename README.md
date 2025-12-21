@@ -4,7 +4,7 @@
 [crates.io]: https://crates.io/crates/wadec
 
 wadec is a decoder for WebAssembly modules, focusing on developer experience,
-informative errors and other helpful diagnostics.
+informative errors and helpful diagnostics.
 
 It can be used as a library or a command-line tool and is [fully conforming to the specification](#specification-conformance-testing).
 
