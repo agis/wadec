@@ -592,14 +592,18 @@ pub enum SectionKind {
 }
 
 #[derive(Debug, Error)]
-#[error("invalid section ID: expected 0-12; got {0}")]
+#[error("invalid section ID: expected one of {markers}; got {0:#04X}", markers=SectionKind::markers_formatted())]
 pub struct InvalidSectionIdError(pub u8);
 
-impl TryFrom<u8> for SectionKind {
-    type Error = InvalidSectionIdError;
+impl From<u8> for InvalidSectionIdError {
+    fn from(b: u8) -> Self {
+        Self(b)
+    }
+}
 
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        Ok(match v {
+// Valid marker bytes for [SectionKind].
+#[expect(non_upper_case_globals)]
+static SectionId_MARKERS: phf::OrderedMap<u8, SectionKind> = phf_ordered_map! {
             0 => SectionKind::Custom,
             1 => SectionKind::Type,
             2 => SectionKind::Import,
@@ -613,8 +617,13 @@ impl TryFrom<u8> for SectionKind {
             10 => SectionKind::Code,
             11 => SectionKind::Data,
             12 => SectionKind::DataCount,
-            n => return Err(InvalidSectionIdError(n)),
-        })
+};
+
+impl FromMarkerByte for SectionKind {
+    type Error = InvalidSectionIdError;
+
+    fn markers() -> &'static phf::OrderedMap<u8, Self> {
+        &SectionId_MARKERS
     }
 }
 
@@ -948,7 +957,7 @@ fn decode_section_header<R: Read + ?Sized>(
         Err(e) => return Err(e.into()),
     };
 
-    let kind = SectionKind::try_from(id)?;
+    let kind = SectionKind::from_marker(id)?;
     let size = read_u32(reader)?;
 
     Ok(Some(SectionHeader { kind, size }))
