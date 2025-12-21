@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use googletest::prelude::*;
 use serde::Deserialize;
 use std::fs;
@@ -7,7 +7,8 @@ use std::io::{self, Write};
 use std::process::Command;
 use wadec::*;
 
-// .wasm and .json fixtures generated via wast2json
+// Contains fixtures (.wasm and .json files) generated via
+// `wasm-tools json-from-wast` from the upstream spec suite.
 const FIXTURE_PATH: &str = "./tests/fixtures/spec/";
 
 #[derive(Deserialize, Debug)]
@@ -15,6 +16,7 @@ struct TestScript {
     commands: Vec<Assertion>,
 }
 
+// A TestScript maps to a JSON file generated via a .wast (aka. test script) file.
 impl TestScript {
     fn execute(self) -> Vec<Result<()>> {
         self.commands
@@ -25,6 +27,7 @@ impl TestScript {
     }
 }
 
+// We only care about binary modules (since we're a binary decoder after all).
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all(deserialize = "lowercase"))]
 enum ModuleType {
@@ -32,7 +35,6 @@ enum ModuleType {
     Text,
 }
 
-// TODO: also map for errors
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all(deserialize = "snake_case"))]
@@ -51,6 +53,15 @@ enum Assertion {
     // implies that Decoding phase (which comes before the Validation phase)
     // succeeded.
     AssertInvalid {
+        line: u64,
+        filename: String,
+        text: String,
+        module_type: ModuleType,
+    },
+
+    // 'unlinkable' means the module failed to be instatiated/linked, which
+    // however implies that both Decoding and Validation phases succeeded.
+    AssertUnlinkable {
         line: u64,
         filename: String,
         text: String,
@@ -92,6 +103,10 @@ impl Assertion {
                     module_type: ModuleType::Binary,
                     ..
                 }
+                | Assertion::AssertUnlinkable {
+                    module_type: ModuleType::Binary,
+                    ..
+                }
         )
     }
 
@@ -101,7 +116,9 @@ impl Assertion {
         }
 
         match self {
-            Self::AssertValid { filename, .. } | Self::AssertInvalid { filename, .. } => {
+            Self::AssertValid { filename, .. }
+            | Self::AssertInvalid { filename, .. }
+            | Self::AssertUnlinkable { filename, .. } => {
                 if Self::EXCLUDED.contains(&filename.as_str()) {
                     return Ok(());
                 }
