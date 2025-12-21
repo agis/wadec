@@ -613,19 +613,19 @@ impl From<u8> for InvalidSectionIdError {
 // Valid marker bytes for [SectionKind].
 #[expect(non_upper_case_globals)]
 static SectionId_MARKERS: phf::OrderedMap<u8, SectionKind> = phf_ordered_map! {
-            0 => SectionKind::Custom,
-            1 => SectionKind::Type,
-            2 => SectionKind::Import,
-            3 => SectionKind::Function,
-            4 => SectionKind::Table,
-            5 => SectionKind::Memory,
-            6 => SectionKind::Global,
-            7 => SectionKind::Export,
-            8 => SectionKind::Start,
-            9 => SectionKind::Element,
-            10 => SectionKind::Code,
-            11 => SectionKind::Data,
-            12 => SectionKind::DataCount,
+            0u8 => SectionKind::Custom,
+            1u8 => SectionKind::Type,
+            2u8 => SectionKind::Import,
+            3u8 => SectionKind::Function,
+            4u8 => SectionKind::Table,
+            5u8 => SectionKind::Memory,
+            6u8 => SectionKind::Global,
+            7u8 => SectionKind::Export,
+            8u8 => SectionKind::Start,
+            9u8 => SectionKind::Element,
+            10u8 => SectionKind::Code,
+            11u8 => SectionKind::Data,
+            12u8 => SectionKind::DataCount,
 };
 
 impl FromMarkerByte for SectionKind {
