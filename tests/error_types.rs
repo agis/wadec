@@ -1,6 +1,13 @@
 use std::fs::File;
-use wadec::index::*;
-use wadec::instr::*;
+use wadec::decode::sections::{
+    code::*, custom::*, data::*, data_count::*, element::*, export::*, function::*, global::*,
+    import::*, memory::*, start::*, table::*, r#type::*,
+};
+use wadec::decode::types::*;
+use wadec::decode::*;
+use wadec::indices::*;
+use wadec::instructions::*;
+use wadec::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
 use wadec::*;
 
 #[test]
@@ -72,7 +79,7 @@ fn decode_i32_error_too_large() {
             },
         )) => {
             assert_eq!(position, 0);
-            assert!(matches!(i32_err, wadec::DecodeI32Error::TooLarge));
+            assert!(matches!(i32_err, DecodeI32Error::TooLarge));
         }
         other => panic!("unexpected error: {other:?}"),
     }

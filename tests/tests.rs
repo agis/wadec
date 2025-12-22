@@ -1,8 +1,30 @@
 use pretty_assertions::assert_eq;
 use std::collections::BTreeSet;
 use std::fs::File;
-use wadec::index::*;
-use wadec::instr::*;
+use wadec::decode::DecodeVectorError;
+use wadec::decode::sections::{
+    custom::CustomSection,
+    data::{Data, DataMode},
+    element::{Elem, ElemMode},
+    export::{Export, ExportDesc},
+    function::Func,
+    global::Global,
+    import::{Import, ImportDesc},
+    r#type::DecodeTypeSectionError,
+};
+use wadec::decode::types::{DecodeFuncTypeError, DecodeResultTypeError, DecodeValTypeError};
+use wadec::indices::*;
+use wadec::instructions::*;
+use wadec::types::{
+    functype::FuncType,
+    globaltype::{GlobalType, Mut},
+    limits::Limits,
+    memtype::MemType,
+    numtype::NumType,
+    reftype::RefType,
+    tabletype::TableType,
+    valtype::ValType,
+};
 use wadec::*;
 
 #[allow(dead_code)]
@@ -69,9 +91,9 @@ fn it_accepts_add_sample() {
         r#type: TypeIdx(0),
         locals: Vec::new(),
         body: vec![
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::I32Add,
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::I32Add,
         ],
     }];
 
@@ -130,9 +152,9 @@ fn it_accepts_two_funcs_exporting_second() {
     }];
 
     let add_body = vec![
-        Instr::LocalGet(LocalIdx(0)),
-        Instr::LocalGet(LocalIdx(1)),
-        Instr::I32Add,
+        Instruction::LocalGet(LocalIdx(0)),
+        Instruction::LocalGet(LocalIdx(1)),
+        Instruction::I32Add,
     ];
 
     let funcs = vec![
@@ -245,9 +267,9 @@ fn it_accepts_module_without_exports() {
         r#type: TypeIdx(0),
         locals: Vec::new(),
         body: vec![
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::I32Add,
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::I32Add,
         ],
     }];
 
@@ -371,44 +393,47 @@ fn it_decodes_control_instructions() {
             r#type: TypeIdx(0),
             locals: Vec::new(),
             body: vec![
-                Instr::Nop,
-                Instr::Block(BlockType::Empty, vec![Instr::Unreachable]),
-                Instr::Block(
+                Instruction::Nop,
+                Instruction::Block(BlockType::Empty, vec![Instruction::Unreachable]),
+                Instruction::Block(
                     BlockType::Empty,
-                    vec![Instr::Loop(BlockType::Empty, vec![Instr::Br(LabelIdx(1))])],
+                    vec![Instruction::Loop(
+                        BlockType::Empty,
+                        vec![Instruction::Br(LabelIdx(1))],
+                    )],
                 ),
-                Instr::Block(
+                Instruction::Block(
                     BlockType::Empty,
-                    vec![Instr::I32Const(0), Instr::BrIf(LabelIdx(0))],
+                    vec![Instruction::I32Const(0), Instruction::BrIf(LabelIdx(0))],
                 ),
-                Instr::Block(
+                Instruction::Block(
                     BlockType::Empty,
                     vec![
-                        Instr::I32Const(0),
-                        Instr::BrTable(vec![LabelIdx(0)], LabelIdx(0)),
+                        Instruction::I32Const(0),
+                        Instruction::BrTable(vec![LabelIdx(0)], LabelIdx(0)),
                     ],
                 ),
-                Instr::Block(
+                Instruction::Block(
                     BlockType::Empty,
                     vec![
-                        Instr::I32Const(0),
-                        Instr::If(
+                        Instruction::I32Const(0),
+                        Instruction::If(
                             BlockType::Empty,
-                            vec![Instr::Unreachable],
-                            Some(vec![Instr::Nop]),
+                            vec![Instruction::Unreachable],
+                            Some(vec![Instruction::Nop]),
                         ),
                     ],
                 ),
-                Instr::Block(
+                Instruction::Block(
                     BlockType::X(1),
-                    vec![Instr::I32Const(42), Instr::I32Const(7)],
+                    vec![Instruction::I32Const(42), Instruction::I32Const(7)],
                 ),
-                Instr::Drop,
-                Instr::Drop,
-                Instr::Call(FuncIdx(0)),
-                Instr::I32Const(0),
-                Instr::CallIndirect(TableIdx(0), TypeIdx(0)),
-                Instr::Return,
+                Instruction::Drop,
+                Instruction::Drop,
+                Instruction::Call(FuncIdx(0)),
+                Instruction::I32Const(0),
+                Instruction::CallIndirect(TableIdx(0), TypeIdx(0)),
+                Instruction::Return,
             ],
         },
     ];
@@ -523,70 +548,70 @@ fn it_decodes_element_section_all_alts() {
         Elem {
             r#type: RefType::Func,
             init: vec![
-                vec![Instr::RefFunc(FuncIdx(0))],
-                vec![Instr::RefFunc(FuncIdx(1))],
+                vec![Instruction::RefFunc(FuncIdx(0))],
+                vec![Instruction::RefFunc(FuncIdx(1))],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(0),
-                offset: vec![Instr::I32Const(0)],
+                offset: vec![Instruction::I32Const(0)],
             },
         },
         Elem {
             r#type: RefType::Func,
             init: vec![
-                vec![Instr::RefFunc(FuncIdx(2))],
-                vec![Instr::RefFunc(FuncIdx(3))],
+                vec![Instruction::RefFunc(FuncIdx(2))],
+                vec![Instruction::RefFunc(FuncIdx(3))],
             ],
             mode: ElemMode::Passive,
         },
         Elem {
             r#type: RefType::Func,
-            init: vec![vec![Instr::RefFunc(FuncIdx(4))]],
+            init: vec![vec![Instruction::RefFunc(FuncIdx(4))]],
             mode: ElemMode::Active {
                 table: TableIdx(1),
-                offset: vec![Instr::I32Const(1)],
+                offset: vec![Instruction::I32Const(1)],
             },
         },
         Elem {
             r#type: RefType::Func,
-            init: vec![vec![Instr::RefFunc(FuncIdx(5))]],
+            init: vec![vec![Instruction::RefFunc(FuncIdx(5))]],
             mode: ElemMode::Declarative,
         },
         Elem {
             r#type: RefType::Func,
             init: vec![
-                vec![Instr::RefFunc(FuncIdx(0))],
-                vec![Instr::RefNull(RefType::Func)],
+                vec![Instruction::RefFunc(FuncIdx(0))],
+                vec![Instruction::RefNull(RefType::Func)],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(0),
-                offset: vec![Instr::I32Const(6)],
+                offset: vec![Instruction::I32Const(6)],
             },
         },
         Elem {
             r#type: RefType::Func,
             init: vec![
-                vec![Instr::RefFunc(FuncIdx(1))],
-                vec![Instr::RefNull(RefType::Func)],
+                vec![Instruction::RefFunc(FuncIdx(1))],
+                vec![Instruction::RefNull(RefType::Func)],
             ],
             mode: ElemMode::Passive,
         },
         Elem {
             r#type: RefType::Func,
             init: vec![
-                vec![Instr::RefFunc(FuncIdx(2))],
-                vec![Instr::RefNull(RefType::Func)],
+                vec![Instruction::RefFunc(FuncIdx(2))],
+                vec![Instruction::RefNull(RefType::Func)],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(1),
-                offset: vec![Instr::I32Const(3)],
+                offset: vec![Instruction::I32Const(3)],
             },
         },
         Elem {
             r#type: RefType::Func,
             init: vec![
-                vec![Instr::RefNull(RefType::Func)],
-                vec![Instr::RefFunc(FuncIdx(3))],
+                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefFunc(FuncIdx(3))],
             ],
             mode: ElemMode::Declarative,
         },
@@ -660,11 +685,11 @@ fn it_decodes_reference_instructions() {
             r#type: TypeIdx(0),
             locals: Vec::new(),
             body: vec![
-                Instr::RefNull(RefType::Func),
-                Instr::RefIsNull,
-                Instr::Drop,
-                Instr::RefFunc(FuncIdx(0)),
-                Instr::Drop,
+                Instruction::RefNull(RefType::Func),
+                Instruction::RefIsNull,
+                Instruction::Drop,
+                Instruction::RefFunc(FuncIdx(0)),
+                Instruction::Drop,
             ],
         },
     ];
@@ -681,7 +706,7 @@ fn it_decodes_reference_instructions() {
 
     let elems = vec![Elem {
         r#type: RefType::Func,
-        init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
+        init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
         mode: ElemMode::Declarative,
     }];
 
@@ -743,21 +768,21 @@ fn it_decodes_variable_instructions() {
         r#type: TypeIdx(0),
         locals: Vec::new(),
         body: vec![
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalSet(LocalIdx(1)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::LocalTee(LocalIdx(0)),
-            Instr::Drop,
-            Instr::GlobalGet(GlobalIdx(0)),
-            Instr::Drop,
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::GlobalSet(GlobalIdx(0)),
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalSet(LocalIdx(1)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::LocalTee(LocalIdx(0)),
+            Instruction::Drop,
+            Instruction::GlobalGet(GlobalIdx(0)),
+            Instruction::Drop,
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::GlobalSet(GlobalIdx(0)),
         ],
     }];
 
     let globals = vec![Global {
         r#type: GlobalType(Mut::Var, ValType::Num(NumType::Int32)),
-        init: vec![Instr::I32Const(0)],
+        init: vec![Instruction::I32Const(0)],
     }];
 
     let exports = vec![Export {
@@ -821,17 +846,17 @@ fn it_decodes_parametric_instructions() {
         r#type: TypeIdx(0),
         locals: Vec::new(),
         body: vec![
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::LocalGet(LocalIdx(2)),
-            Instr::Select(None),
-            Instr::Drop,
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::LocalGet(LocalIdx(2)),
-            Instr::Select(Some(vec![ValType::Num(NumType::Int32)])),
-            Instr::Drop,
-            Instr::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::LocalGet(LocalIdx(2)),
+            Instruction::Select(None),
+            Instruction::Drop,
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::LocalGet(LocalIdx(2)),
+            Instruction::Select(Some(vec![ValType::Num(NumType::Int32)])),
+            Instruction::Drop,
+            Instruction::LocalGet(LocalIdx(0)),
         ],
     }];
 
@@ -913,33 +938,33 @@ fn it_decodes_table_instructions() {
             r#type: TypeIdx(1),
             locals: Vec::new(),
             body: vec![
-                Instr::LocalGet(LocalIdx(0)),
-                Instr::TableGet(TableIdx(0)),
-                Instr::Drop,
-                Instr::LocalGet(LocalIdx(0)),
-                Instr::RefNull(RefType::Func),
-                Instr::TableSet(TableIdx(0)),
-                Instr::I32Const(0),
-                Instr::I32Const(0),
-                Instr::I32Const(1),
-                Instr::TableInit(TableIdx(0), ElemIdx(1)),
-                Instr::ElemDrop(ElemIdx(1)),
-                Instr::I32Const(0),
-                Instr::RefNull(RefType::Func),
-                Instr::I32Const(1),
-                Instr::TableFill(TableIdx(0)),
-                Instr::TableSize(TableIdx(0)),
-                Instr::Drop,
-                Instr::RefNull(RefType::Func),
-                Instr::LocalGet(LocalIdx(1)),
-                Instr::TableGrow(TableIdx(0)),
-                Instr::Drop,
-                Instr::I32Const(0),
-                Instr::I32Const(0),
-                Instr::I32Const(1),
-                Instr::TableCopy(TableIdx(0), TableIdx(1)),
-                Instr::TableSize(TableIdx(0)),
-                Instr::Drop,
+                Instruction::LocalGet(LocalIdx(0)),
+                Instruction::TableGet(TableIdx(0)),
+                Instruction::Drop,
+                Instruction::LocalGet(LocalIdx(0)),
+                Instruction::RefNull(RefType::Func),
+                Instruction::TableSet(TableIdx(0)),
+                Instruction::I32Const(0),
+                Instruction::I32Const(0),
+                Instruction::I32Const(1),
+                Instruction::TableInit(TableIdx(0), ElemIdx(1)),
+                Instruction::ElemDrop(ElemIdx(1)),
+                Instruction::I32Const(0),
+                Instruction::RefNull(RefType::Func),
+                Instruction::I32Const(1),
+                Instruction::TableFill(TableIdx(0)),
+                Instruction::TableSize(TableIdx(0)),
+                Instruction::Drop,
+                Instruction::RefNull(RefType::Func),
+                Instruction::LocalGet(LocalIdx(1)),
+                Instruction::TableGrow(TableIdx(0)),
+                Instruction::Drop,
+                Instruction::I32Const(0),
+                Instruction::I32Const(0),
+                Instruction::I32Const(1),
+                Instruction::TableCopy(TableIdx(0), TableIdx(1)),
+                Instruction::TableSize(TableIdx(0)),
+                Instruction::Drop,
             ],
         },
     ];
@@ -958,12 +983,12 @@ fn it_decodes_table_instructions() {
     let elems = vec![
         Elem {
             r#type: RefType::Func,
-            init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
+            init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
             mode: ElemMode::Passive,
         },
         Elem {
             r#type: RefType::Func,
-            init: vec![vec![Instr::RefFunc(FuncIdx(0))]],
+            init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
             mode: ElemMode::Passive,
         },
     ];
@@ -1044,164 +1069,164 @@ fn it_decodes_memory_instructions() {
             ValType::Num(NumType::Float64),
         ],
         body: vec![
-            Instr::I32Const(0),
-            Instr::I32Load(Memarg {
+            Instruction::I32Const(0),
+            Instruction::I32Load(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load(Memarg {
                 align: 3,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::F32Load(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::F32Load(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::LocalTee(LocalIdx(0)),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::F64Load(Memarg {
+            Instruction::LocalTee(LocalIdx(0)),
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::F64Load(Memarg {
                 align: 3,
                 offset: 0,
             }),
-            Instr::LocalTee(LocalIdx(1)),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I32Load8s(Memarg {
+            Instruction::LocalTee(LocalIdx(1)),
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I32Load8s(Memarg {
                 align: 0,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I32Load8u(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I32Load8u(Memarg {
                 align: 0,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I32Load16s(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I32Load16s(Memarg {
                 align: 1,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I32Load16u(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I32Load16u(Memarg {
                 align: 1,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load8s(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load8s(Memarg {
                 align: 0,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load8u(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load8u(Memarg {
                 align: 0,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load16s(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load16s(Memarg {
                 align: 1,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load16u(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load16u(Memarg {
                 align: 1,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load32s(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load32s(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I64Load32u(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I64Load32u(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::Drop,
-            Instr::I32Const(4),
-            Instr::I32Const(1),
-            Instr::I32Store(Memarg {
+            Instruction::Drop,
+            Instruction::I32Const(4),
+            Instruction::I32Const(1),
+            Instruction::I32Store(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::I32Const(8),
-            Instr::I64Const(2),
-            Instr::I64Store(Memarg {
+            Instruction::I32Const(8),
+            Instruction::I64Const(2),
+            Instruction::I64Store(Memarg {
                 align: 3,
                 offset: 0,
             }),
-            Instr::I32Const(16),
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::F32Store(Memarg {
+            Instruction::I32Const(16),
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::F32Store(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::I32Const(24),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::F64Store(Memarg {
+            Instruction::I32Const(24),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::F64Store(Memarg {
                 align: 3,
                 offset: 0,
             }),
-            Instr::I32Const(32),
-            Instr::I32Const(5),
-            Instr::I32Store8(Memarg {
+            Instruction::I32Const(32),
+            Instruction::I32Const(5),
+            Instruction::I32Store8(Memarg {
                 align: 0,
                 offset: 0,
             }),
-            Instr::I32Const(34),
-            Instr::I32Const(6),
-            Instr::I32Store16(Memarg {
+            Instruction::I32Const(34),
+            Instruction::I32Const(6),
+            Instruction::I32Store16(Memarg {
                 align: 1,
                 offset: 0,
             }),
-            Instr::I32Const(36),
-            Instr::I64Const(7),
-            Instr::I64Store8(Memarg {
+            Instruction::I32Const(36),
+            Instruction::I64Const(7),
+            Instruction::I64Store8(Memarg {
                 align: 0,
                 offset: 0,
             }),
-            Instr::I32Const(38),
-            Instr::I64Const(8),
-            Instr::I64Store16(Memarg {
+            Instruction::I32Const(38),
+            Instruction::I64Const(8),
+            Instruction::I64Store16(Memarg {
                 align: 1,
                 offset: 0,
             }),
-            Instr::I32Const(40),
-            Instr::I64Const(9),
-            Instr::I64Store32(Memarg {
+            Instruction::I32Const(40),
+            Instruction::I64Const(9),
+            Instruction::I64Store32(Memarg {
                 align: 2,
                 offset: 0,
             }),
-            Instr::MemorySize,
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::MemoryGrow,
-            Instr::Drop,
-            Instr::I32Const(0),
-            Instr::I32Const(0),
-            Instr::I32Const(4),
-            Instr::MemoryInit(DataIdx(1)),
-            Instr::DataDrop(DataIdx(1)),
-            Instr::I32Const(8),
-            Instr::I32Const(0),
-            Instr::I32Const(4),
-            Instr::MemoryCopy,
-            Instr::I32Const(12),
-            Instr::I32Const(255),
-            Instr::I32Const(4),
-            Instr::MemoryFill,
+            Instruction::MemorySize,
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::MemoryGrow,
+            Instruction::Drop,
+            Instruction::I32Const(0),
+            Instruction::I32Const(0),
+            Instruction::I32Const(4),
+            Instruction::MemoryInit(DataIdx(1)),
+            Instruction::DataDrop(DataIdx(1)),
+            Instruction::I32Const(8),
+            Instruction::I32Const(0),
+            Instruction::I32Const(4),
+            Instruction::MemoryCopy,
+            Instruction::I32Const(12),
+            Instruction::I32Const(255),
+            Instruction::I32Const(4),
+            Instruction::MemoryFill,
         ],
     }];
 
@@ -1229,7 +1254,7 @@ fn it_decodes_memory_instructions() {
             ],
             mode: DataMode::Active {
                 memory: MemIdx(0),
-                offset: vec![Instr::I32Const(0)],
+                offset: vec![Instruction::I32Const(0)],
             },
         },
         Data {
@@ -1294,9 +1319,9 @@ fn it_accepts_export_with_locals() {
         r#type: TypeIdx(0),
         locals: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         body: vec![
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::I32Add,
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::I32Add,
         ],
     }];
 
@@ -1409,7 +1434,7 @@ fn it_accepts_foo() {
 
     let globals = vec![Global {
         r#type: GlobalType(Mut::Const, ValType::Num(NumType::Int32)),
-        init: vec![Instr::I32Const(42)],
+        init: vec![Instruction::I32Const(42)],
     }];
 
     let exports = vec![
@@ -1435,9 +1460,9 @@ fn it_accepts_foo() {
         r#type: TypeIdx(0),
         locals: Vec::new(),
         body: vec![
-            Instr::LocalGet(LocalIdx(0)),
-            Instr::LocalGet(LocalIdx(1)),
-            Instr::I32Add,
+            Instruction::LocalGet(LocalIdx(0)),
+            Instruction::LocalGet(LocalIdx(1)),
+            Instruction::I32Add,
         ],
     }];
 
@@ -1445,7 +1470,7 @@ fn it_accepts_foo() {
         init: vec![0x58],
         mode: DataMode::Active {
             memory: MemIdx(0),
-            offset: vec![Instr::I32Const(0)],
+            offset: vec![Instruction::I32Const(0)],
         },
     }];
 
@@ -1557,15 +1582,15 @@ fn it_accepts_kitchensink() {
         Func {
             r#type: TypeIdx(0),
             locals: Vec::new(),
-            body: vec![Instr::Call(FuncIdx(0))],
+            body: vec![Instruction::Call(FuncIdx(0))],
         },
         Func {
             r#type: TypeIdx(1),
             locals: Vec::new(),
             body: vec![
-                Instr::LocalGet(LocalIdx(0)),
-                Instr::LocalGet(LocalIdx(1)),
-                Instr::I32Add,
+                Instruction::LocalGet(LocalIdx(0)),
+                Instruction::LocalGet(LocalIdx(1)),
+                Instruction::I32Add,
             ],
         },
     ];
@@ -1581,15 +1606,15 @@ fn it_accepts_kitchensink() {
 
     let globals = vec![Global {
         r#type: GlobalType(Mut::Var, ValType::Num(NumType::Int32)),
-        init: vec![Instr::I32Const(42)],
+        init: vec![Instruction::I32Const(42)],
     }];
 
     let elems = vec![Elem {
         r#type: RefType::Func,
-        init: vec![vec![Instr::RefFunc(FuncIdx(2))]],
+        init: vec![vec![Instruction::RefFunc(FuncIdx(2))]],
         mode: ElemMode::Active {
             table: TableIdx(0),
-            offset: vec![Instr::I32Const(0)],
+            offset: vec![Instruction::I32Const(0)],
         },
     }];
 
@@ -1597,7 +1622,7 @@ fn it_accepts_kitchensink() {
         init: vec![0, 17, 34, 51],
         mode: DataMode::Active {
             memory: MemIdx(0),
-            offset: vec![Instr::I32Const(0)],
+            offset: vec![Instruction::I32Const(0)],
         },
     }];
 
@@ -1672,14 +1697,14 @@ fn it_decodes_data_section_multiple_segments() {
             init: vec![0x41],
             mode: DataMode::Active {
                 memory: MemIdx(0),
-                offset: vec![Instr::I32Const(0)],
+                offset: vec![Instruction::I32Const(0)],
             },
         },
         Data {
             init: vec![0x42],
             mode: DataMode::Active {
                 memory: MemIdx(0),
-                offset: vec![Instr::I32Const(1)],
+                offset: vec![Instruction::I32Const(1)],
             },
         },
     ];
@@ -1706,424 +1731,424 @@ fn it_decodes_numeric_instructions() {
     for func in &module.funcs {
         for instr in &func.body {
             match instr {
-                Instr::I32Const(_) => {
+                Instruction::I32Const(_) => {
                     seen.insert("i32.const");
                 }
-                Instr::I64Const(_) => {
+                Instruction::I64Const(_) => {
                     seen.insert("i64.const");
                 }
-                Instr::F32Const(_) => {
+                Instruction::F32Const(_) => {
                     seen.insert("f32.const");
                 }
-                Instr::F64Const(_) => {
+                Instruction::F64Const(_) => {
                     seen.insert("f64.const");
                 }
-                Instr::I32Eqz => {
+                Instruction::I32Eqz => {
                     seen.insert("i32.eqz");
                 }
-                Instr::I32Eq => {
+                Instruction::I32Eq => {
                     seen.insert("i32.eq");
                 }
-                Instr::I32Ne => {
+                Instruction::I32Ne => {
                     seen.insert("i32.ne");
                 }
-                Instr::I32LtS => {
+                Instruction::I32LtS => {
                     seen.insert("i32.lt_s");
                 }
-                Instr::I32LtU => {
+                Instruction::I32LtU => {
                     seen.insert("i32.lt_u");
                 }
-                Instr::I32GtS => {
+                Instruction::I32GtS => {
                     seen.insert("i32.gt_s");
                 }
-                Instr::I32GtU => {
+                Instruction::I32GtU => {
                     seen.insert("i32.gt_u");
                 }
-                Instr::I32LeS => {
+                Instruction::I32LeS => {
                     seen.insert("i32.le_s");
                 }
-                Instr::I32LeU => {
+                Instruction::I32LeU => {
                     seen.insert("i32.le_u");
                 }
-                Instr::I32GeS => {
+                Instruction::I32GeS => {
                     seen.insert("i32.ge_s");
                 }
-                Instr::I32GeU => {
+                Instruction::I32GeU => {
                     seen.insert("i32.ge_u");
                 }
-                Instr::I64Eqz => {
+                Instruction::I64Eqz => {
                     seen.insert("i64.eqz");
                 }
-                Instr::I64Eq => {
+                Instruction::I64Eq => {
                     seen.insert("i64.eq");
                 }
-                Instr::I64Ne => {
+                Instruction::I64Ne => {
                     seen.insert("i64.ne");
                 }
-                Instr::I64LtS => {
+                Instruction::I64LtS => {
                     seen.insert("i64.lt_s");
                 }
-                Instr::I64LtU => {
+                Instruction::I64LtU => {
                     seen.insert("i64.lt_u");
                 }
-                Instr::I64GtS => {
+                Instruction::I64GtS => {
                     seen.insert("i64.gt_s");
                 }
-                Instr::I64GtU => {
+                Instruction::I64GtU => {
                     seen.insert("i64.gt_u");
                 }
-                Instr::I64LeS => {
+                Instruction::I64LeS => {
                     seen.insert("i64.le_s");
                 }
-                Instr::I64LeU => {
+                Instruction::I64LeU => {
                     seen.insert("i64.le_u");
                 }
-                Instr::I64GeS => {
+                Instruction::I64GeS => {
                     seen.insert("i64.ge_s");
                 }
-                Instr::I64GeU => {
+                Instruction::I64GeU => {
                     seen.insert("i64.ge_u");
                 }
-                Instr::F32Eq => {
+                Instruction::F32Eq => {
                     seen.insert("f32.eq");
                 }
-                Instr::F32Ne => {
+                Instruction::F32Ne => {
                     seen.insert("f32.ne");
                 }
-                Instr::F32Lt => {
+                Instruction::F32Lt => {
                     seen.insert("f32.lt");
                 }
-                Instr::F32Gt => {
+                Instruction::F32Gt => {
                     seen.insert("f32.gt");
                 }
-                Instr::F32Le => {
+                Instruction::F32Le => {
                     seen.insert("f32.le");
                 }
-                Instr::F32Ge => {
+                Instruction::F32Ge => {
                     seen.insert("f32.ge");
                 }
-                Instr::F64Eq => {
+                Instruction::F64Eq => {
                     seen.insert("f64.eq");
                 }
-                Instr::F64Ne => {
+                Instruction::F64Ne => {
                     seen.insert("f64.ne");
                 }
-                Instr::F64Lt => {
+                Instruction::F64Lt => {
                     seen.insert("f64.lt");
                 }
-                Instr::F64Gt => {
+                Instruction::F64Gt => {
                     seen.insert("f64.gt");
                 }
-                Instr::F64Le => {
+                Instruction::F64Le => {
                     seen.insert("f64.le");
                 }
-                Instr::F64Ge => {
+                Instruction::F64Ge => {
                     seen.insert("f64.ge");
                 }
-                Instr::I32Clz => {
+                Instruction::I32Clz => {
                     seen.insert("i32.clz");
                 }
-                Instr::I32Ctz => {
+                Instruction::I32Ctz => {
                     seen.insert("i32.ctz");
                 }
-                Instr::I32Popcnt => {
+                Instruction::I32Popcnt => {
                     seen.insert("i32.popcnt");
                 }
-                Instr::I32Add => {
+                Instruction::I32Add => {
                     seen.insert("i32.add");
                 }
-                Instr::I32Sub => {
+                Instruction::I32Sub => {
                     seen.insert("i32.sub");
                 }
-                Instr::I32Mul => {
+                Instruction::I32Mul => {
                     seen.insert("i32.mul");
                 }
-                Instr::I32DivS => {
+                Instruction::I32DivS => {
                     seen.insert("i32.div_s");
                 }
-                Instr::I32DivU => {
+                Instruction::I32DivU => {
                     seen.insert("i32.div_u");
                 }
-                Instr::I32RemS => {
+                Instruction::I32RemS => {
                     seen.insert("i32.rem_s");
                 }
-                Instr::I32RemU => {
+                Instruction::I32RemU => {
                     seen.insert("i32.rem_u");
                 }
-                Instr::I32And => {
+                Instruction::I32And => {
                     seen.insert("i32.and");
                 }
-                Instr::I32Or => {
+                Instruction::I32Or => {
                     seen.insert("i32.or");
                 }
-                Instr::I32Xor => {
+                Instruction::I32Xor => {
                     seen.insert("i32.xor");
                 }
-                Instr::I32Shl => {
+                Instruction::I32Shl => {
                     seen.insert("i32.shl");
                 }
-                Instr::I32ShrS => {
+                Instruction::I32ShrS => {
                     seen.insert("i32.shr_s");
                 }
-                Instr::I32ShrU => {
+                Instruction::I32ShrU => {
                     seen.insert("i32.shr_u");
                 }
-                Instr::I32Rotl => {
+                Instruction::I32Rotl => {
                     seen.insert("i32.rotl");
                 }
-                Instr::I32Rotr => {
+                Instruction::I32Rotr => {
                     seen.insert("i32.rotr");
                 }
-                Instr::I64Clz => {
+                Instruction::I64Clz => {
                     seen.insert("i64.clz");
                 }
-                Instr::I64Ctz => {
+                Instruction::I64Ctz => {
                     seen.insert("i64.ctz");
                 }
-                Instr::I64Popcnt => {
+                Instruction::I64Popcnt => {
                     seen.insert("i64.popcnt");
                 }
-                Instr::I64Add => {
+                Instruction::I64Add => {
                     seen.insert("i64.add");
                 }
-                Instr::I64Sub => {
+                Instruction::I64Sub => {
                     seen.insert("i64.sub");
                 }
-                Instr::I64Mul => {
+                Instruction::I64Mul => {
                     seen.insert("i64.mul");
                 }
-                Instr::I64DivS => {
+                Instruction::I64DivS => {
                     seen.insert("i64.div_s");
                 }
-                Instr::I64DivU => {
+                Instruction::I64DivU => {
                     seen.insert("i64.div_u");
                 }
-                Instr::I64RemS => {
+                Instruction::I64RemS => {
                     seen.insert("i64.rem_s");
                 }
-                Instr::I64RemU => {
+                Instruction::I64RemU => {
                     seen.insert("i64.rem_u");
                 }
-                Instr::I64And => {
+                Instruction::I64And => {
                     seen.insert("i64.and");
                 }
-                Instr::I64Or => {
+                Instruction::I64Or => {
                     seen.insert("i64.or");
                 }
-                Instr::I64Xor => {
+                Instruction::I64Xor => {
                     seen.insert("i64.xor");
                 }
-                Instr::I64Shl => {
+                Instruction::I64Shl => {
                     seen.insert("i64.shl");
                 }
-                Instr::I64ShrS => {
+                Instruction::I64ShrS => {
                     seen.insert("i64.shr_s");
                 }
-                Instr::I64ShrU => {
+                Instruction::I64ShrU => {
                     seen.insert("i64.shr_u");
                 }
-                Instr::I64Rotl => {
+                Instruction::I64Rotl => {
                     seen.insert("i64.rotl");
                 }
-                Instr::I64Rotr => {
+                Instruction::I64Rotr => {
                     seen.insert("i64.rotr");
                 }
-                Instr::F32Abs => {
+                Instruction::F32Abs => {
                     seen.insert("f32.abs");
                 }
-                Instr::F32Neg => {
+                Instruction::F32Neg => {
                     seen.insert("f32.neg");
                 }
-                Instr::F32Ceil => {
+                Instruction::F32Ceil => {
                     seen.insert("f32.ceil");
                 }
-                Instr::F32Floor => {
+                Instruction::F32Floor => {
                     seen.insert("f32.floor");
                 }
-                Instr::F32Trunc => {
+                Instruction::F32Trunc => {
                     seen.insert("f32.trunc");
                 }
-                Instr::F32Nearest => {
+                Instruction::F32Nearest => {
                     seen.insert("f32.nearest");
                 }
-                Instr::F32Sqrt => {
+                Instruction::F32Sqrt => {
                     seen.insert("f32.sqrt");
                 }
-                Instr::F32Add => {
+                Instruction::F32Add => {
                     seen.insert("f32.add");
                 }
-                Instr::F32Sub => {
+                Instruction::F32Sub => {
                     seen.insert("f32.sub");
                 }
-                Instr::F32Mul => {
+                Instruction::F32Mul => {
                     seen.insert("f32.mul");
                 }
-                Instr::F32Div => {
+                Instruction::F32Div => {
                     seen.insert("f32.div");
                 }
-                Instr::F32Min => {
+                Instruction::F32Min => {
                     seen.insert("f32.min");
                 }
-                Instr::F32Max => {
+                Instruction::F32Max => {
                     seen.insert("f32.max");
                 }
-                Instr::F32Copysign => {
+                Instruction::F32Copysign => {
                     seen.insert("f32.copysign");
                 }
-                Instr::F64Abs => {
+                Instruction::F64Abs => {
                     seen.insert("f64.abs");
                 }
-                Instr::F64Neg => {
+                Instruction::F64Neg => {
                     seen.insert("f64.neg");
                 }
-                Instr::F64Ceil => {
+                Instruction::F64Ceil => {
                     seen.insert("f64.ceil");
                 }
-                Instr::F64Floor => {
+                Instruction::F64Floor => {
                     seen.insert("f64.floor");
                 }
-                Instr::F64Trunc => {
+                Instruction::F64Trunc => {
                     seen.insert("f64.trunc");
                 }
-                Instr::F64Nearest => {
+                Instruction::F64Nearest => {
                     seen.insert("f64.nearest");
                 }
-                Instr::F64Sqrt => {
+                Instruction::F64Sqrt => {
                     seen.insert("f64.sqrt");
                 }
-                Instr::F64Add => {
+                Instruction::F64Add => {
                     seen.insert("f64.add");
                 }
-                Instr::F64Sub => {
+                Instruction::F64Sub => {
                     seen.insert("f64.sub");
                 }
-                Instr::F64Mul => {
+                Instruction::F64Mul => {
                     seen.insert("f64.mul");
                 }
-                Instr::F64Div => {
+                Instruction::F64Div => {
                     seen.insert("f64.div");
                 }
-                Instr::F64Min => {
+                Instruction::F64Min => {
                     seen.insert("f64.min");
                 }
-                Instr::F64Max => {
+                Instruction::F64Max => {
                     seen.insert("f64.max");
                 }
-                Instr::F64Copysign => {
+                Instruction::F64Copysign => {
                     seen.insert("f64.copysign");
                 }
-                Instr::I32WrapI64 => {
+                Instruction::I32WrapI64 => {
                     seen.insert("i32.wrap_i64");
                 }
-                Instr::I32TruncF32S => {
+                Instruction::I32TruncF32S => {
                     seen.insert("i32.trunc_f32_s");
                 }
-                Instr::I32TruncF32U => {
+                Instruction::I32TruncF32U => {
                     seen.insert("i32.trunc_f32_u");
                 }
-                Instr::I32TruncF64S => {
+                Instruction::I32TruncF64S => {
                     seen.insert("i32.trunc_f64_s");
                 }
-                Instr::I32TruncF64U => {
+                Instruction::I32TruncF64U => {
                     seen.insert("i32.trunc_f64_u");
                 }
-                Instr::I64ExtendI32S => {
+                Instruction::I64ExtendI32S => {
                     seen.insert("i64.extend_i32_s");
                 }
-                Instr::I64ExtendI32U => {
+                Instruction::I64ExtendI32U => {
                     seen.insert("i64.extend_i32_u");
                 }
-                Instr::I64TruncF32S => {
+                Instruction::I64TruncF32S => {
                     seen.insert("i64.trunc_f32_s");
                 }
-                Instr::I64TruncF32U => {
+                Instruction::I64TruncF32U => {
                     seen.insert("i64.trunc_f32_u");
                 }
-                Instr::I64TruncF64S => {
+                Instruction::I64TruncF64S => {
                     seen.insert("i64.trunc_f64_s");
                 }
-                Instr::I64TruncF64U => {
+                Instruction::I64TruncF64U => {
                     seen.insert("i64.trunc_f64_u");
                 }
-                Instr::F32ConvertI32S => {
+                Instruction::F32ConvertI32S => {
                     seen.insert("f32.convert_i32_s");
                 }
-                Instr::F32ConvertI32U => {
+                Instruction::F32ConvertI32U => {
                     seen.insert("f32.convert_i32_u");
                 }
-                Instr::F32ConvertI64S => {
+                Instruction::F32ConvertI64S => {
                     seen.insert("f32.convert_i64_s");
                 }
-                Instr::F32ConvertI64U => {
+                Instruction::F32ConvertI64U => {
                     seen.insert("f32.convert_i64_u");
                 }
-                Instr::F32DemoteF64 => {
+                Instruction::F32DemoteF64 => {
                     seen.insert("f32.demote_f64");
                 }
-                Instr::F64ConvertI32S => {
+                Instruction::F64ConvertI32S => {
                     seen.insert("f64.convert_i32_s");
                 }
-                Instr::F64ConvertI32U => {
+                Instruction::F64ConvertI32U => {
                     seen.insert("f64.convert_i32_u");
                 }
-                Instr::F64ConvertI64S => {
+                Instruction::F64ConvertI64S => {
                     seen.insert("f64.convert_i64_s");
                 }
-                Instr::F64ConvertI64U => {
+                Instruction::F64ConvertI64U => {
                     seen.insert("f64.convert_i64_u");
                 }
-                Instr::F64PromoteF32 => {
+                Instruction::F64PromoteF32 => {
                     seen.insert("f64.promote_f32");
                 }
-                Instr::I32ReinterpretF32 => {
+                Instruction::I32ReinterpretF32 => {
                     seen.insert("i32.reinterpret_f32");
                 }
-                Instr::I64ReinterpretF64 => {
+                Instruction::I64ReinterpretF64 => {
                     seen.insert("i64.reinterpret_f64");
                 }
-                Instr::F32ReinterpretI32 => {
+                Instruction::F32ReinterpretI32 => {
                     seen.insert("f32.reinterpret_i32");
                 }
-                Instr::F64ReinterpretI64 => {
+                Instruction::F64ReinterpretI64 => {
                     seen.insert("f64.reinterpret_i64");
                 }
-                Instr::I32Extend8S => {
+                Instruction::I32Extend8S => {
                     seen.insert("i32.extend8_s");
                 }
-                Instr::I32Extend16S => {
+                Instruction::I32Extend16S => {
                     seen.insert("i32.extend16_s");
                 }
-                Instr::I64Extend8S => {
+                Instruction::I64Extend8S => {
                     seen.insert("i64.extend8_s");
                 }
-                Instr::I64Extend16S => {
+                Instruction::I64Extend16S => {
                     seen.insert("i64.extend16_s");
                 }
-                Instr::I64Extend32S => {
+                Instruction::I64Extend32S => {
                     seen.insert("i64.extend32_s");
                 }
-                Instr::I32TruncSatF32S => {
+                Instruction::I32TruncSatF32S => {
                     seen.insert("i32.trunc_sat_f32_s");
                 }
-                Instr::I32TruncSatF32U => {
+                Instruction::I32TruncSatF32U => {
                     seen.insert("i32.trunc_sat_f32_u");
                 }
-                Instr::I32TruncSatF64S => {
+                Instruction::I32TruncSatF64S => {
                     seen.insert("i32.trunc_sat_f64_s");
                 }
-                Instr::I32TruncSatF64U => {
+                Instruction::I32TruncSatF64U => {
                     seen.insert("i32.trunc_sat_f64_u");
                 }
-                Instr::I64TruncSatF32S => {
+                Instruction::I64TruncSatF32S => {
                     seen.insert("i64.trunc_sat_f32_s");
                 }
-                Instr::I64TruncSatF32U => {
+                Instruction::I64TruncSatF32U => {
                     seen.insert("i64.trunc_sat_f32_u");
                 }
-                Instr::I64TruncSatF64S => {
+                Instruction::I64TruncSatF64S => {
                     seen.insert("i64.trunc_sat_f64_s");
                 }
-                Instr::I64TruncSatF64U => {
+                Instruction::I64TruncSatF64U => {
                     seen.insert("i64.trunc_sat_f64_u");
                 }
                 _ => {}
@@ -2395,7 +2420,7 @@ fn it_decodes_vector_instructions() {
     match &data.mode {
         DataMode::Active { memory, offset } => {
             assert_eq!(*memory, MemIdx(0));
-            assert_eq!(offset, &vec![Instr::I32Const(0)]);
+            assert_eq!(offset, &vec![Instruction::I32Const(0)]);
         }
         other => panic!("unexpected data mode: {:?}", other),
     }
