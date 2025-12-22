@@ -854,7 +854,7 @@ fn decode_section_header<R: Read + ?Sized>(
     };
 
     let kind = SectionKind::from_marker(id)?;
-    let size = read_u32(reader)?;
+    let size = decode_u32(reader)?;
 
     Ok(Some(SectionHeader { kind, size }))
 }
@@ -1061,7 +1061,7 @@ fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExport
     let name = parse_name(reader)?;
 
     let desc_kind = read_byte(reader).map_err(DecodeExportError::ReadDescriptorMarkerByte)?;
-    let idx = read_u32(reader)?;
+    let idx = decode_u32(reader)?;
     let desc = ExportDesc::from(desc_kind, idx)?;
 
     Ok(Export { name, desc })
@@ -1190,14 +1190,14 @@ pub enum DecodeCodeLocalsError {
 }
 
 fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError> {
-    let size = read_u32(reader).map_err(DecodeCodeError::DecodeFunctionSize)?;
+    let size = decode_u32(reader).map_err(DecodeCodeError::DecodeFunctionSize)?;
 
     let mut reader = reader.take(size.into());
     let mut expanded_locals: u64 = 0;
     let max_locals = u64::from(u32::MAX);
 
     let locals = parse_vector(&mut reader, |r| {
-        let count = read_u32(r).map_err(DecodeCodeLocalsError::DecodeLocalsCount)?;
+        let count = decode_u32(r).map_err(DecodeCodeLocalsError::DecodeLocalsCount)?;
 
         expanded_locals += u64::from(count);
         if expanded_locals > max_locals {
@@ -1308,7 +1308,7 @@ pub enum DecodeElementError {
 }
 
 fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementError> {
-    let bitfield = read_u32(reader).map_err(DecodeElementError::DecodeBitfield)?;
+    let bitfield = decode_u32(reader).map_err(DecodeElementError::DecodeBitfield)?;
 
     fn funcidx_into_reffunc(idxs: Vec<FuncIdx>) -> Vec<Expr> {
         idxs.into_iter()
@@ -1473,7 +1473,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
     let init: Vec<u8>;
     let mode: DataMode;
 
-    (init, mode) = match read_u32(reader).map_err(DecodeDataSegmentError::DecodeBitfield)? {
+    (init, mode) = match decode_u32(reader).map_err(DecodeDataSegmentError::DecodeBitfield)? {
         0 => {
             let e = parse_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
             (
@@ -1512,7 +1512,7 @@ pub enum DecodeDataCountSectionError {
 fn decode_datacount_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<u32, DecodeDataCountSectionError> {
-    Ok(read_u32(reader)?)
+    Ok(decode_u32(reader)?)
 }
 
 #[derive(Debug, Error)]
@@ -1562,11 +1562,11 @@ fn parse_limits<R: Read + ?Sized>(reader: &mut R) -> Result<Limits, ParseLimitsE
         n => return Err(ParseLimitsError::UnexpectedMaxLimitByte(n)),
     };
 
-    let min = read_u32(reader).map_err(ParseLimitsError::ReadMinLimit)?;
+    let min = decode_u32(reader).map_err(ParseLimitsError::ReadMinLimit)?;
     let mut max = None;
 
     if has_max {
-        max = Some(read_u32(reader).map_err(ParseLimitsError::ReadMaxLimit)?);
+        max = Some(decode_u32(reader).map_err(ParseLimitsError::ReadMaxLimit)?);
     }
 
     Ok(Limits { min, max })
@@ -1646,7 +1646,7 @@ where
     R: Read + ?Sized,
     F: FnMut(&mut R) -> Result<T, E>,
 {
-    let len = read_u32(reader)?;
+    let len = decode_u32(reader)?;
 
     let mut items = Vec::with_capacity(len.try_into().unwrap());
     for i in 0..len {
@@ -1683,7 +1683,7 @@ pub enum DecodeByteVectorError {
 }
 
 fn parse_byte_vec<R: Read + ?Sized>(reader: &mut R) -> Result<Vec<u8>, DecodeByteVectorError> {
-    let len = read_u32(reader)?;
+    let len = decode_u32(reader)?;
     let mut b = vec![0u8; len.try_into().unwrap()];
     reader.read_exact(&mut b)?;
     Ok(b)

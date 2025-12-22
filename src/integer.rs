@@ -1,3 +1,6 @@
+//! Helpers for decoding LEB128-encoded integers.
+//!
+//! <https://en.wikipedia.org/wiki/LEB128>
 use crate::read_byte;
 use std::io;
 use thiserror::Error;
@@ -14,7 +17,7 @@ pub enum DecodeU32Error {
     Io(#[from] io::Error),
 }
 
-pub(crate) fn read_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32, DecodeU32Error> {
+pub(crate) fn decode_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32, DecodeU32Error> {
     let mut result: u32 = 0;
     let mut shift: u8 = 0;
 
@@ -58,7 +61,7 @@ pub enum DecodeI32Error {
     Io(#[from] io::Error),
 }
 
-pub(crate) fn read_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32, DecodeI32Error> {
+pub(crate) fn decode_i32<R: io::Read + ?Sized>(reader: &mut R) -> Result<i32, DecodeI32Error> {
     let mut result: i64 = 0;
     let mut shift: u8 = 0;
 
@@ -101,7 +104,7 @@ pub enum DecodeI64Error {
     Io(#[from] io::Error),
 }
 
-pub(crate) fn read_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64, DecodeI64Error> {
+pub(crate) fn decode_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64, DecodeI64Error> {
     let mut result: i64 = 0;
     let mut shift: u8 = 0;
 
@@ -180,17 +183,17 @@ mod tests {
 
     fn read_u32_from(bytes: Vec<u8>) -> Result<u32, DecodeU32Error> {
         let mut cursor = Cursor::new(bytes);
-        read_u32(&mut cursor)
+        decode_u32(&mut cursor)
     }
 
     fn read_i32_from(bytes: Vec<u8>) -> Result<i32, DecodeI32Error> {
         let mut cursor = Cursor::new(bytes);
-        read_i32(&mut cursor)
+        decode_i32(&mut cursor)
     }
 
     fn read_i64_from(bytes: Vec<u8>) -> Result<i64, DecodeI64Error> {
         let mut cursor = Cursor::new(bytes);
-        read_i64(&mut cursor)
+        decode_i64(&mut cursor)
     }
 
     #[test]

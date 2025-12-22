@@ -2,7 +2,7 @@
 //! as defined in Section 5.5.1.
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
-use crate::integer;
+use crate::integer::{decode_u32, DecodeU32Error};
 use std::io::Read;
 use thiserror::Error;
 
@@ -10,14 +10,14 @@ macro_rules! define_index {
     ($name:ident, $errorname:ident) => {
         #[derive(Debug, Error)]
         #[error("failed decoding {name} index", name = stringify!($name))]
-        pub struct $errorname(#[from] pub integer::DecodeU32Error);
+        pub struct $errorname(#[from] pub DecodeU32Error);
 
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
         pub struct $name(pub u32);
 
         impl $name {
             pub fn decode<R: Read + ?Sized>(r: &mut R) -> Result<Self, $errorname> {
-                let idx = integer::read_u32(r)?;
+                let idx = decode_u32(r)?;
                 Ok(Self(idx))
             }
         }
