@@ -11,10 +11,23 @@
 
 pub mod index;
 pub mod instr;
+pub mod types;
 mod integer;
 
 use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
 use crate::instr::Instr;
+pub use crate::types::{
+    functype::FuncType,
+    globaltype::{GlobalType, Mut},
+    limits::Limits,
+    memtype::MemType,
+    numtype::NumType,
+    reftype::RefType,
+    resulttype::ResultType,
+    tabletype::TableType,
+    valtype::ValType,
+    vectype::VecType,
+};
 pub use crate::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
 use integer::*;
 use phf::phf_ordered_map;
@@ -282,17 +295,6 @@ pub struct CustomSection {
     pub contents: Vec<u8>,
 }
 
-/// Function types classify the signature of functions, mapping a vector of parameters to a vector
-/// of results. They are also used to classify the inputs and outputs of instructions.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#function-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-functype>
-#[derive(Debug, PartialEq)]
-pub struct FuncType {
-    pub parameters: Vec<ValType>,
-    pub results: Vec<ValType>,
-}
-
 #[derive(Debug, Error)]
 pub enum DecodeFuncTypeError {
     #[error(transparent)]
@@ -355,18 +357,6 @@ pub struct Func {
     pub body: Expr,
 }
 
-/// Table types classify tables over elements of reference type within a size range. Like
-/// memories, tables are constrained by limits for their minimum and optionally maximum
-/// size. The limits are given in numbers of entries.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#table-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-tabletype>
-#[derive(Debug, PartialEq)]
-pub struct TableType {
-    pub reftype: RefType,
-    pub limits: Limits,
-}
-
 #[derive(Debug, Error)]
 pub enum DecodeTableError {
     #[error(transparent)]
@@ -384,28 +374,6 @@ impl TableType {
     }
 }
 
-/// Memory types classify linear memories and their size range. The limits constrain the
-/// minimum and optionally the maximum size of a memory. The limits are given in units of
-/// page size.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#memory-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-memtype>
-#[derive(Debug, PartialEq)]
-pub struct MemType {
-    pub limits: Limits,
-}
-
-/// Limits classify the size range of resizeable storage associated with memory types and
-/// table types. If no maximum is given, the respective storage can grow to any size.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#limits>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-limits>
-#[derive(Debug, PartialEq)]
-pub struct Limits {
-    pub min: u32,
-    pub max: Option<u32>,
-}
-
 /// The globals component of a module defines a vector of global variables (or globals for
 /// short): Each global stores a single value of the given global type. Its type also
 /// specifies whether a global is immutable or mutable. Moreover, each global is initialized
@@ -419,14 +387,6 @@ pub struct Global {
     pub r#type: GlobalType,
     pub init: Expr,
 }
-
-/// Global types classify global variables, which hold a value and can either be mutable or
-/// immutable.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#global-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-globaltype>
-#[derive(Debug, PartialEq)]
-pub struct GlobalType(pub Mut, pub ValType);
 
 #[derive(Debug, Error)]
 pub enum DecodeGlobalTypeError {
@@ -448,12 +408,6 @@ impl GlobalType {
 
         Ok(GlobalType(r#mut, valtype))
     }
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Mut {
-    Const,
-    Var,
 }
 
 // Valid marker bytes for [Mut].
@@ -479,19 +433,6 @@ impl FromMarkerByte for Mut {
     fn markers() -> &'static phf::OrderedMap<u8, Self> {
         &Mut_MARKERS
     }
-}
-
-/// Value types classify the individual values that WebAssembly code can compute with and
-/// the values that a variable accepts. They are either number types, vector types, or
-/// reference types.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#value-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-valtype>
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum ValType {
-    Num(NumType),
-    Vec(VecType),
-    Ref(RefType),
 }
 
 // Valid marker bytes for [ValType].
@@ -540,46 +481,6 @@ impl ValType {
     fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<ValType, DecodeValTypeError> {
         Ok(Self::from_marker(read_byte(reader)?)?)
     }
-}
-
-/// Number types classify numeric values.
-///
-/// The types i32 and i64 classify 32 and 64 bit integers, respectively. Integers are not
-/// inherently signed or unsigned, their interpretation is determined by individual operations.
-///
-/// The types f32 and f64 classify 32 and 64 bit floating-point data, respectively. They correspond to the respective binary
-/// floating-point representations, also known as single and double precision, as defined by
-/// the IEEE 754 standard (Section 3.3).
-///
-/// Number types are transparent, meaning that their bit patterns can be observed. Values of number
-/// type can be stored in memories.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#number-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-numtype>
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum NumType {
-    Int32,
-    Int64,
-    Float32,
-    Float64,
-}
-
-/// Vector types classify vectors of numeric values processed by vector instructions (also
-/// known as SIMD instructions, single instruction multiple data).
-///
-/// The type v128 corresponds to a 128 bit vector of packed integer or floating-point data. The
-/// packed data can be interpreted as signed or unsigned integers, single or double precision
-/// floating-point values, or a single 128 bit type. The interpretation is determined by individual
-/// operations.
-///
-/// Vector types, like number types are transparent, meaning that their bit patterns
-/// can be observed. Values of vector type can be stored in memories.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#vector-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-vectype>
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum VecType {
-    V128,
 }
 
 #[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
@@ -633,25 +534,6 @@ impl FromMarkerByte for SectionKind {
     fn markers() -> &'static phf::OrderedMap<u8, Self> {
         &SectionId_MARKERS
     }
-}
-
-/// Reference types classify first-class references to objects in the runtime store.
-///
-/// The type funcref denotes the infinite union of all references to functions, regardless of
-/// their function types.
-///
-/// The type externref denotes the infinite union of all references to
-/// objects owned by the embedder and that can be passed into WebAssembly under this type.
-///
-/// Reference types are opaque, meaning that neither their size nor their bit pattern can be
-/// observed. Values of reference type can be stored in tables.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#reference-types>
-/// <https://www.w3.org/TR/wasm-core-2/#binary-reftype>
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum RefType {
-    Func,
-    Extern,
 }
 
 #[derive(Debug, Error)]

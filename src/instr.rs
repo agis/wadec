@@ -3,9 +3,10 @@
 //! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
 use crate::index::*;
 use crate::integer::{self, *};
+use crate::types::{reftype::RefType, valtype::ValType};
 use crate::{
     parse_f32, parse_f64, parse_vector, read_byte, DecodeFloat32Error, DecodeFloat64Error,
-    DecodeRefTypeError, DecodeValTypeError, DecodeVectorError, FromMarkerByte, RefType, ValType,
+    DecodeRefTypeError, DecodeValTypeError, DecodeVectorError, FromMarkerByte,
 };
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
