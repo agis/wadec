@@ -623,13 +623,13 @@ pub enum VectorError {
 }
 
 impl Instr {
-    pub fn parse<R: Read + ?Sized>(reader: &mut R) -> Result<Parsed, ParseError> {
+    pub fn parse<R: Read + ?Sized>(reader: &mut R) -> Result<ParseResult, ParseError> {
         let mut opcode = [0u8];
         reader.read_exact(&mut opcode)?;
 
         let ins = match opcode[0] {
-            0x0B => return Ok(Parsed::End),
-            0x05 => return Ok(Parsed::Else),
+            0x0B => return Ok(ParseResult::End),
+            0x05 => return Ok(ParseResult::Else),
 
             // --- Control instructions (5.4.1) ---
             0x00 => Instr::Unreachable,
@@ -642,8 +642,8 @@ impl Instr {
                 loop {
                     parsed = Self::parse(reader)?;
                     match parsed {
-                        Parsed::Instr(i) => in1.push(i),
-                        Parsed::End | Parsed::Else => break,
+                        ParseResult::Instr(i) => in1.push(i),
+                        ParseResult::End | ParseResult::Else => break,
                     }
                 }
 
@@ -651,14 +651,14 @@ impl Instr {
                     0x02 => Instr::Block(bt, in1),
                     0x03 => Instr::Loop(bt, in1),
                     0x04 => match parsed {
-                        Parsed::End => Instr::If(bt, in1, None),
-                        Parsed::Else => {
+                        ParseResult::End => Instr::If(bt, in1, None),
+                        ParseResult::Else => {
                             let mut in2 = Vec::new();
                             loop {
                                 parsed = Self::parse(reader)?;
                                 match parsed {
-                                    Parsed::Instr(i) => in2.push(i),
-                                    Parsed::End => break,
+                                    ParseResult::Instr(i) => in2.push(i),
+                                    ParseResult::End => break,
                                     _ => return Err(ControlError::UnexpectedElse.into()),
                                 }
                             }
@@ -1225,11 +1225,11 @@ impl Instr {
             n => return Err(ParseError::InvalidOpcode(n)),
         };
 
-        Ok(Parsed::Instr(ins))
+        Ok(ParseResult::Instr(ins))
     }
 }
 
-pub enum Parsed {
+pub enum ParseResult {
     Instr(Instr),
     Else,
     End,

@@ -14,7 +14,7 @@ pub mod instr;
 mod integer;
 
 use crate::index::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TypeIdx};
-use crate::instr::{Instr, Parsed};
+use crate::instr::Instr;
 pub use crate::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
 use integer::*;
 use phf::phf_ordered_map;
@@ -72,8 +72,7 @@ where
 pub struct Module {
     pub version: [u8; 4],
 
-    // the non-custom sections that were parsed
-    // TODO: make this non-public
+    // Contains any non-custom sections encountered.
     pub parsed_section_kinds: Vec<SectionKind>,
 
     pub section_headers: Vec<SectionHeader>,
@@ -1648,11 +1647,11 @@ fn parse_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, ParseExpressionE
 
     loop {
         match Instr::parse(reader)? {
-            Parsed::Instr(ins) => body.push(ins),
-            Parsed::End => break,
+            instr::ParseResult::Instr(ins) => body.push(ins),
+            instr::ParseResult::End => break,
 
             // `Else` is only expected to appear when parsing individual `Control` instructions
-            Parsed::Else => return Err(ParseExpressionError::UnexpectedElse),
+            instr::ParseResult::Else => return Err(ParseExpressionError::UnexpectedElse),
         }
     }
 
