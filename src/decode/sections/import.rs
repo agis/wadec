@@ -1,4 +1,4 @@
-use crate::decode::helpers::{decode_name, decode_vector, DecodeNameError, DecodeVectorError};
+use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
 use crate::decode::types::memtype::parse_memtype;
 use crate::decode::types::{DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeTableError};
 use crate::indices;

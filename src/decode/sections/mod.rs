@@ -22,9 +22,9 @@ pub use function::DecodeFunctionSectionError;
 pub use global::DecodeGlobalSectionError;
 pub use import::DecodeImportSectionError;
 pub use memory::DecodeMemorySectionError;
-pub use r#type::DecodeTypeSectionError;
 pub use start::DecodeStartSectionError;
 pub use table::DecodeTableSectionError;
+pub use r#type::DecodeTypeSectionError;
 
 pub(crate) use code::decode_code_section;
 pub(crate) use custom::decode_section_custom;
@@ -36,6 +36,6 @@ pub(crate) use function::decode_function_section;
 pub(crate) use global::decode_global_section;
 pub(crate) use import::decode_import_section;
 pub(crate) use memory::decode_memory_section;
-pub(crate) use r#type::decode_type_section;
 pub(crate) use start::decode_start_section;
 pub(crate) use table::decode_table_section;
+pub(crate) use r#type::decode_type_section;

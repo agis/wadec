@@ -1,4 +1,4 @@
-use crate::decode::helpers::{decode_name, DecodeNameError};
+use crate::decode::helpers::{DecodeNameError, decode_name};
 use std::io::{self, Read};
 use thiserror::Error;
 

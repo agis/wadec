@@ -1,7 +1,7 @@
-use crate::decode::helpers::{decode_vector, DecodeVectorError};
+use crate::Expr;
+use crate::decode::helpers::{DecodeVectorError, decode_vector};
 use crate::indices::{TypeIdx, TypeIdxError};
 use crate::types::valtype::ValType;
-use crate::Expr;
 use std::io::Read;
 use thiserror::Error;
 
