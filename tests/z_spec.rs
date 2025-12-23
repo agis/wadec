@@ -146,7 +146,7 @@ fn resolve_fixture(filename: &str) -> String {
 }
 
 #[gtest]
-fn it_passes_upstream_spec_tests() {
+fn upstream_specification_testsuite() {
     setup();
 
     for fname in files_with_ext(FIXTURE_PATH, ".json") {

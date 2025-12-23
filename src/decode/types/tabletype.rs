@@ -1,0 +1,24 @@
+use crate::decode::types::limits::ParseLimitsError;
+use crate::decode::types::limits::parse_limits;
+use crate::decode::types::reftype::DecodeRefTypeError;
+use crate::types::reftype::RefType;
+use crate::types::tabletype::TableType;
+use std::io::Read;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum DecodeTableError {
+    #[error(transparent)]
+    DecodeRefType(#[from] DecodeRefTypeError),
+
+    #[error(transparent)]
+    DecodeLimits(#[from] ParseLimitsError),
+}
+
+impl TableType {
+    pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeTableError> {
+        let reftype = RefType::decode(reader)?;
+        let limits = parse_limits(reader)?;
+        Ok(TableType { reftype, limits })
+    }
+}

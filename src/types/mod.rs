@@ -1,7 +1,6 @@
-//! Top-level module containing all WebAssembly types definitions.
+//! Contains type definitions for all core WebAssembly types.
 //!
 //! <https://www.w3.org/TR/wasm-core-2/#types>
-
 pub mod functype;
 pub mod globaltype;
 pub mod limits;

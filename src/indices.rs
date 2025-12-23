@@ -1,8 +1,7 @@
-//! Types and constructors for Web Assembly indices,
-//! as defined in Section 5.5.1.
+//! Types and constructors for WebAssembly indices.
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
-use crate::integer::{decode_u32, DecodeU32Error};
+use crate::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 
@@ -16,7 +15,7 @@ macro_rules! define_index {
         pub struct $name(pub u32);
 
         impl $name {
-            pub fn decode<R: Read + ?Sized>(r: &mut R) -> Result<Self, $errorname> {
+            pub(crate) fn decode<R: Read + ?Sized>(r: &mut R) -> Result<Self, $errorname> {
                 let idx = decode_u32(r)?;
                 Ok(Self(idx))
             }
