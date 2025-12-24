@@ -20,8 +20,8 @@ pub use decode::instructions::{
 };
 pub(crate) use decode::read_byte;
 pub use decode::{
-    decode, integer, DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError,
-    ParsePreambleError,
+    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError, decode,
+    integer,
 };
 
 pub mod indices;

@@ -1,11 +1,11 @@
 use crate::Expr;
+use crate::core::instruction::Instruction;
 use crate::decode::helpers::{DecodeVectorError, ParseExpressionError};
 use crate::decode::helpers::{decode_expr, decode_vector};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeRefTypeError;
 use crate::indices;
 use crate::indices::{FuncIdx, TableIdx};
-use crate::core::instruction::Instruction;
-use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::types::reftype::RefType;
 use std::io::Read;
 use thiserror::Error;

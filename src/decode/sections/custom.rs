@@ -1,5 +1,5 @@
-use crate::decode::helpers::{DecodeNameError, decode_name};
 pub use crate::core::custom_section::CustomSection;
+use crate::decode::helpers::{DecodeNameError, decode_name};
 use std::io::{self, Read};
 use thiserror::Error;
 

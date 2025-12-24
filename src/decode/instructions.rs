@@ -5,16 +5,15 @@ use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
 use crate::decode::FromMarkerByte;
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
-use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
-use crate::indices::*;
 use crate::decode::integer::{
     DecodeI32Error, DecodeI64Error, DecodeU32Error, decode_i32, decode_i64, decode_u32,
 };
+use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
+use crate::indices::*;
 use crate::read_byte;
 use crate::types::{reftype::RefType, valtype::ValType};
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
-
 
 #[derive(Debug, Error)]
 pub enum ParseError {
@@ -806,7 +805,6 @@ pub(crate) enum ParseResult {
     End,
 }
 
-
 #[derive(Debug, Error)]
 pub enum MemargError {
     #[error("failed decoding alignment")]
@@ -825,7 +823,6 @@ impl Memarg {
     }
 }
 
-
 #[derive(Debug, Error)]
 #[error("failed decoding Lane index")]
 pub struct LaneIdxError(#[from] pub io::Error);
@@ -839,7 +836,6 @@ impl LaneIdx {
         Ok(Self::new(read_byte(reader)?))
     }
 }
-
 
 #[derive(Debug, Error)]
 pub enum BlockTypeError {

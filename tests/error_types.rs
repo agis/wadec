@@ -1,7 +1,7 @@
 use std::fs::File;
 use wadec::decode::sections::{
     code::*, custom::*, data::*, data_count::*, element::*, export::*, function::*, global::*,
-    import::*, memory::*, r#type::*, start::*, table::*,
+    import::*, memory::*, start::*, table::*, r#type::*,
 };
 use wadec::decode::types::*;
 use wadec::decode::*;

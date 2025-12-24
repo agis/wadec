@@ -1,6 +1,7 @@
 use pretty_assertions::assert_eq;
 use std::collections::BTreeSet;
 use std::fs::File;
+use wadec::decode::DecodeVectorError;
 use wadec::decode::sections::{
     custom::CustomSection,
     data::{Data, DataMode},
@@ -12,7 +13,6 @@ use wadec::decode::sections::{
     r#type::DecodeTypeSectionError,
 };
 use wadec::decode::types::{DecodeFuncTypeError, DecodeResultTypeError, DecodeValTypeError};
-use wadec::decode::DecodeVectorError;
 use wadec::indices::*;
 use wadec::types::{
     functype::FuncType,

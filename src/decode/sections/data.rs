@@ -3,9 +3,9 @@ use crate::decode::helpers::{
     DecodeByteVectorError, DecodeVectorError, ParseExpressionError, decode_byte_vector,
     decode_expr, decode_vector,
 };
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::indices;
 use crate::indices::MemIdx;
-use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 
