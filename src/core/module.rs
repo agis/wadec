@@ -1,10 +1,9 @@
+use super::types::{functype::FuncType, memtype::MemType, tabletype::TableType};
 use crate::decode::sections::{
     custom::CustomSection, data::Data, element::Elem, export::Export, function::Func,
     global::Global, import::Import,
 };
 use crate::indices::FuncIdx;
-use crate::instructions::Instruction;
-use super::types::{functype::FuncType, memtype::MemType, tabletype::TableType};
 
 /// WebAssembly programs are organized into modules, which are the unit of deployment,
 /// loading, and compilation. A module collects definitions for types, functions, tables,
@@ -162,8 +161,6 @@ pub struct SectionHeader {
     pub kind: SectionKind,
     pub size: u32,
 }
-
-pub(crate) type Expr = Vec<Instruction>;
 
 #[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
 pub enum SectionKind {

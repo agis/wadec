@@ -15,7 +15,7 @@ pub use core::{Module, SectionHeader, SectionKind};
 pub mod decode;
 pub(crate) use decode::read_byte;
 pub use decode::{
-    decode, DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError,
+    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError, decode,
 };
 
 pub mod indices;

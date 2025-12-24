@@ -1,9 +1,9 @@
-use crate::decode::sections::function::Func;
-use crate::decode::sections::*;
 use crate::decode::FromMarkerByte;
 use crate::decode::read_byte;
-use crate::integer::{decode_u32, DecodeU32Error};
+use crate::decode::sections::function::Func;
+use crate::decode::sections::*;
 use crate::instructions::Instruction;
+use crate::integer::{DecodeU32Error, decode_u32};
 use crate::{Module, SectionHeader, SectionKind};
 use phf::phf_ordered_map;
 use std::io::{self, Read};
