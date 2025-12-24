@@ -1,11 +1,17 @@
 //! Helpers for decoding WebAssembly values, types, instructions and sections.
+pub(crate) mod helpers;
+mod module;
+pub mod sections;
+pub mod types;
+
+pub(crate) use helpers::read_byte;
 pub use helpers::{
     DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeNameError,
     DecodeVectorError, ParseExpressionError,
 };
-pub(crate) mod helpers;
-pub mod sections;
-pub mod types;
+pub use module::{
+    decode, DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError,
+};
 
 pub(crate) trait FromMarkerByte
 where

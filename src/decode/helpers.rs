@@ -5,6 +5,12 @@ use std::io;
 use std::io::Read;
 use thiserror::Error;
 
+pub(crate) fn read_byte<R: Read + ?Sized>(reader: &mut R) -> Result<u8, io::Error> {
+    let mut buf = [0u8];
+    reader.read_exact(&mut buf)?;
+    Ok(buf[0])
+}
+
 #[derive(Debug, Error)]
 pub enum ParseExpressionError {
     #[error("failed parsing instruction")]

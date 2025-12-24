@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use googletest::prelude::*;
 use serde::Deserialize;
 use std::fs;
