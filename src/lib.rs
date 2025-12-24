@@ -9,17 +9,20 @@
 #![forbid(unsafe_code)]
 
 mod core;
+pub use core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
 pub use core::types;
 pub use core::{Module, SectionHeader, SectionKind};
 
 pub mod decode;
+pub use decode::instructions::{
+    BlockTypeError, ControlError, LaneIdxError, MemargError, MemoryError, NumericError,
+    ParametricError, ParseError, ReferenceError, TableError, VariableError, VectorError,
+};
 pub(crate) use decode::read_byte;
 pub use decode::{
-    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError, decode,
+    decode, integer, DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError,
+    ParsePreambleError,
 };
 
 pub mod indices;
-pub mod instructions;
-pub mod integer;
-
 pub(crate) use core::Expr;

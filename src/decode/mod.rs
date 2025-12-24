@@ -1,5 +1,7 @@
 //! Helpers for decoding WebAssembly values, types, instructions and sections.
 pub(crate) mod helpers;
+pub mod instructions;
+pub mod integer;
 mod module;
 pub mod sections;
 pub mod types;
@@ -10,7 +12,7 @@ pub use helpers::{
     DecodeVectorError, ParseExpressionError,
 };
 pub use module::{
-    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError, decode,
+    decode, DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError,
 };
 
 pub(crate) trait FromMarkerByte

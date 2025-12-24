@@ -5,7 +5,7 @@ use crate::decode::helpers::{
 };
 use crate::indices;
 use crate::indices::MemIdx;
-use crate::integer::{DecodeU32Error, decode_u32};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 

@@ -1,12 +1,11 @@
 use std::fs::File;
 use wadec::decode::sections::{
     code::*, custom::*, data::*, data_count::*, element::*, export::*, function::*, global::*,
-    import::*, memory::*, start::*, table::*, r#type::*,
+    import::*, memory::*, r#type::*, start::*, table::*,
 };
 use wadec::decode::types::*;
 use wadec::decode::*;
 use wadec::indices::*;
-use wadec::instructions::*;
 use wadec::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
 use wadec::*;
 

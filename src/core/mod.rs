@@ -1,7 +1,8 @@
+pub mod custom_section;
+pub mod instruction;
 pub mod types;
 
 mod module;
 pub use module::{Module, SectionHeader, SectionKind};
 
-use crate::instructions::Instruction;
-pub(crate) type Expr = Vec<Instruction>;
+pub(crate) type Expr = Vec<instruction::Instruction>;

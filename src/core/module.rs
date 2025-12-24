@@ -1,7 +1,7 @@
 use super::types::{functype::FuncType, memtype::MemType, tabletype::TableType};
+use crate::core::custom_section::CustomSection;
 use crate::decode::sections::{
-    custom::CustomSection, data::Data, element::Elem, export::Export, function::Func,
-    global::Global, import::Import,
+    data::Data, element::Elem, export::Export, function::Func, global::Global, import::Import,
 };
 use crate::indices::FuncIdx;
 

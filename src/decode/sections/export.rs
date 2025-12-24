@@ -1,6 +1,6 @@
 use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
 use crate::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx};
-use crate::integer::{DecodeU32Error, decode_u32};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::read_byte;
 use std::io;
 use std::io::Read;

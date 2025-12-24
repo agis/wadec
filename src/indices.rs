@@ -1,7 +1,7 @@
 //! Types and constructors for WebAssembly indices.
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
-use crate::integer::{DecodeU32Error, decode_u32};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 
