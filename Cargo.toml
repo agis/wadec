@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.0.0"
+version = "0.0.1"
 authors = ["Agis Anastasopoulos <a@xz0.org>"]
 edition = "2024"
 repository = "https://github.com/agis/wadec"
@@ -8,7 +8,7 @@ categories = ["wasm", "parser-implementations", "command-line-utilities"]
 license = "Apache-2.0"
 
 [workspace.dependencies]
-wadec = { version = "0.0.0", path = "." }
+wadec = { version = "0.0.1", path = "." }
 
 [package]
 name = "wadec"
