@@ -1,5 +1,6 @@
 //! Helpers for decoding WebAssembly values, types, instructions and sections.
 pub(crate) mod helpers;
+pub mod indices;
 pub mod instructions;
 pub mod integer;
 mod module;

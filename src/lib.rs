@@ -10,6 +10,7 @@
 
 mod core;
 pub use core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
+pub use core::indices;
 pub use core::types;
 pub use core::{Module, SectionHeader, SectionKind};
 
@@ -24,5 +25,4 @@ pub use decode::{
     integer,
 };
 
-pub mod indices;
 pub(crate) use core::Expr;

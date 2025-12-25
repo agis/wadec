@@ -1,7 +1,7 @@
 use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
+use crate::decode::indices::DecodeTypeIdxError;
 use crate::decode::types::memtype::parse_memtype;
 use crate::decode::types::{DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeTableError};
-use crate::indices;
 use crate::indices::TypeIdx;
 use crate::types::globaltype::GlobalType;
 use crate::types::memtype::MemType;
@@ -60,7 +60,7 @@ pub enum DecodeImportError {
     ReadDescriptorMarkerByte(io::Error),
 
     #[error(transparent)]
-    DecodeTypeIdx(#[from] indices::TypeIdxError),
+    DecodeTypeIdx(#[from] DecodeTypeIdxError),
 
     #[error(transparent)]
     DecodeTable(#[from] DecodeTableError),

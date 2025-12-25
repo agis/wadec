@@ -3,8 +3,8 @@ use crate::decode::helpers::{
     DecodeByteVectorError, DecodeVectorError, ParseExpressionError, decode_byte_vector,
     decode_expr, decode_vector,
 };
+use crate::decode::indices::DecodeMemIdxError;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
-use crate::indices;
 use crate::indices::MemIdx;
 use std::io::Read;
 use thiserror::Error;
@@ -59,7 +59,7 @@ pub enum DecodeDataSegmentError {
     DecodeInitVector(#[from] DecodeByteVectorError),
 
     #[error("failed decoding Memory index")]
-    DecodeMemIdx(#[from] indices::MemIdxError),
+    DecodeMemIdx(#[from] DecodeMemIdxError),
 }
 
 fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmentError> {
@@ -79,7 +79,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
         }
         1 => (decode_byte_vector(reader)?, DataMode::Passive),
         2 => {
-            let x = indices::MemIdx::decode(reader)?;
+            let x = MemIdx::decode(reader)?;
             let e = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
 
             (

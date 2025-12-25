@@ -1,6 +1,7 @@
 use crate::Expr;
 use crate::decode::helpers::{DecodeVectorError, decode_vector};
-use crate::indices::{TypeIdx, TypeIdxError};
+use crate::decode::indices::DecodeTypeIdxError;
+use crate::indices::TypeIdx;
 use crate::types::valtype::ValType;
 use std::io::Read;
 use thiserror::Error;
@@ -33,7 +34,7 @@ pub struct Func {
 #[derive(Debug, Error)]
 pub enum DecodeFunctionSectionError {
     #[error("failed decoding Function section")]
-    DecodeVector(#[from] DecodeVectorError<TypeIdxError>),
+    DecodeVector(#[from] DecodeVectorError<DecodeTypeIdxError>),
 }
 
 pub(crate) fn decode_function_section<R: Read + ?Sized>(

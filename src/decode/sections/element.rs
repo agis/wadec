@@ -2,9 +2,9 @@ use crate::Expr;
 use crate::core::instruction::Instruction;
 use crate::decode::helpers::{DecodeVectorError, ParseExpressionError};
 use crate::decode::helpers::{decode_expr, decode_vector};
+use crate::decode::indices::{DecodeFuncIdxError, DecodeTableIdxError};
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeRefTypeError;
-use crate::indices;
 use crate::indices::{FuncIdx, TableIdx};
 use crate::types::reftype::RefType;
 use std::io::Read;
@@ -69,7 +69,7 @@ pub enum DecodeElementError {
     DecodeElementExpression(ParseExpressionError),
 
     #[error(transparent)]
-    DecodeTableIdx(#[from] indices::TableIdxError),
+    DecodeTableIdx(#[from] DecodeTableIdxError),
 
     #[error(transparent)]
     DecodeReferenceType(#[from] DecodeRefTypeError),
@@ -78,7 +78,7 @@ pub enum DecodeElementError {
     DecodeInit(DecodeVectorError<ParseExpressionError>),
 
     #[error(transparent)]
-    DecodeFuncIdxVector(#[from] DecodeVectorError<indices::FuncIdxError>),
+    DecodeFuncIdxVector(#[from] DecodeVectorError<DecodeFuncIdxError>),
 }
 
 fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementError> {

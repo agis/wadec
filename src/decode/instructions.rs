@@ -5,6 +5,7 @@ use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
 use crate::decode::FromMarkerByte;
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
+use crate::decode::indices::*;
 use crate::decode::integer::{
     DecodeI32Error, DecodeI64Error, DecodeU32Error, decode_i32, decode_i64, decode_u32,
 };
@@ -54,19 +55,19 @@ pub enum ParseError {
 #[derive(Debug, Error)]
 pub enum ControlError {
     #[error("failed decoding label index")]
-    LabelIdx(#[from] LabelIdxError),
+    LabelIdx(#[from] DecodeLabelIdxError),
 
     #[error("failed decoding label index")]
-    DecodeLabelIdxVector(#[from] DecodeVectorError<LabelIdxError>),
+    DecodeLabelIdxVector(#[from] DecodeVectorError<DecodeLabelIdxError>),
 
     #[error("failed decoding function index")]
-    FuncIdx(FuncIdxError),
+    FuncIdx(DecodeFuncIdxError),
 
     #[error("failed decoding table index")]
-    TableIdx(TableIdxError),
+    TableIdx(DecodeTableIdxError),
 
     #[error("failed decoding type index")]
-    TypeIdx(TypeIdxError),
+    TypeIdx(DecodeTypeIdxError),
 
     #[error("failed decoding block type")]
     BlockType(BlockTypeError),
@@ -81,7 +82,7 @@ pub enum ReferenceError {
     RefType(DecodeRefTypeError),
 
     #[error("failed decoding function index")]
-    FuncIdx(FuncIdxError),
+    FuncIdx(DecodeFuncIdxError),
 }
 
 #[derive(Debug, Error)]
@@ -93,19 +94,19 @@ pub enum ParametricError {
 #[derive(Debug, Error)]
 pub enum VariableError {
     #[error("failed decoding Local index")]
-    LocalIdx(LocalIdxError),
+    LocalIdx(DecodeLocalIdxError),
 
     #[error("failed decoding Global index")]
-    GlobalIdx(GlobalIdxError),
+    GlobalIdx(DecodeGlobalIdxError),
 }
 
 #[derive(Debug, Error)]
 pub enum TableError {
     #[error("failed decoding table index")]
-    TableIdx(TableIdxError),
+    TableIdx(DecodeTableIdxError),
 
     #[error("failed decoding element index")]
-    ElemIdx(ElemIdxError),
+    ElemIdx(DecodeElemIdxError),
 }
 
 #[derive(Debug, Error)]
@@ -114,7 +115,7 @@ pub enum MemoryError {
     DecodeMemarg(MemargError),
 
     #[error("failed decoding data index")]
-    DecodeDataIdx(DataIdxError),
+    DecodeDataIdx(DecodeDataIdxError),
 
     #[error("failed reading reserved byte")]
     ReadReservedByte(io::Error),

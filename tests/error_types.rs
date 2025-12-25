@@ -3,9 +3,9 @@ use wadec::decode::sections::{
     code::*, custom::*, data::*, data_count::*, element::*, export::*, function::*, global::*,
     import::*, memory::*, start::*, table::*, r#type::*,
 };
+use wadec::decode::indices::*;
 use wadec::decode::types::*;
 use wadec::decode::*;
-use wadec::indices::*;
 use wadec::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
 use wadec::*;
 
@@ -25,7 +25,7 @@ fn type_idx_error_for_overlong_function_index() {
         DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
                 position,
-                source: TypeIdxError(DecodeU32Error::RepresentationTooLong),
+                source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
             },
         )) => {
             assert_eq!(position, 0);
@@ -273,7 +273,7 @@ fn parse_error_control() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::LabelIdx(LabelIdxError(
+                        ParseError::Control(ControlError::LabelIdx(DecodeLabelIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -357,7 +357,7 @@ fn parse_error_variable() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Variable(VariableError::GlobalIdx(GlobalIdxError(
+                        ParseError::Variable(VariableError::GlobalIdx(DecodeGlobalIdxError(
                             DecodeU32Error::Io(io_err),
                         ))),
                     )),
@@ -383,7 +383,7 @@ fn parse_error_table() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Table(TableError::TableIdx(TableIdxError(
+                        ParseError::Table(TableError::TableIdx(DecodeTableIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -537,7 +537,7 @@ fn control_error_decode_label_idx_vector() {
                         ParseError::Control(ControlError::DecodeLabelIdxVector(
                             DecodeVectorError::ParseElement {
                                 position: vec_pos,
-                                source: LabelIdxError(DecodeU32Error::RepresentationTooLong),
+                                source: DecodeLabelIdxError(DecodeU32Error::RepresentationTooLong),
                             },
                         )),
                     )),
@@ -565,7 +565,7 @@ fn control_error_table_idx() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::TableIdx(TableIdxError(
+                        ParseError::Control(ControlError::TableIdx(DecodeTableIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -591,7 +591,7 @@ fn control_error_type_idx() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::TypeIdx(TypeIdxError(
+                        ParseError::Control(ControlError::TypeIdx(DecodeTypeIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -667,7 +667,7 @@ fn reference_error_func_idx() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Reference(ReferenceError::FuncIdx(FuncIdxError(
+                        ParseError::Reference(ReferenceError::FuncIdx(DecodeFuncIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -694,7 +694,7 @@ fn func_idx_error_for_overlong_call_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::FuncIdx(FuncIdxError(
+                        ParseError::Control(ControlError::FuncIdx(DecodeFuncIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -722,7 +722,7 @@ fn table_idx_error_for_overlong_table_get_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Table(TableError::TableIdx(TableIdxError(
+                        ParseError::Table(TableError::TableIdx(DecodeTableIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -749,7 +749,7 @@ fn mem_idx_error_for_overlong_data_segment_memory_index() {
             DecodeVectorError::ParseElement {
                 position,
                 source:
-                    DecodeDataSegmentError::DecodeMemIdx(MemIdxError(
+                    DecodeDataSegmentError::DecodeMemIdx(DecodeMemIdxError(
                         DecodeU32Error::RepresentationTooLong,
                     )),
             },
@@ -775,7 +775,7 @@ fn global_idx_error_for_overlong_global_get_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Variable(VariableError::GlobalIdx(GlobalIdxError(
+                        ParseError::Variable(VariableError::GlobalIdx(DecodeGlobalIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -802,7 +802,7 @@ fn elem_idx_error_for_overlong_elem_drop_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Table(TableError::ElemIdx(ElemIdxError(
+                        ParseError::Table(TableError::ElemIdx(DecodeElemIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -829,7 +829,7 @@ fn data_idx_error_for_overlong_data_drop_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::DecodeDataIdx(DataIdxError(
+                        ParseError::Memory(MemoryError::DecodeDataIdx(DecodeDataIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -856,7 +856,7 @@ fn local_idx_error_for_overlong_local_get_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Variable(VariableError::LocalIdx(LocalIdxError(
+                        ParseError::Variable(VariableError::LocalIdx(DecodeLocalIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -883,7 +883,7 @@ fn label_idx_error_for_overlong_br_instruction() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::LabelIdx(LabelIdxError(
+                        ParseError::Control(ControlError::LabelIdx(DecodeLabelIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
@@ -2238,7 +2238,7 @@ fn decode_import_error_typeidx_overlong() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
-                source: DecodeImportError::DecodeTypeIdx(TypeIdxError(DecodeU32Error::TooLarge)),
+                source: DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
                 ..
             },
         )) => {}
@@ -2416,7 +2416,7 @@ fn decode_start_section_error_func_idx() {
     let err = decode(wasm).expect_err("overlong start func idx should fail");
 
     match err {
-        DecodeModuleError::DecodeStartSection(DecodeStartSectionError(FuncIdxError(
+        DecodeModuleError::DecodeStartSection(DecodeStartSectionError(DecodeFuncIdxError(
             DecodeU32Error::TooLarge,
         ))) => {}
         other => panic!("unexpected error: {other:?}"),
@@ -2770,7 +2770,7 @@ fn decode_element_error_funcidx_vector_overlong() {
             DecodeVectorError::ParseElement {
                 source:
                     DecodeElementError::DecodeFuncIdxVector(DecodeVectorError::ParseElement {
-                        source: FuncIdxError(DecodeU32Error::TooLarge),
+                        source: DecodeFuncIdxError(DecodeU32Error::TooLarge),
                         ..
                     }),
                 ..
@@ -2792,7 +2792,7 @@ fn decode_element_error_table_idx_overlong() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
-                source: DecodeElementError::DecodeTableIdx(TableIdxError(DecodeU32Error::TooLarge)),
+                source: DecodeElementError::DecodeTableIdx(DecodeTableIdxError(DecodeU32Error::TooLarge)),
                 ..
             },
         )) => {}
