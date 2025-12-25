@@ -1,7 +1,9 @@
 //! WebAssembly instruction decoding.
 //!
 //! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
+use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
+use crate::core::types::{reftype::RefType, valtype::ValType};
 use crate::decode::FromMarkerByte;
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
@@ -10,9 +12,7 @@ use crate::decode::integer::{
     DecodeI32Error, DecodeI64Error, DecodeU32Error, decode_i32, decode_i64, decode_u32,
 };
 use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
-use crate::indices::*;
 use crate::read_byte;
-use crate::types::{reftype::RefType, valtype::ValType};
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
 

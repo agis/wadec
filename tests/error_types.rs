@@ -1,13 +1,7 @@
 use std::fs::File;
-use wadec::decode::sections::{
-    code::*, custom::*, data::*, data_count::*, element::*, export::*, function::*, global::*,
-    import::*, memory::*, start::*, table::*, r#type::*,
-};
-use wadec::decode::indices::*;
-use wadec::decode::types::*;
-use wadec::decode::*;
-use wadec::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
-use wadec::*;
+use wadec::core::SectionKind;
+use wadec::decode_errors::*;
+use wadec::decode_module;
 
 #[test]
 fn type_idx_error_for_overlong_function_index() {
@@ -19,7 +13,7 @@ fn type_idx_error_for_overlong_function_index() {
     let wasm =
         File::open("tests/fixtures/malformed/function_section_typeidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong type index should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong type index should fail to decode");
 
     match err {
         DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
@@ -42,7 +36,7 @@ fn decode_u32_error_io_for_section_size() {
     // Section header size field is truncated, so reading the u32 length hits an IO error.
     let wasm = File::open("tests/fixtures/malformed/section_header_size_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated section size should fail to decode");
+    let err = decode_module(wasm).expect_err("truncated section size should fail to decode");
 
     match err {
         DecodeModuleError::DecodeSectionHeader(DecodeSectionHeaderError::DecodeSectionSize(
@@ -65,7 +59,7 @@ fn decode_i32_error_too_large() {
     // i32.const immediate encodes 0x8000_0000, which is outside the i32 range.
     let wasm = File::open("tests/fixtures/malformed/i32_const_too_large.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("too-large i32 const should fail");
+    let err = decode_module(wasm).expect_err("too-large i32 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -93,7 +87,7 @@ fn decode_i32_error_representation_too_long() {
     let wasm =
         File::open("tests/fixtures/malformed/i32_const_representation_too_long.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong i32 const should fail");
+    let err = decode_module(wasm).expect_err("overlong i32 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -120,7 +114,7 @@ fn decode_i32_error_io() {
     // i32.const is missing its immediate entirely.
     let wasm = File::open("tests/fixtures/malformed/i32_const_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated i32 const should fail");
+    let err = decode_module(wasm).expect_err("truncated i32 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -153,7 +147,7 @@ fn decode_i64_error_representation_too_long() {
     let wasm =
         File::open("tests/fixtures/malformed/i64_const_representation_too_long.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong i64 const should fail");
+    let err = decode_module(wasm).expect_err("overlong i64 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -181,7 +175,7 @@ fn decode_i64_error_incorrect_sign_extension() {
     let wasm =
         File::open("tests/fixtures/malformed/i64_const_incorrect_sign_extension.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("bad i64 sign extension should fail");
+    let err = decode_module(wasm).expect_err("bad i64 sign extension should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -208,7 +202,7 @@ fn decode_i64_error_io() {
     // i64.const is missing its immediate entirely.
     let wasm = File::open("tests/fixtures/malformed/i64_const_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated i64 const should fail");
+    let err = decode_module(wasm).expect_err("truncated i64 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -240,7 +234,7 @@ fn parse_error_read_opcode() {
     // Code body declares zero locals but provides no opcode bytes.
     let wasm = File::open("tests/fixtures/malformed/code_body_missing_opcode.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing opcode should fail");
+    let err = decode_module(wasm).expect_err("missing opcode should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -266,7 +260,7 @@ fn parse_error_control() {
     // branch instruction with overlong label index, surfacing as a Control error.
     let wasm = File::open("tests/fixtures/malformed/br_labelidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid label index should fail");
+    let err = decode_module(wasm).expect_err("invalid label index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -292,7 +286,7 @@ fn parse_error_reference() {
     // ref.null followed by an invalid reference type marker byte.
     let wasm = File::open("tests/fixtures/malformed/ref_null_invalid_marker.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid ref type marker should fail");
+    let err = decode_module(wasm).expect_err("invalid ref type marker should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -318,7 +312,7 @@ fn parse_error_parametric() {
     // select with a type list containing an invalid ValType marker.
     let wasm = File::open("tests/fixtures/malformed/select_invalid_valtype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid valtype in select should fail");
+    let err = decode_module(wasm).expect_err("invalid valtype in select should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -350,7 +344,7 @@ fn parse_error_variable() {
     // global.set without a following global index.
     let wasm = File::open("tests/fixtures/malformed/global_set_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing global index should fail");
+    let err = decode_module(wasm).expect_err("missing global index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -376,7 +370,7 @@ fn parse_error_table() {
     // table.get with overlong table index.
     let wasm = File::open("tests/fixtures/malformed/table_get_tableidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid table index should fail");
+    let err = decode_module(wasm).expect_err("invalid table index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -402,7 +396,7 @@ fn parse_error_memory() {
     // memory.size with reserved byte set to 0x01.
     let wasm = File::open("tests/fixtures/malformed/memory_size_reserved_nonzero.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("non-zero reserved byte should fail");
+    let err = decode_module(wasm).expect_err("non-zero reserved byte should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -426,7 +420,7 @@ fn parse_error_numeric() {
     // f32.const with truncated payload.
     let wasm = File::open("tests/fixtures/malformed/f32_const_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated f32 const should fail");
+    let err = decode_module(wasm).expect_err("truncated f32 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -452,7 +446,7 @@ fn parse_error_vector() {
     // 0xFD-prefixed instruction with an invalid sub-opcode.
     let wasm = File::open("tests/fixtures/malformed/vector_invalid_opcode.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid vector opcode should fail");
+    let err = decode_module(wasm).expect_err("invalid vector opcode should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -476,7 +470,7 @@ fn parse_error_invalid_opcode() {
     // Unknown primary opcode 0xFF.
     let wasm = File::open("tests/fixtures/malformed/invalid_opcode_ff.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid opcode should fail");
+    let err = decode_module(wasm).expect_err("invalid opcode should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -500,7 +494,7 @@ fn parse_error_invalid_marker_after_fc() {
     // 0xFC prefix with an unsupported secondary opcode.
     let wasm = File::open("tests/fixtures/malformed/fc_invalid_marker.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid FC marker should fail");
+    let err = decode_module(wasm).expect_err("invalid FC marker should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -527,7 +521,7 @@ fn control_error_decode_label_idx_vector() {
     let wasm =
         File::open("tests/fixtures/malformed/br_table_labelidxvector_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong label index should fail");
+    let err = decode_module(wasm).expect_err("overlong label index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -558,7 +552,7 @@ fn control_error_table_idx() {
     // call_indirect with an overlong table index.
     let wasm = File::open("tests/fixtures/malformed/call_indirect_tableidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong table index should fail");
+    let err = decode_module(wasm).expect_err("overlong table index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -584,7 +578,7 @@ fn control_error_type_idx() {
     // call_indirect with an overlong type index.
     let wasm = File::open("tests/fixtures/malformed/call_indirect_typeidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong type index should fail");
+    let err = decode_module(wasm).expect_err("overlong type index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -610,7 +604,7 @@ fn control_error_block_type() {
     // block opcode without a following block type byte.
     let wasm = File::open("tests/fixtures/malformed/block_missing_blocktype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing block type should fail");
+    let err = decode_module(wasm).expect_err("missing block type should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -636,7 +630,7 @@ fn control_error_unexpected_else() {
     // if body contains an extra `else`, leading to an unexpected Else inside the else-branch parser.
     let wasm = File::open("tests/fixtures/malformed/if_unexpected_else.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("double else should fail");
+    let err = decode_module(wasm).expect_err("double else should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -660,7 +654,7 @@ fn reference_error_func_idx() {
     // ref.func with an overlong function index.
     let wasm = File::open("tests/fixtures/malformed/ref_func_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong ref.func index should fail");
+    let err = decode_module(wasm).expect_err("overlong ref.func index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -686,7 +680,7 @@ fn func_idx_error_for_overlong_call_instruction() {
     // call instruction uses a function index with an overlong unsigned LEB128 encoding.
     let wasm = File::open("tests/fixtures/malformed/function_call_funcidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong func idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong func idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -714,7 +708,7 @@ fn table_idx_error_for_overlong_table_get_instruction() {
     // table.get uses an overlong table index.
     let wasm = File::open("tests/fixtures/malformed/table_get_tableidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong table idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong table idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -742,7 +736,7 @@ fn mem_idx_error_for_overlong_data_segment_memory_index() {
     // data segment with bitfield 2 carries a memory index encoded with too many bytes.
     let wasm = File::open("tests/fixtures/malformed/data_section_memidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong mem idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong mem idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
@@ -767,7 +761,7 @@ fn global_idx_error_for_overlong_global_get_instruction() {
     // Spec 5.4.4 (Variable Instructions) and 5.5.1 (Indices): global.get uses globalidx u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/global_get_globalidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong global idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong global idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -794,7 +788,7 @@ fn elem_idx_error_for_overlong_elem_drop_instruction() {
     // Spec 5.4.5 (Table Instructions) and 5.5.1 (Indices): elem.drop uses elemidx u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/elem_drop_elemidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong elem idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong elem idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -821,7 +815,7 @@ fn data_idx_error_for_overlong_data_drop_instruction() {
     // Spec 5.4.6 (Memory Instructions) and 5.5.1 (Indices): data.drop uses a dataidx u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/data_drop_dataidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong data idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong data idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -848,7 +842,7 @@ fn local_idx_error_for_overlong_local_get_instruction() {
     // Spec 5.4.4 (Variable Instructions) and 5.5.1 (Indices): local.get uses localidx u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/local_get_localidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong local idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong local idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -875,7 +869,7 @@ fn label_idx_error_for_overlong_br_instruction() {
     // Spec 5.4.1 (Control Instructions) and 5.5.1 (Indices): br expects a labelidx u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/br_labelidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong label idx should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong label idx should fail to decode");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -902,7 +896,7 @@ fn decode_u32_error_too_large_for_type_section_length() {
     // Spec 5.5.4 (Type Section) and 5.1.3 (Vectors): type vector length is a u32; encoded value is too large.
     let wasm = File::open("tests/fixtures/malformed/type_section_length_too_large.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("too-large vector length should fail to decode");
+    let err = decode_module(wasm).expect_err("too-large vector length should fail to decode");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -925,7 +919,7 @@ fn decode_u32_error_representation_too_long_for_section_size() {
     let wasm =
         File::open("tests/fixtures/malformed/section_size_representation_too_long.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong section size should fail to decode");
+    let err = decode_module(wasm).expect_err("overlong section size should fail to decode");
 
     match err {
         DecodeModuleError::DecodeSectionHeader(DecodeSectionHeaderError::DecodeSectionSize(
@@ -947,7 +941,7 @@ fn parametric_error_decode_vector_invalid_valtype() {
     let wasm =
         File::open("tests/fixtures/malformed/select_type_vector_invalid_valtype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid type vector in select should fail");
+    let err = decode_module(wasm).expect_err("invalid type vector in select should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -981,7 +975,7 @@ fn memory_error_decode_memarg_missing_offset() {
     let wasm =
         File::open("tests/fixtures/malformed/i32_load_memarg_truncated_offset.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing memarg offset should fail");
+    let err = decode_module(wasm).expect_err("missing memarg offset should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1014,7 +1008,7 @@ fn memory_error_read_reserved_byte() {
     let wasm =
         File::open("tests/fixtures/malformed/memory_size_missing_reserved_byte.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing reserved byte should fail");
+    let err = decode_module(wasm).expect_err("missing reserved byte should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1042,7 +1036,7 @@ fn memory_error_read_reserved_bytes() {
     let wasm =
         File::open("tests/fixtures/malformed/memory_copy_missing_reserved_bytes.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing reserved bytes should fail");
+    let err = decode_module(wasm).expect_err("missing reserved bytes should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1068,7 +1062,7 @@ fn memory_error_invalid_memory_size_byte() {
     // Spec 5.4.6 (Memory Instructions): memory.size reserved byte must be 0x00; non-zero is invalid.
     let wasm = File::open("tests/fixtures/malformed/memory_size_reserved_nonzero.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("non-zero reserved byte should fail");
+    let err = decode_module(wasm).expect_err("non-zero reserved byte should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1094,7 +1088,7 @@ fn memory_error_invalid_memory_grow_byte() {
     // Spec 5.4.6 (Memory Instructions): memory.grow reserved byte must be 0x00; non-zero is invalid.
     let wasm = File::open("tests/fixtures/malformed/memory_grow_reserved_nonzero.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("non-zero reserved grow byte should fail");
+    let err = decode_module(wasm).expect_err("non-zero reserved grow byte should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1120,7 +1114,7 @@ fn memory_error_invalid_memory_init_byte() {
     // Spec 5.4.6 (Memory Instructions): memory.init reserved byte must be 0x00; non-zero is invalid.
     let wasm = File::open("tests/fixtures/malformed/memory_init_reserved_nonzero.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("non-zero reserved init byte should fail");
+    let err = decode_module(wasm).expect_err("non-zero reserved init byte should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1146,7 +1140,7 @@ fn memory_error_invalid_memory_copy_bytes() {
     // Spec 5.4.6 (Memory Instructions): memory.copy reserved bytes must be 0x00; non-zero is invalid.
     let wasm = File::open("tests/fixtures/malformed/memory_copy_reserved_wrong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("non-zero reserved bytes should fail");
+    let err = decode_module(wasm).expect_err("non-zero reserved bytes should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1172,7 +1166,7 @@ fn memory_error_invalid_memory_fill_byte() {
     // Spec 5.4.6 (Memory Instructions): memory.fill reserved byte must be 0x00; non-zero is invalid.
     let wasm = File::open("tests/fixtures/malformed/memory_fill_reserved_nonzero.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("non-zero reserved fill byte should fail");
+    let err = decode_module(wasm).expect_err("non-zero reserved fill byte should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1198,7 +1192,7 @@ fn numeric_error_read_opcode_truncated_fc_prefix() {
     // Spec 5.4.7 (Numeric Instructions): 0xFC prefix requires a subopcode byte; it is truncated.
     let wasm = File::open("tests/fixtures/malformed/numeric_fc_opcode_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated 0xFC opcode should fail");
+    let err = decode_module(wasm).expect_err("truncated 0xFC opcode should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1226,7 +1220,7 @@ fn numeric_error_decode_f32_truncated_payload() {
     // Spec 5.4.7 (Numeric Instructions) and 5.2.3 (Floating-Point): f32.const requires 4 bytes; payload is truncated.
     let wasm = File::open("tests/fixtures/malformed/f32_const_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated f32 const should fail");
+    let err = decode_module(wasm).expect_err("truncated f32 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1253,7 +1247,7 @@ fn numeric_error_decode_f64_truncated_payload() {
     // Spec 5.4.7 (Numeric Instructions) and 5.2.3 (Floating-Point): f64.const requires 8 bytes; payload is truncated.
     let wasm = File::open("tests/fixtures/malformed/numeric_f64_const_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated f64 const should fail");
+    let err = decode_module(wasm).expect_err("truncated f64 const should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1280,7 +1274,7 @@ fn vector_error_read_opcode_truncated() {
     // Spec 5.4.8 (Vector Instructions): SIMD opcode prefix/subopcode bytes are truncated.
     let wasm = File::open("tests/fixtures/malformed/vector_opcode_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated vector opcode should fail");
+    let err = decode_module(wasm).expect_err("truncated vector opcode should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1308,7 +1302,7 @@ fn vector_error_memarg_offset_missing() {
     // Spec 5.4.8 (Vector Instructions): vector memory ops use memarg; offset is truncated.
     let wasm = File::open("tests/fixtures/malformed/vector_memarg_offset_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing memarg offset should fail");
+    let err = decode_module(wasm).expect_err("missing memarg offset should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1333,7 +1327,7 @@ fn vector_error_laneidx_missing() {
     // Spec 5.4.8 (Vector Instructions): lane index immediate byte is missing.
     let wasm = File::open("tests/fixtures/malformed/vector_laneidx_missing.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing lane idx should fail");
+    let err = decode_module(wasm).expect_err("missing lane idx should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1358,7 +1352,7 @@ fn vector_error_read_immediate_bytes() {
     // Spec 5.4.8 (Vector Instructions): SIMD instruction immediates are truncated.
     let wasm = File::open("tests/fixtures/malformed/vector_immediates_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated vector immediate should fail");
+    let err = decode_module(wasm).expect_err("truncated vector immediate should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1381,7 +1375,7 @@ fn vector_error_invalid_opcode() {
     // Spec 5.4.8 (Vector Instructions): SIMD subopcode is not defined; invalid opcode.
     let wasm = File::open("tests/fixtures/malformed/vector_invalid_opcode.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid vector opcode should fail");
+    let err = decode_module(wasm).expect_err("invalid vector opcode should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1404,7 +1398,7 @@ fn memarg_error_align_missing() {
     // Spec 5.4.6 (Memory Instructions): memarg encodes align and offset as u32; align is missing.
     let wasm = File::open("tests/fixtures/malformed/memarg_align_missing.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing memarg align should fail");
+    let err = decode_module(wasm).expect_err("missing memarg align should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1429,7 +1423,7 @@ fn lane_idx_error_missing_byte() {
     // Spec 5.4.8 (Vector Instructions): lane index immediate byte is missing.
     let wasm = File::open("tests/fixtures/malformed/vector_laneidx_missing.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing lane idx should fail");
+    let err = decode_module(wasm).expect_err("missing lane idx should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1454,7 +1448,7 @@ fn block_type_error_read_marker_byte() {
     // Spec 5.4.1 (Control Instructions): block/loop/if must be followed by a blocktype byte; the immediate is missing.
     let wasm = File::open("tests/fixtures/malformed/block_missing_blocktype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing block type should fail");
+    let err = decode_module(wasm).expect_err("missing block type should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1479,7 +1473,7 @@ fn block_type_error_decode_index_truncated() {
     // Spec 5.4.1 (Control Instructions): blocktype uses a signed LEB128 s33; the encoding is truncated.
     let wasm = File::open("tests/fixtures/malformed/blocktype_index_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated block type index should fail");
+    let err = decode_module(wasm).expect_err("truncated block type index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1504,7 +1498,7 @@ fn block_type_error_negative_type_index() {
     // Spec 5.4.1 (Control Instructions): a blocktype type index must be a positive s33; this encoding is negative.
     let wasm = File::open("tests/fixtures/malformed/blocktype_negative_typeidx.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("negative block type index should fail");
+    let err = decode_module(wasm).expect_err("negative block type index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1529,7 +1523,7 @@ fn block_type_error_type_index_too_large() {
     // Spec 5.4.1 (Control Instructions) and 5.5.1 (Indices): blocktype encodes a type index as s33; this value exceeds u32 range.
     let wasm = File::open("tests/fixtures/malformed/blocktype_index_too_large.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("too-large block type index should fail");
+    let err = decode_module(wasm).expect_err("too-large block type index should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -1555,7 +1549,7 @@ fn decode_func_type_error_read_marker_byte() {
     let wasm =
         File::open("tests/fixtures/malformed/type_section_functype_marker_missing.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing functype marker should fail");
+    let err = decode_module(wasm).expect_err("missing functype marker should fail");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -1579,7 +1573,7 @@ fn decode_func_type_error_invalid_marker_byte() {
     let wasm =
         File::open("tests/fixtures/malformed/type_section_functype_invalid_marker.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid functype marker should fail");
+    let err = decode_module(wasm).expect_err("invalid functype marker should fail");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -1603,7 +1597,7 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
     let wasm =
         File::open("tests/fixtures/malformed/type_section_param_invalid_valtype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid parameter valtype should fail");
+    let err = decode_module(wasm).expect_err("invalid parameter valtype should fail");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -1634,7 +1628,7 @@ fn decode_func_type_error_result_types_truncated() {
     let wasm =
         File::open("tests/fixtures/malformed/type_section_result_valtype_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated result valtype should fail");
+    let err = decode_module(wasm).expect_err("truncated result valtype should fail");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -1664,7 +1658,7 @@ fn decode_table_error_invalid_reftype_marker() {
     // Spec 5.5.7 (Table Section) and 5.3.3 (Reference Types): table reftype marker is invalid.
     let wasm = File::open("tests/fixtures/malformed/table_section_invalid_reftype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid table reftype should fail");
+    let err = decode_module(wasm).expect_err("invalid table reftype should fail");
 
     match err {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
@@ -1687,7 +1681,7 @@ fn decode_table_error_reftype_truncated() {
     // Spec 5.5.7 (Table Section): reftype byte is truncated.
     let wasm = File::open("tests/fixtures/malformed/table_section_reftype_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated table reftype should fail");
+    let err = decode_module(wasm).expect_err("truncated table reftype should fail");
 
     match err {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
@@ -1711,7 +1705,7 @@ fn decode_table_error_limits_invalid_flag() {
     let wasm =
         File::open("tests/fixtures/malformed/table_section_limits_invalid_flag.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid table limits flag should fail");
+    let err = decode_module(wasm).expect_err("invalid table limits flag should fail");
 
     match err {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
@@ -1732,7 +1726,7 @@ fn decode_memory_type_error_missing_limits_byte() {
     // Spec 5.3.7 (Limits) and 5.5.8 (Memory Section): limits flag byte is missing.
     let wasm = File::open("tests/fixtures/malformed/memory_section_missing_limits.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing limits should fail");
+    let err = decode_module(wasm).expect_err("missing limits should fail");
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
@@ -1756,7 +1750,7 @@ fn decode_memory_type_error_unexpected_max_limit_byte() {
     let wasm =
         File::open("tests/fixtures/malformed/memory_section_invalid_limits_flag.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("unexpected limits flag should fail");
+    let err = decode_module(wasm).expect_err("unexpected limits flag should fail");
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
@@ -1778,7 +1772,7 @@ fn decode_memory_type_error_missing_min_limit() {
     // Spec 5.3.7 (Limits) and 5.5.8 (Memory Section): min bound is required; missing.
     let wasm = File::open("tests/fixtures/malformed/memory_section_missing_min.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing min limit should fail");
+    let err = decode_module(wasm).expect_err("missing min limit should fail");
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
@@ -1802,7 +1796,7 @@ fn decode_memory_type_error_missing_max_limit() {
     // Spec 5.3.7 (Limits) and 5.5.8 (Memory Section): max bound is required when flag indicates; missing.
     let wasm = File::open("tests/fixtures/malformed/memory_section_missing_max.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing max limit should fail");
+    let err = decode_module(wasm).expect_err("missing max limit should fail");
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
@@ -1826,7 +1820,7 @@ fn decode_global_type_error_invalid_valtype() {
     // Spec 5.3.10 (Global Types) and 5.3.4 (Value Types): global valtype marker is invalid.
     let wasm = File::open("tests/fixtures/malformed/global_section_invalid_valtype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid global valtype should fail");
+    let err = decode_module(wasm).expect_err("invalid global valtype should fail");
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
@@ -1853,7 +1847,7 @@ fn decode_global_type_error_missing_mutability() {
     let wasm =
         File::open("tests/fixtures/malformed/global_section_missing_mutability.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing mutability should fail");
+    let err = decode_module(wasm).expect_err("missing mutability should fail");
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
@@ -1878,7 +1872,7 @@ fn decode_global_type_error_invalid_mutability() {
     let wasm =
         File::open("tests/fixtures/malformed/global_section_invalid_mutability.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid mutability should fail");
+    let err = decode_module(wasm).expect_err("invalid mutability should fail");
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
@@ -1902,7 +1896,7 @@ fn parse_preamble_error_io() {
     // Spec 5.5.16 (Modules): the preamble (magic + version) is truncated before all 8 bytes.
     let wasm = File::open("tests/fixtures/malformed/preamble_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated preamble should fail");
+    let err = decode_module(wasm).expect_err("truncated preamble should fail");
 
     match err {
         DecodeModuleError::ParsePreamble(ParsePreambleError::Io(io_err)) => {
@@ -1919,7 +1913,7 @@ fn parse_preamble_error_unexpected() {
     // Spec 5.5.16 (Modules): the preamble magic/version bytes do not match the required values.
     let wasm = File::open("tests/fixtures/malformed/preamble_unexpected.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("wrong preamble should fail");
+    let err = decode_module(wasm).expect_err("wrong preamble should fail");
 
     match err {
         DecodeModuleError::ParsePreamble(ParsePreambleError::Unexpected(bytes)) => {
@@ -1936,7 +1930,7 @@ fn decode_section_header_error_invalid_section_id() {
     // Spec 5.5.2 (Sections): section id must be one of the defined values; this id is invalid.
     let wasm = File::open("tests/fixtures/malformed/invalid_section_id.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid section id should fail");
+    let err = decode_module(wasm).expect_err("invalid section id should fail");
 
     match err {
         DecodeModuleError::DecodeSectionHeader(DecodeSectionHeaderError::InvalidSectionId(err)) => {
@@ -1953,7 +1947,7 @@ fn decode_module_section_out_of_order() {
     // Spec 5.5.16 (Modules): non-custom sections must appear in the prescribed order; this module is out of order.
     let wasm = File::open("tests/fixtures/malformed/section_out_of_order.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("out-of-order sections should fail");
+    let err = decode_module(wasm).expect_err("out-of-order sections should fail");
 
     match err {
         DecodeModuleError::SectionOutOfOrder { current, previous } => {
@@ -1971,7 +1965,7 @@ fn decode_module_duplicate_section() {
     // Spec 5.5.16 (Modules): non-custom sections occur at most once; type section is duplicated.
     let wasm = File::open("tests/fixtures/malformed/duplicate_type_section.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("duplicate type section should fail");
+    let err = decode_module(wasm).expect_err("duplicate type section should fail");
 
     match err {
         DecodeModuleError::DuplicateSection(kind) => assert_eq!(kind, SectionKind::Type),
@@ -1986,7 +1980,7 @@ fn decode_module_section_size_mismatch() {
     // Spec 5.5.2 (Sections): section payload length must match declared size; type section mismatches.
     let wasm = File::open("tests/fixtures/malformed/type_section_size_mismatch.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("section size mismatch should fail");
+    let err = decode_module(wasm).expect_err("section size mismatch should fail");
 
     match err {
         DecodeModuleError::SectionSizeMismatch {
@@ -2008,7 +2002,7 @@ fn decode_module_code_func_entries_len_mismatch() {
     // Spec 5.5.16 (Modules): function and code section vector lengths must match; funcs=1, codes=0.
     let wasm = File::open("tests/fixtures/malformed/code_func_len_mismatch.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("function/code length mismatch should fail");
+    let err = decode_module(wasm).expect_err("function/code length mismatch should fail");
 
     match err {
         DecodeModuleError::CodeFuncEntriesLenMismatch {
@@ -2029,7 +2023,7 @@ fn decode_module_data_count_mismatch() {
     // Spec 5.5.15 (Data Count Section) and 5.5.16 (Modules): data count must equal data segment count; mismatch.
     let wasm = File::open("tests/fixtures/malformed/data_count_mismatch.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("data count mismatch should fail");
+    let err = decode_module(wasm).expect_err("data count mismatch should fail");
 
     match err {
         DecodeModuleError::DataCountMismatch {
@@ -2050,7 +2044,7 @@ fn decode_module_data_count_datas_len_mismatch() {
     // Spec 5.5.15 (Data Count Section) and 5.5.16 (Modules): data count must equal data segment count; mismatch.
     let wasm = File::open("tests/fixtures/malformed/data_count_datas_len_mismatch.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("data count datas len mismatch should fail");
+    let err = decode_module(wasm).expect_err("data count datas len mismatch should fail");
 
     match err {
         DecodeModuleError::DataCountDatasLenMismatch {
@@ -2071,7 +2065,7 @@ fn decode_module_data_index_without_data_count() {
     // Spec 5.5.16 (Modules): a data count section is required if data indices are used (memory.init/data.drop).
     let wasm = File::open("tests/fixtures/malformed/data_index_without_data_count.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("data index without data count should fail");
+    let err = decode_module(wasm).expect_err("data index without data count should fail");
 
     match err {
         DecodeModuleError::DataIndexWithoutDataCount => {}
@@ -2086,7 +2080,7 @@ fn decode_custom_section_error_decode_name_length() {
     // Spec 5.2.4 (Names): name length is a u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/custom_name_length_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong custom name length should fail");
+    let err = decode_module(wasm).expect_err("overlong custom name length should fail");
 
     match err {
         DecodeModuleError::DecodeCustomSection(DecodeCustomSectionError::DecodeName(
@@ -2105,7 +2099,7 @@ fn decode_custom_section_error_decode_name_truncated() {
     // Spec 5.2.4 (Names): name is length-prefixed; the name bytes are truncated.
     let wasm = File::open("tests/fixtures/malformed/custom_name_truncated_bytes.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated custom name should fail");
+    let err = decode_module(wasm).expect_err("truncated custom name should fail");
 
     match err {
         DecodeModuleError::DecodeCustomSection(DecodeCustomSectionError::DecodeName(
@@ -2122,7 +2116,7 @@ fn decode_custom_section_error_invalid_utf8_name() {
     // Spec 5.2.4 (Names): custom section name bytes must be valid UTF-8; this name is not.
     let wasm = File::open("tests/fixtures/malformed/custom_name_invalid_utf8.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid utf8 in custom name should fail");
+    let err = decode_module(wasm).expect_err("invalid utf8 in custom name should fail");
 
     match err {
         DecodeModuleError::DecodeCustomSection(DecodeCustomSectionError::DecodeName(
@@ -2143,7 +2137,7 @@ fn decode_import_section_error_module_name() {
     // Spec 5.5.5 (Import Section) and 5.2.4 (Names): module name is malformed (length or bytes).
     let wasm = File::open("tests/fixtures/malformed/import_module_name_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid import module name should fail");
+    let err = decode_module(wasm).expect_err("invalid import module name should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2169,7 +2163,7 @@ fn decode_import_section_error_entity_name_utf8() {
     // Spec 5.5.5 (Import Section) and 5.2.4 (Names): import name bytes are not valid UTF-8.
     let wasm = File::open("tests/fixtures/malformed/import_entity_name_utf8_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid import entity name should fail");
+    let err = decode_module(wasm).expect_err("invalid import entity name should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2193,7 +2187,7 @@ fn decode_import_error_descriptor_missing_byte() {
     // Spec 5.5.5 (Import Section): importdesc tag byte is missing.
     let wasm = File::open("tests/fixtures/malformed/import_descriptor_missing_byte.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing import descriptor should fail");
+    let err = decode_module(wasm).expect_err("missing import descriptor should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2213,7 +2207,7 @@ fn decode_import_error_invalid_descriptor() {
     // Spec 5.5.5 (Import Section): importdesc tag must be a defined kind; this value is invalid.
     let wasm = File::open("tests/fixtures/malformed/import_invalid_descriptor.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid import descriptor should fail");
+    let err = decode_module(wasm).expect_err("invalid import descriptor should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2233,12 +2227,13 @@ fn decode_import_error_typeidx_overlong() {
     // Spec 5.5.5 (Import Section) and 5.5.1 (Indices): typeidx is a u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/import_typeidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong import type idx should fail");
+    let err = decode_module(wasm).expect_err("overlong import type idx should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
-                source: DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
+                source:
+                    DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
                 ..
             },
         )) => {}
@@ -2253,7 +2248,7 @@ fn decode_import_error_table_invalid_reftype() {
     // Spec 5.5.5 (Import Section) and 5.3.9 (Table Types): reftype marker is invalid.
     let wasm = File::open("tests/fixtures/malformed/import_table_invalid_reftype.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid import table reftype should fail");
+    let err = decode_module(wasm).expect_err("invalid import table reftype should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2278,7 +2273,7 @@ fn decode_import_error_memory_invalid_limits() {
     // Spec 5.5.5 (Import Section) and 5.3.7 (Limits): memory limits flags or bounds are invalid.
     let wasm = File::open("tests/fixtures/malformed/import_memory_invalid_limits.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid import memory limits should fail");
+    let err = decode_module(wasm).expect_err("invalid import memory limits should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2302,7 +2297,7 @@ fn decode_import_error_global_invalid_mutability() {
     let wasm =
         File::open("tests/fixtures/malformed/import_global_invalid_mutability.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid import global mutability should fail");
+    let err = decode_module(wasm).expect_err("invalid import global mutability should fail");
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
@@ -2325,7 +2320,7 @@ fn decode_export_section_error_name_decode() {
     // Spec 5.5.10 (Export Section) and 5.2.4 (Names): export name is malformed (length or bytes).
     let wasm = File::open("tests/fixtures/malformed/export_name_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid export name should fail");
+    let err = decode_module(wasm).expect_err("invalid export name should fail");
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
@@ -2348,7 +2343,7 @@ fn decode_export_error_descriptor_missing_byte() {
     // Spec 5.5.10 (Export Section): exportdesc tag byte is missing.
     let wasm = File::open("tests/fixtures/malformed/export_descriptor_missing_byte.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing export descriptor should fail");
+    let err = decode_module(wasm).expect_err("missing export descriptor should fail");
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
@@ -2368,7 +2363,7 @@ fn decode_export_error_index_decode() {
     // Spec 5.5.10 (Export Section) and 5.5.1 (Indices): export index is a u32; malformed LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/export_index_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong export index should fail");
+    let err = decode_module(wasm).expect_err("overlong export index should fail");
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
@@ -2391,7 +2386,7 @@ fn decode_export_error_invalid_descriptor() {
     // Spec 5.5.10 (Export Section): exportdesc tag must be a defined kind; this value is invalid.
     let wasm = File::open("tests/fixtures/malformed/export_invalid_descriptor.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid export descriptor should fail");
+    let err = decode_module(wasm).expect_err("invalid export descriptor should fail");
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
@@ -2413,7 +2408,7 @@ fn decode_start_section_error_func_idx() {
     // Spec 5.5.11 (Start Section) and 5.5.1 (Indices): funcidx is a u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/start_section_funcidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong start func idx should fail");
+    let err = decode_module(wasm).expect_err("overlong start func idx should fail");
 
     match err {
         DecodeModuleError::DecodeStartSection(DecodeStartSectionError(DecodeFuncIdxError(
@@ -2431,7 +2426,7 @@ fn decode_code_error_function_size_truncated() {
     let wasm =
         File::open("tests/fixtures/malformed/code_section_function_size_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing code size should fail");
+    let err = decode_module(wasm).expect_err("missing code size should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2461,7 +2456,7 @@ fn decode_code_error_locals_vector_length_overlong() {
         File::open("tests/fixtures/malformed/code_section_locals_vector_length_overlong.wasm")
             .unwrap();
 
-    let err = decode(wasm).expect_err("overlong locals vector length should fail");
+    let err = decode_module(wasm).expect_err("overlong locals vector length should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2485,7 +2480,7 @@ fn decode_code_locals_error_count_out_of_bounds() {
     let wasm = File::open("tests/fixtures/malformed/code_section_locals_count_out_of_bounds.wasm")
         .unwrap();
 
-    let err = decode(wasm).expect_err("too many locals should fail");
+    let err = decode_module(wasm).expect_err("too many locals should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2510,7 +2505,7 @@ fn decode_code_locals_error_decode_count() {
     let wasm =
         File::open("tests/fixtures/malformed/code_section_locals_count_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated locals count should fail");
+    let err = decode_module(wasm).expect_err("truncated locals count should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2535,7 +2530,7 @@ fn decode_code_error_local_valtype_invalid() {
     let wasm =
         File::open("tests/fixtures/malformed/code_section_local_valtype_invalid.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid local valtype should fail");
+    let err = decode_module(wasm).expect_err("invalid local valtype should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2565,7 +2560,7 @@ fn decode_code_error_entry_size_mismatch() {
     let wasm =
         File::open("tests/fixtures/malformed/code_section_entry_size_mismatch.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("entry size mismatch should fail");
+    let err = decode_module(wasm).expect_err("entry size mismatch should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2593,7 +2588,7 @@ fn parse_expression_error_unexpected_else() {
     // Spec 5.4.9 (Expressions): else is only valid inside an if; encountering else here is invalid.
     let wasm = File::open("tests/fixtures/malformed/expression_unexpected_else.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("unexpected else should fail");
+    let err = decode_module(wasm).expect_err("unexpected else should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -2613,7 +2608,7 @@ fn decode_element_section_error_bitfield_decode() {
     // Spec 5.5.12 (Element Section): segment flags are encoded as a u32; malformed LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/element_bitfield_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("element bitfield decode should fail");
+    let err = decode_module(wasm).expect_err("element bitfield decode should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2633,7 +2628,7 @@ fn decode_element_error_invalid_bitfield() {
     // Spec 5.5.12 (Element Section): segment flags must be defined values; this bitfield is invalid.
     let wasm = File::open("tests/fixtures/malformed/element_invalid_bitfield.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid element bitfield should fail");
+    let err = decode_module(wasm).expect_err("invalid element bitfield should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2653,7 +2648,7 @@ fn decode_element_error_offset_expression() {
     // Spec 5.5.12 (Element Section) and 5.4.9 (Expressions): active segment offset expr is missing its opcode.
     let wasm = File::open("tests/fixtures/malformed/element_offset_expr_missing.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing offset expr should fail");
+    let err = decode_module(wasm).expect_err("missing offset expr should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2676,7 +2671,7 @@ fn decode_element_error_elemkind_invalid() {
     // Spec 5.5.12 (Element Section): elemkind must be 0x00 for function elements; this value is invalid.
     let wasm = File::open("tests/fixtures/malformed/element_elemkind_invalid.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid element kind should fail");
+    let err = decode_module(wasm).expect_err("invalid element kind should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2697,7 +2692,7 @@ fn decode_element_error_elemkind_io() {
     // Spec 5.5.12 (Element Section): elemkind byte is required; the byte is missing/truncated.
     let wasm = File::open("tests/fixtures/malformed/element_elemkind_io.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing elemkind byte should fail");
+    let err = decode_module(wasm).expect_err("missing elemkind byte should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2717,7 +2712,7 @@ fn decode_element_error_reference_type_invalid() {
     // Spec 5.5.12 (Element Section) and 5.3.3 (Reference Types): reftype marker is invalid.
     let wasm = File::open("tests/fixtures/malformed/element_reftype_invalid.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid element ref type should fail");
+    let err = decode_module(wasm).expect_err("invalid element ref type should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2740,7 +2735,7 @@ fn decode_element_error_init_decode_length() {
     // Spec 5.5.12 (Element Section): init vector length is a u32; malformed LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/element_init_decode_length.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid element init vector should fail");
+    let err = decode_module(wasm).expect_err("invalid element init vector should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2763,7 +2758,7 @@ fn decode_element_error_funcidx_vector_overlong() {
     // Spec 5.5.12 (Element Section) and 5.1.3 (Vectors): funcidx vector length is overlong LEB128.
     let wasm = File::open("tests/fixtures/malformed/element_funcidx_vector_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong funcidx vector should fail");
+    let err = decode_module(wasm).expect_err("overlong funcidx vector should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2787,12 +2782,13 @@ fn decode_element_error_table_idx_overlong() {
     // Spec 5.5.12 (Element Section) and 5.5.1 (Indices): tableidx is a u32; overlong LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/element_tableidx_overlong.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("overlong table idx should fail");
+    let err = decode_module(wasm).expect_err("overlong table idx should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
-                source: DecodeElementError::DecodeTableIdx(DecodeTableIdxError(DecodeU32Error::TooLarge)),
+                source:
+                    DecodeElementError::DecodeTableIdx(DecodeTableIdxError(DecodeU32Error::TooLarge)),
                 ..
             },
         )) => {}
@@ -2808,7 +2804,7 @@ fn decode_element_error_expression_missing_opcode() {
     let wasm =
         File::open("tests/fixtures/malformed/element_expression_missing_opcode.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing element expression should fail");
+    let err = decode_module(wasm).expect_err("missing element expression should fail");
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
@@ -2831,7 +2827,7 @@ fn decode_data_section_error_bitfield_decode() {
     // Spec 5.5.14 (Data Section): segment flags are encoded as a u32; malformed LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/data_bitfield_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("data bitfield decode should fail");
+    let err = decode_module(wasm).expect_err("data bitfield decode should fail");
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
@@ -2852,7 +2848,7 @@ fn decode_data_section_error_invalid_bitfield() {
     // Spec 5.5.14 (Data Section): segment flags must be one of the defined values; this bitfield is invalid.
     let wasm = File::open("tests/fixtures/malformed/data_invalid_bitfield.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("invalid data bitfield should fail");
+    let err = decode_module(wasm).expect_err("invalid data bitfield should fail");
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
@@ -2872,7 +2868,7 @@ fn decode_data_section_error_offset_expr_missing() {
     // Spec 5.5.14 (Data Section) and 5.4.9 (Expressions): active segments include an offset expr; the opcode is missing.
     let wasm = File::open("tests/fixtures/malformed/data_offset_expr_missing.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing data offset expr should fail");
+    let err = decode_module(wasm).expect_err("missing data offset expr should fail");
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
@@ -2895,7 +2891,7 @@ fn decode_data_section_error_init_vector_truncated() {
     // Spec 5.5.14 (Data Section): init bytes are a length-prefixed byte vector; the payload is truncated.
     let wasm = File::open("tests/fixtures/malformed/data_init_vector_truncated.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("truncated data init vector should fail");
+    let err = decode_module(wasm).expect_err("truncated data init vector should fail");
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
@@ -2918,7 +2914,7 @@ fn decode_datacount_section_error_decode_segment_count() {
     // Spec 5.5.15 (Data Count Section): segment count is a u32; malformed LEB128 violates 5.2.2.
     let wasm = File::open("tests/fixtures/malformed/data_count_decode_error.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("data count decode should fail");
+    let err = decode_module(wasm).expect_err("data count decode should fail");
 
     match err {
         DecodeModuleError::DecodeDatacountSection(
@@ -2938,7 +2934,7 @@ fn decode_global_error_init_missing_expr() {
     let wasm =
         File::open("tests/fixtures/malformed/global_section_init_missing_expr.wasm").unwrap();
 
-    let err = decode(wasm).expect_err("missing global init should fail");
+    let err = decode_module(wasm).expect_err("missing global init should fail");
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(

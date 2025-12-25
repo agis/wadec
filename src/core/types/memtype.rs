@@ -1,4 +1,4 @@
-use crate::types::limits::Limits;
+use crate::core::types::limits::Limits;
 
 /// Memory types classify linear memories and their size range. The limits constrain the
 /// minimum and optionally the maximum size of a memory. The limits are given in units of

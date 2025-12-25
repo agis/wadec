@@ -1,7 +1,7 @@
+use crate::core::types::resulttype::ResultType;
+use crate::core::types::valtype::ValType;
 use crate::decode::helpers::{DecodeVectorError, decode_vector};
 use crate::decode::types::valtype::DecodeValTypeError;
-use crate::types::resulttype::ResultType;
-use crate::types::valtype::ValType;
 use std::io::Read;
 use thiserror::Error;
 

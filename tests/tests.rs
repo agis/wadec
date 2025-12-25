@@ -1,20 +1,9 @@
 use pretty_assertions::assert_eq;
 use std::collections::BTreeSet;
 use std::fs::File;
-use wadec::decode::DecodeVectorError;
-use wadec::decode::sections::{
-    custom::CustomSection,
-    data::{Data, DataMode},
-    element::{Elem, ElemMode},
-    export::{Export, ExportDesc},
-    function::Func,
-    global::Global,
-    import::{Import, ImportDesc},
-    r#type::DecodeTypeSectionError,
-};
-use wadec::decode::types::{DecodeFuncTypeError, DecodeResultTypeError, DecodeValTypeError};
-use wadec::indices::*;
-use wadec::types::{
+use wadec::core::indices::*;
+use wadec::core::instruction::{BlockType, Instruction, Memarg};
+use wadec::core::types::{
     functype::FuncType,
     globaltype::{GlobalType, Mut},
     limits::Limits,
@@ -24,23 +13,34 @@ use wadec::types::{
     tabletype::TableType,
     valtype::ValType,
 };
-use wadec::*;
+use wadec::core::{SectionHeader, SectionKind};
+use wadec::decode::sections::{
+    custom::CustomSection,
+    data::{Data, DataMode},
+    element::{Elem, ElemMode},
+    export::{Export, ExportDesc},
+    function::Func,
+    global::Global,
+    import::{Import, ImportDesc},
+};
+use wadec::decode_errors::*;
+use wadec::{Module, decode_module};
 
 #[allow(dead_code)]
 #[test]
 fn it_parses_preamble() {
     let mut input: &[u8] = &[];
-    assert!(decode(input).is_err());
+    assert!(decode_module(input).is_err());
 
     input = &[0xD3, 0xAD, 0xBE, 0xEF];
-    assert!(decode(input).is_err());
+    assert!(decode_module(input).is_err());
 
     input = &[0xD3, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00];
-    assert!(decode(input).is_err());
+    assert!(decode_module(input).is_err());
 
     // just the preamble
     input = &[0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00];
-    assert_eq!(decode(input).unwrap(), Module::default());
+    assert_eq!(decode_module(input).unwrap(), Module::default());
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn it_accepts_empty_module() {
     // (module)
     let f = File::open("./tests/fixtures/empty.wasm").unwrap();
 
-    assert_eq!(decode(f).unwrap(), Module::default(),)
+    assert_eq!(decode_module(f).unwrap(), Module::default(),)
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn it_accepts_add_sample() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -175,7 +175,7 @@ fn it_accepts_two_funcs_exporting_second() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -225,7 +225,7 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
     ];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds: vec![SectionKind::Import],
             section_headers,
@@ -273,7 +273,7 @@ fn it_accepts_module_without_exports() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -325,7 +325,7 @@ fn it_decodes_start_section() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -448,7 +448,7 @@ fn it_decodes_control_instructions() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -617,7 +617,7 @@ fn it_decodes_element_section_all_alts() {
     ];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -710,7 +710,7 @@ fn it_decodes_reference_instructions() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -790,7 +790,7 @@ fn it_decodes_variable_instructions() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -865,7 +865,7 @@ fn it_decodes_parametric_instructions() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -998,7 +998,7 @@ fn it_decodes_table_instructions() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -1263,7 +1263,7 @@ fn it_decodes_memory_instructions() {
     ];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -1330,7 +1330,7 @@ fn it_accepts_export_with_locals() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -1474,7 +1474,7 @@ fn it_accepts_foo() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -1651,7 +1651,7 @@ fn it_accepts_kitchensink() {
     ];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -1709,7 +1709,7 @@ fn it_decodes_data_section_multiple_segments() {
     ];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds,
             section_headers,
@@ -1724,7 +1724,7 @@ fn it_decodes_data_section_multiple_segments() {
 fn it_decodes_numeric_instructions() {
     let f = File::open("./tests/fixtures/numeric_instructions.wasm").unwrap();
 
-    let module = decode(f).unwrap();
+    let module = decode_module(f).unwrap();
     let mut seen = BTreeSet::new();
 
     for func in &module.funcs {
@@ -2307,7 +2307,7 @@ fn it_decodes_numeric_instructions() {
 fn it_decodes_vector_instructions() {
     let f = File::open("./tests/fixtures/vector_instructions.wasm").unwrap();
 
-    let module = decode(f).unwrap();
+    let module = decode_module(f).unwrap();
 
     assert_eq!(
         module.parsed_section_kinds,
@@ -2442,7 +2442,7 @@ fn it_respects_mem_limits() {
     }];
 
     assert_eq!(
-        decode(f).unwrap(),
+        decode_module(f).unwrap(),
         Module {
             parsed_section_kinds: vec![SectionKind::Memory],
             section_headers,
@@ -2455,29 +2455,29 @@ fn it_respects_mem_limits() {
 #[test]
 fn it_fails_on_code_size_mismatch() {
     let f = File::open("tests/fixtures/code_section_size_underreported.wasm").unwrap();
-    assert!(decode(f).is_err());
+    assert!(decode_module(f).is_err());
 
     let f = File::open("tests/fixtures/custom_section_size_overreported.wasm").unwrap();
-    assert!(decode(f).is_err())
+    assert!(decode_module(f).is_err())
 }
 
 #[test]
 fn it_fails_on_code_entry_size_mismatch() {
     let f = File::open("tests/fixtures/code_entry_size_overreported.wasm").unwrap();
-    assert!(decode(f).is_err());
+    assert!(decode_module(f).is_err());
 }
 
 #[test]
 fn it_enforces_section_ordering() {
     let f = File::open("tests/fixtures/invalid_section_order.wasm").unwrap();
-    assert!(decode(f).is_err());
+    assert!(decode_module(f).is_err());
 }
 
 #[test]
 fn it_surfaces_vector_element_index_on_type_decode_failure() {
     let f = File::open("tests/fixtures/type_section_invalid_functype.wasm").unwrap();
 
-    let err = decode(f).expect_err("type section should fail on bad functype marker");
+    let err = decode_module(f).expect_err("type section should fail on bad functype marker");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -2500,7 +2500,7 @@ fn it_surfaces_vector_element_index_on_type_decode_failure() {
 fn it_surfaces_invalid_valtype_marker() {
     let f = File::open("tests/fixtures/type_section_invalid_valtype_marker.wasm").unwrap();
 
-    let err = decode(f).expect_err("type section should fail on bad value type marker");
+    let err = decode_module(f).expect_err("type section should fail on bad value type marker");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
@@ -2537,7 +2537,7 @@ fn it_rejects_overlong_type_index_encoding() {
         0x80, 0x80, 0x80, 0x80, 0x80, // overlong type index encoding
     ];
 
-    let err = decode(module).expect_err("module should fail while reading type index");
+    let err = decode_module(module).expect_err("module should fail while reading type index");
 
     assert!(matches!(err, DecodeModuleError::DecodeFunctionSection(_)));
 }

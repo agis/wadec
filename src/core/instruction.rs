@@ -1,8 +1,8 @@
 //! WebAssembly instruction types.
 //!
 //! <https://www.w3.org/TR/wasm-core-2/#instructions>
-use crate::indices;
-use crate::types::{reftype::RefType, valtype::ValType};
+use crate::core::indices;
+use crate::core::types::{reftype::RefType, valtype::ValType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {

@@ -1,6 +1,6 @@
+use crate::core::types::memtype::MemType;
 use crate::decode::helpers::{DecodeVectorError, decode_vector};
 use crate::decode::types::{DecodeMemoryTypeError, memtype::parse_memtype};
-use crate::types::memtype::MemType;
 use std::io::Read;
 use thiserror::Error;
 

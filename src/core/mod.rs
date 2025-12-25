@@ -4,5 +4,6 @@ pub mod instruction;
 mod module;
 pub mod types;
 
+use instruction::Instruction;
 pub use module::{Module, SectionHeader, SectionKind};
-pub(crate) type Expr = Vec<instruction::Instruction>;
+pub(crate) type Expr = Vec<Instruction>;

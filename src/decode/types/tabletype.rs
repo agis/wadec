@@ -1,8 +1,8 @@
+use crate::core::types::reftype::RefType;
+use crate::core::types::tabletype::TableType;
 use crate::decode::types::limits::ParseLimitsError;
 use crate::decode::types::limits::parse_limits;
 use crate::decode::types::reftype::DecodeRefTypeError;
-use crate::types::reftype::RefType;
-use crate::types::tabletype::TableType;
 use std::io::Read;
 use thiserror::Error;
 

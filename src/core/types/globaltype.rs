@@ -1,4 +1,4 @@
-use crate::types::valtype::ValType;
+use crate::core::types::valtype::ValType;
 
 /// Global types classify global variables, which hold a value and can either be mutable or
 /// immutable.

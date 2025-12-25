@@ -1,11 +1,11 @@
+use crate::core::indices::TypeIdx;
+use crate::core::types::globaltype::GlobalType;
+use crate::core::types::memtype::MemType;
+use crate::core::types::tabletype::TableType;
 use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
 use crate::decode::indices::DecodeTypeIdxError;
 use crate::decode::types::memtype::parse_memtype;
 use crate::decode::types::{DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeTableError};
-use crate::indices::TypeIdx;
-use crate::types::globaltype::GlobalType;
-use crate::types::memtype::MemType;
-use crate::types::tabletype::TableType;
 use std::io;
 use std::io::Read;
 use thiserror::Error;

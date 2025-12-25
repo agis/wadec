@@ -1,5 +1,5 @@
+use crate::core::types::memtype::MemType;
 use crate::decode::types::limits::{ParseLimitsError, parse_limits};
-use crate::types::memtype::MemType;
 use std::io::Read;
 use thiserror::Error;
 

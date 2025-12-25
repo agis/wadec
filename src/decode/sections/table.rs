@@ -1,6 +1,6 @@
+use crate::core::types::tabletype::TableType;
 use crate::decode::helpers::{DecodeVectorError, decode_vector};
 use crate::decode::types::DecodeTableError;
-use crate::types::tabletype::TableType;
 use std::io::Read;
 use thiserror::Error;
 

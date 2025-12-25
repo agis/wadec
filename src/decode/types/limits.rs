@@ -1,5 +1,5 @@
+use crate::core::types::limits::Limits;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
-use crate::types::limits::Limits;
 use std::io::Read;
 use thiserror::Error;
 

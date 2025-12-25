@@ -1,5 +1,5 @@
-use crate::types::limits::Limits;
-use crate::types::reftype::RefType;
+use crate::core::types::limits::Limits;
+use crate::core::types::reftype::RefType;
 
 /// Table types classify tables over elements of reference type within a size range. Like
 /// memories, tables are constrained by limits for their minimum and optionally maximum

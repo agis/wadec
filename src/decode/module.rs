@@ -1,10 +1,10 @@
 use crate::core::instruction::Instruction;
+use crate::core::{Module, SectionHeader, SectionKind};
 use crate::decode::FromMarkerByte;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::read_byte;
 use crate::decode::sections::function::Func;
 use crate::decode::sections::*;
-use crate::{Module, SectionHeader, SectionKind};
 use phf::phf_ordered_map;
 use std::io::{self, Read};
 use thiserror::Error;
@@ -197,7 +197,7 @@ pub enum DecodeModuleError {
 }
 
 /// Decode `input` into a WebAssembly [Module].
-pub fn decode(mut input: impl Read) -> Result<Module, DecodeModuleError> {
+pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> {
     parse_preamble(&mut input)?;
 
     let mut module = Module {

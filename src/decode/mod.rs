@@ -13,7 +13,8 @@ pub use helpers::{
     DecodeVectorError, ParseExpressionError,
 };
 pub use module::{
-    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError, decode,
+    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError,
+    decode_module,
 };
 
 pub(crate) trait FromMarkerByte

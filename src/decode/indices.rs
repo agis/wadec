@@ -2,10 +2,10 @@
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
 
-use crate::decode::integer::{DecodeU32Error, decode_u32};
-use crate::indices::{
+use crate::core::indices::{
     DataIdx, ElemIdx, FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx,
 };
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 

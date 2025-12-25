@@ -1,6 +1,6 @@
-use crate::types::numtype::NumType;
-use crate::types::reftype::RefType;
-use crate::types::vectype::VecType;
+use crate::core::types::numtype::NumType;
+use crate::core::types::reftype::RefType;
+use crate::core::types::vectype::VecType;
 
 /// Value types classify the individual values that WebAssembly code can compute with and
 /// the values that a variable accepts. They are either number types, vector types, or

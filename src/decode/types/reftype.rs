@@ -1,6 +1,6 @@
+use crate::core::types::reftype::RefType;
 use crate::decode::FromMarkerByte;
 use crate::read_byte;
-use crate::types::reftype::RefType;
 use phf::phf_ordered_map;
 use std::io::{self, Read};
 use thiserror::Error;

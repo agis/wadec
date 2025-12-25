@@ -1,6 +1,6 @@
+use crate::core::types::functype::FuncType;
 use crate::decode::types::resulttype::{DecodeResultTypeError, decode_result_type};
 use crate::read_byte;
-use crate::types::functype::FuncType;
 use std::io::{self, Read};
 use thiserror::Error;
 

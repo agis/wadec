@@ -5,7 +5,7 @@ use std::fs;
 use std::fs::File;
 use std::io::{self, Write};
 use std::process::Command;
-use wadec::*;
+use wadec::decode_module;
 
 // Contains fixtures (.wasm and .json files) generated via
 // `wasm-tools json-from-wast` from the upstream spec suite.
@@ -122,7 +122,7 @@ impl Assertion {
                 if Self::EXCLUDED.contains(&filename.as_str()) {
                     return Ok(());
                 }
-                match decode(File::open(resolve_fixture(filename)).expect(filename)) {
+                match decode_module(File::open(resolve_fixture(filename)).expect(filename)) {
                     Ok(_) => Ok(()),
                     Err(e) => bail!("expected {filename} to be considered well-formed; got: {e}"),
                 }
@@ -131,7 +131,7 @@ impl Assertion {
                 if Self::EXCLUDED.contains(&filename.as_str()) {
                     return Ok(());
                 }
-                if decode(File::open(resolve_fixture(filename)).expect(filename)).is_ok() {
+                if decode_module(File::open(resolve_fixture(filename)).expect(filename)).is_ok() {
                     bail!("expected {} to be malformed", filename);
                 }
                 Ok(())

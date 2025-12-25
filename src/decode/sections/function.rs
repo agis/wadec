@@ -1,8 +1,8 @@
 use crate::Expr;
+use crate::core::indices::TypeIdx;
+use crate::core::types::valtype::ValType;
 use crate::decode::helpers::{DecodeVectorError, decode_vector};
 use crate::decode::indices::DecodeTypeIdxError;
-use crate::indices::TypeIdx;
-use crate::types::valtype::ValType;
 use std::io::Read;
 use thiserror::Error;
 

@@ -1,4 +1,4 @@
-use crate::types::valtype::ValType;
+use crate::core::types::valtype::ValType;
 
 /// Function types classify the signature of functions, mapping a vector of parameters to a vector
 /// of results. They are also used to classify the inputs and outputs of instructions.

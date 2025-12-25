@@ -1,7 +1,7 @@
 use crate::Expr;
+use crate::core::types::globaltype::GlobalType;
 use crate::decode::helpers::{DecodeVectorError, ParseExpressionError, decode_expr, decode_vector};
 use crate::decode::types::DecodeGlobalTypeError;
-use crate::types::globaltype::GlobalType;
 use std::io::Read;
 use thiserror::Error;
 

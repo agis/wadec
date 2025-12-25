@@ -1,5 +1,5 @@
+use crate::core::indices::FuncIdx;
 use crate::decode::indices::DecodeFuncIdxError;
-use crate::indices::FuncIdx;
 use std::io::Read;
 use thiserror::Error;
 

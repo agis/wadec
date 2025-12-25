@@ -1,9 +1,9 @@
+use crate::core::types::numtype::NumType;
+use crate::core::types::reftype::RefType;
+use crate::core::types::valtype::ValType;
+use crate::core::types::vectype::VecType;
 use crate::decode::FromMarkerByte;
 use crate::read_byte;
-use crate::types::numtype::NumType;
-use crate::types::reftype::RefType;
-use crate::types::valtype::ValType;
-use crate::types::vectype::VecType;
 use phf::phf_ordered_map;
 use std::io::{self, Read};
 use thiserror::Error;

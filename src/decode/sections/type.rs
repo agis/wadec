@@ -1,6 +1,6 @@
+use crate::core::types::functype::FuncType;
 use crate::decode::helpers::{DecodeVectorError, decode_vector};
 use crate::decode::types::DecodeFuncTypeError;
-use crate::types::functype::FuncType;
 use std::io::Read;
 use thiserror::Error;
 
