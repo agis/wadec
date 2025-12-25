@@ -2,29 +2,11 @@ use pretty_assertions::assert_eq;
 use std::collections::BTreeSet;
 use std::fs::File;
 use wadec::core::indices::*;
-use wadec::core::instruction::{BlockType, Instruction, Memarg};
-use wadec::core::types::{
-    functype::FuncType,
-    globaltype::{GlobalType, Mut},
-    limits::Limits,
-    memtype::MemType,
-    numtype::NumType,
-    reftype::RefType,
-    tabletype::TableType,
-    valtype::ValType,
-};
-use wadec::core::{SectionHeader, SectionKind};
-use wadec::decode::sections::{
-    custom::CustomSection,
-    data::{Data, DataMode},
-    element::{Elem, ElemMode},
-    export::{Export, ExportDesc},
-    function::Func,
-    global::Global,
-    import::{Import, ImportDesc},
-};
+use wadec::core::instruction::*;
+use wadec::core::types::*;
+use wadec::core::*;
 use wadec::decode_errors::*;
-use wadec::{Module, decode_module};
+use wadec::*;
 
 #[allow(dead_code)]
 #[test]

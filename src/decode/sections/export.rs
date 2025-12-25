@@ -1,23 +1,11 @@
 use crate::core::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx};
+use crate::core::{Export, ExportDesc};
 use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::read_byte;
 use std::io;
 use std::io::Read;
 use thiserror::Error;
-
-/// The exports component of a module defines a set of exports that become accessible to the
-/// host environment once the module has been instantiated. Each export is labeled by a
-/// unique name. Exportable definitions are functions, tables, memories, and globals, which
-/// are referenced through a respective descriptor.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#exports>
-/// <https://www.w3.org/TR/wasm-core-2/#export-section>
-#[derive(Debug, PartialEq)]
-pub struct Export {
-    pub name: String,
-    pub desc: ExportDesc,
-}
 
 #[derive(Debug, Error)]
 pub enum DecodeExportSectionError {
@@ -29,14 +17,6 @@ pub(crate) fn decode_export_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Export>, DecodeExportSectionError> {
     Ok(decode_vector(reader, parse_export)?)
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ExportDesc {
-    Func(FuncIdx),
-    Table(TableIdx),
-    Mem(MemIdx),
-    Global(GlobalIdx),
 }
 
 #[derive(Debug, Error)]

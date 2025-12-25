@@ -3,7 +3,7 @@ use crate::core::{Module, SectionHeader, SectionKind};
 use crate::decode::FromMarkerByte;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::read_byte;
-use crate::decode::sections::function::Func;
+use crate::core::Func;
 use crate::decode::sections::*;
 use phf::phf_ordered_map;
 use std::io::{self, Read};

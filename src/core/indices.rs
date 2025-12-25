@@ -1,4 +1,4 @@
-//! Types for WebAssembly indices.
+//! Type definitions for WebAssembly indices.
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
 

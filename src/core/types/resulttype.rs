@@ -1,4 +1,4 @@
-use crate::core::types::valtype::ValType;
+use super::ValType;
 
 /// Result types classify the result of executing instructions or functions,
 /// which is a sequence of values, written with brackets.

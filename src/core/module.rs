@@ -1,9 +1,8 @@
-use super::types::{functype::FuncType, memtype::MemType, tabletype::TableType};
+//! Type definitions for WebAssembly modules.
+use super::types::{FuncType, MemType, TableType};
+use super::{Data, Elem, Export, Func, Global, Import};
 use crate::core::custom_section::CustomSection;
 use crate::core::indices::FuncIdx;
-use crate::decode::sections::{
-    data::Data, element::Elem, export::Export, function::Func, global::Global, import::Import,
-};
 
 /// WebAssembly programs are organized into modules, which are the unit of deployment,
 /// loading, and compilation. A module collects definitions for types, functions, tables,

@@ -1,6 +1,6 @@
 use crate::core::indices::TypeIdx;
+use crate::core::{Import, ImportDesc};
 use crate::core::types::globaltype::GlobalType;
-use crate::core::types::memtype::MemType;
 use crate::core::types::tabletype::TableType;
 use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
 use crate::decode::indices::DecodeTypeIdxError;
@@ -9,24 +9,6 @@ use crate::decode::types::{DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeT
 use std::io;
 use std::io::Read;
 use thiserror::Error;
-
-/// The imports component of a module defines a set of imports that are required for
-/// instantiation. Each import is labeled by a two-level name space, consisting of a module
-/// name and a name for an entity within that module. Importable definitions are functions,
-/// tables, memories, and globals. Each import is specified by a descriptor with a
-/// respective type that a definition provided during instantiation is required to match.
-/// Every import defines an index in the respective index space. In each index space, the
-/// indices of imports go before the first index of any definition contained in the module
-/// itself.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#imports>
-/// <https://www.w3.org/TR/wasm-core-2/#import-section>
-#[derive(Debug, PartialEq)]
-pub struct Import {
-    pub module: String,
-    pub name: String,
-    pub desc: ImportDesc,
-}
 
 #[derive(Debug, Error)]
 pub enum DecodeImportSectionError {
@@ -38,14 +20,6 @@ pub(crate) fn decode_import_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Import>, DecodeImportSectionError> {
     Ok(decode_vector(reader, parse_import)?)
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ImportDesc {
-    Type(TypeIdx),
-    Table(TableType),
-    Mem(MemType),
-    Global(GlobalType),
 }
 
 #[derive(Debug, Error)]

@@ -1,5 +1,5 @@
-use crate::Expr;
 use crate::core::indices::MemIdx;
+use crate::core::{Data, DataMode};
 use crate::decode::helpers::{
     DecodeByteVectorError, DecodeVectorError, ParseExpressionError, decode_byte_vector,
     decode_expr, decode_vector,
@@ -19,29 +19,6 @@ pub(crate) fn decode_data_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Data>, DecodeDataSectionError> {
     Ok(decode_vector(reader, parse_data)?)
-}
-
-/// The initial contents of a memory are zero bytes. Data segments can be used to initialize
-/// a range of memory from a static vector of bytes. The datas component of a module
-/// defines a vector of data segments. Like element segments, data segments have a mode
-/// that identifies them as either passive or active. A passive data segment's contents can
-/// be copied into a memory using the memory.init instruction. An active data segment
-/// copies its contents into a memory during instantiation, as specified by a memory index
-/// and a constant expression defining an offset into that memory. Data segments are
-/// referenced through data indices.
-///
-/// <https://www.w3.org/TR/wasm-core-2/#data-segments>
-/// <https://www.w3.org/TR/wasm-core-2/#data-section>
-#[derive(Debug, PartialEq)]
-pub struct Data {
-    pub init: Vec<u8>,
-    pub mode: DataMode,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DataMode {
-    Passive,
-    Active { memory: MemIdx, offset: Expr },
 }
 
 #[derive(Debug, Error)]
