@@ -20,7 +20,7 @@ pub struct Cli {
 fn main() {
     let cli = Cli::parse();
     let input = cli.input.open().unwrap_or_else(|e| abort(&cli, e));
-    let module = wadec::decode(input).unwrap_or_else(|e| abort(&cli, e));
+    let module = wadec::decode_module(input).unwrap_or_else(|e| abort(&cli, e));
 
     if cli.verbose {
         println!("{module:#?}");
