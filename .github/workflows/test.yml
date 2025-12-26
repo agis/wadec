@@ -1,0 +1,25 @@
+name: Build & test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+  # Make sure CI fails on all warnings, including Clippy lints
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - run: cargo install wasm-tools --locked
+      - run: cargo build --workspace
+      - run: cargo clippy --all-targets --all-features --workspace
+      - run: cargo test --workspace
