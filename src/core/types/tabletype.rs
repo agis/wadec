@@ -1,7 +1,7 @@
 use super::limits::Limits;
 use super::reftype::RefType;
-use crate::core::indices::TableIdx;
 use crate::Expr;
+use crate::core::indices::TableIdx;
 
 /// Table types classify tables over elements of reference type within a size range. Like
 /// memories, tables are constrained by limits for their minimum and optionally maximum

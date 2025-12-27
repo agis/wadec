@@ -1,7 +1,7 @@
 use crate::core::indices::TypeIdx;
-use crate::core::{Import, ImportDesc};
 use crate::core::types::globaltype::GlobalType;
 use crate::core::types::tabletype::TableType;
+use crate::core::{Import, ImportDesc};
 use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
 use crate::decode::indices::DecodeTypeIdxError;
 use crate::decode::types::memtype::parse_memtype;

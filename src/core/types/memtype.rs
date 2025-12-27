@@ -1,6 +1,6 @@
 use super::Limits;
-use crate::core::indices::MemIdx;
 use crate::Expr;
+use crate::core::indices::MemIdx;
 
 /// Memory types classify linear memories and their size range. The limits constrain the
 /// minimum and optionally the maximum size of a memory. The limits are given in units of

@@ -2272,8 +2272,7 @@ fn it_rejects_overlong_type_index_encoding() {
         DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
                 position,
-                source:
-                    DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
+                source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
             },
         )) => {
             assert_eq!(position, 0);
