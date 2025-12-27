@@ -12,13 +12,31 @@ use wadec::*;
 #[test]
 fn it_parses_preamble() {
     let mut input: &[u8] = &[];
-    assert!(decode_module(input).is_err());
+    let err = decode_module(input).expect_err("empty input should fail");
+    match err {
+        DecodeModuleError::ParsePreamble(ParsePreambleError::Io(io_err)) => {
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 
     input = &[0xD3, 0xAD, 0xBE, 0xEF];
-    assert!(decode_module(input).is_err());
+    let err = decode_module(input).expect_err("short preamble should fail");
+    match err {
+        DecodeModuleError::ParsePreamble(ParsePreambleError::Io(io_err)) => {
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 
     input = &[0xD3, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00];
-    assert!(decode_module(input).is_err());
+    let err = decode_module(input).expect_err("wrong preamble should fail");
+    match err {
+        DecodeModuleError::ParsePreamble(ParsePreambleError::Unexpected(preamble)) => {
+            assert_eq!(preamble, [0xD3, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00]);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 
     // just the preamble
     input = &[0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00];
@@ -2197,10 +2215,37 @@ fn it_respects_mem_limits() {
 #[test]
 fn it_fails_on_code_size_mismatch() {
     let f = File::open("tests/fixtures/code_section_size_underreported.wasm").unwrap();
-    assert!(decode_module(f).is_err());
+    let err = decode_module(f).expect_err("underreported code section should fail");
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeVectorError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::ReadOpcode(io_err),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 
     let f = File::open("tests/fixtures/custom_section_size_overreported.wasm").unwrap();
-    assert!(decode_module(f).is_err())
+    let err = decode_module(f).expect_err("overreported custom section should fail");
+    match err {
+        DecodeModuleError::SectionSizeMismatch {
+            section_kind,
+            declared,
+            got,
+        } => {
+            assert_eq!(section_kind, SectionKind::Custom);
+            assert_eq!(declared, 5);
+            assert_eq!(got, 3);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
@@ -2223,5 +2268,16 @@ fn it_rejects_overlong_type_index_encoding() {
 
     let err = decode_module(module).expect_err("module should fail while reading type index");
 
-    assert!(matches!(err, DecodeModuleError::DecodeFunctionSection(_)));
+    match err {
+        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
+            DecodeVectorError::ParseElement {
+                position,
+                source:
+                    DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }

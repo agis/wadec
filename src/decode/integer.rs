@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn read_u32_rejects_payload_bits_in_last_byte() {
         let err = read_u32_from(vec![0xFF, 0xFF, 0xFF, 0xFF, 0x10]).unwrap_err();
-        matches!(err, DecodeU32Error::TooLarge);
+        assert!(matches!(err, DecodeU32Error::TooLarge));
     }
 
     #[test]
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn read_u32_rejects_representation_too_long() {
         let err = read_u32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
-        matches!(err, DecodeU32Error::RepresentationTooLong);
+        assert!(matches!(err, DecodeU32Error::RepresentationTooLong));
     }
 
     #[test]
@@ -238,20 +238,20 @@ mod tests {
     fn read_i32_rejects_out_of_range_positive() {
         let bytes = encode_sleb64(i64::from(i32::MAX) + 1);
         let err = read_i32_from(bytes).unwrap_err();
-        matches!(err, DecodeI32Error::TooLarge);
+        assert!(matches!(err, DecodeI32Error::TooLarge));
     }
 
     #[test]
     fn read_i32_rejects_out_of_range_negative() {
         let bytes = encode_sleb64(i64::from(i32::MIN) - 1);
         let err = read_i32_from(bytes).unwrap_err();
-        matches!(err, DecodeI32Error::TooLarge);
+        assert!(matches!(err, DecodeI32Error::TooLarge));
     }
 
     #[test]
     fn read_i32_rejects_representation_too_long() {
         let err = read_i32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
-        matches!(err, DecodeI32Error::RepresentationTooLong);
+        assert!(matches!(err, DecodeI32Error::RepresentationTooLong));
     }
 
     #[test]
@@ -279,7 +279,7 @@ mod tests {
         let last = bytes.last_mut().unwrap();
         *last &= !0x01; // flip one of the padding bits
         let err = read_i64_from(bytes).unwrap_err();
-        matches!(err, DecodeI64Error::IncorrectSignExtension);
+        assert!(matches!(err, DecodeI64Error::IncorrectSignExtension));
     }
 
     #[test]
@@ -287,13 +287,13 @@ mod tests {
         let mut bytes = vec![0x80; 9];
         bytes.push(0x02);
         let err = read_i64_from(bytes).unwrap_err();
-        matches!(err, DecodeI64Error::IncorrectSignExtension);
+        assert!(matches!(err, DecodeI64Error::IncorrectSignExtension));
     }
 
     #[test]
     fn read_i64_rejects_representation_too_long() {
         let err = read_i64_from(vec![0x80; 10]).unwrap_err();
-        matches!(err, DecodeI64Error::IncorrectSignExtension);
+        assert!(matches!(err, DecodeI64Error::RepresentationTooLong));
     }
 
     #[test]

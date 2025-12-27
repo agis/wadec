@@ -239,13 +239,14 @@ fn parse_error_read_opcode() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::ReadOpcode(io_err),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -265,15 +266,17 @@ fn parse_error_control() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::LabelIdx(DecodeLabelIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -291,15 +294,18 @@ fn parse_error_reference() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Reference(ReferenceError::RefType(
                             DecodeRefTypeError::InvalidMarkerByte(err),
                         )),
                     )),
-                ..
             },
-        )) => assert_eq!(err.0, 0x00),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(err.0, 0x00);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -317,6 +323,7 @@ fn parse_error_parametric() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Parametric(ParametricError::DecodeVector(
@@ -326,9 +333,9 @@ fn parse_error_parametric() {
                             },
                         )),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(vec_pos, 0);
             assert_eq!(err.0, 0xFF);
         }
@@ -349,15 +356,18 @@ fn parse_error_variable() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Variable(VariableError::GlobalIdx(DecodeGlobalIdxError(
                             DecodeU32Error::Io(io_err),
                         ))),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -375,15 +385,17 @@ fn parse_error_table() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Table(TableError::TableIdx(DecodeTableIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -401,13 +413,16 @@ fn parse_error_memory() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Memory(MemoryError::InvalidMemorySizeByte(b)),
                     )),
-                ..
             },
-        )) => assert_eq!(b, 0x01),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(b, 0x01);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -425,15 +440,18 @@ fn parse_error_numeric() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Numeric(NumericError::DecodeF32(
                             DecodeFloat32Error::ReadPayload(io_err),
                         )),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -451,13 +469,16 @@ fn parse_error_vector() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::InvalidOpcode(op)),
                     )),
-                ..
             },
-        )) => assert_eq!(op, 65535),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(op, 65535);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -475,13 +496,15 @@ fn parse_error_invalid_opcode() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::InvalidOpcode(0xFF),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -499,13 +522,14 @@ fn parse_error_invalid_marker_after_fc() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::InvalidMarkerByteAfterFC(op),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(op, 0xFF);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -526,6 +550,7 @@ fn control_error_decode_label_idx_vector() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::DecodeLabelIdxVector(
@@ -535,9 +560,9 @@ fn control_error_decode_label_idx_vector() {
                             },
                         )),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(vec_pos, 0);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -557,15 +582,17 @@ fn control_error_table_idx() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::TableIdx(DecodeTableIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -583,15 +610,17 @@ fn control_error_type_idx() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::TypeIdx(DecodeTypeIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -609,15 +638,18 @@ fn control_error_block_type() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(
                             BlockTypeError::ReadMarkerByte(io_err),
                         )),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -635,13 +667,15 @@ fn control_error_unexpected_else() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::UnexpectedElse),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -659,15 +693,17 @@ fn reference_error_func_idx() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Reference(ReferenceError::FuncIdx(DecodeFuncIdxError(
                             DecodeU32Error::RepresentationTooLong,
                         ))),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1197,18 +1233,21 @@ fn numeric_error_read_opcode_truncated_fc_prefix() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Numeric(NumericError::ReadOpcode(u32_err)),
                     )),
-                ..
             },
-        )) => match u32_err {
-            DecodeU32Error::Io(io_err) => {
-                assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        )) => {
+            assert_eq!(position, 0);
+            match u32_err {
+                DecodeU32Error::Io(io_err) => {
+                    assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+                }
+                other => panic!("expected Io error, got {other:?}"),
             }
-            other => panic!("expected Io error, got {other:?}"),
-        },
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1225,17 +1264,20 @@ fn numeric_error_decode_f32_truncated_payload() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Numeric(NumericError::DecodeF32(f32_err)),
                     )),
-                ..
             },
-        )) => match f32_err {
-            DecodeFloat32Error::ReadPayload(io_err) => {
-                assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        )) => {
+            assert_eq!(position, 0);
+            match f32_err {
+                DecodeFloat32Error::ReadPayload(io_err) => {
+                    assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+                }
             }
-        },
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1252,17 +1294,20 @@ fn numeric_error_decode_f64_truncated_payload() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Numeric(NumericError::DecodeF64(f64_err)),
                     )),
-                ..
             },
-        )) => match f64_err {
-            DecodeFloat64Error::ReadPayload(io_err) => {
-                assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        )) => {
+            assert_eq!(position, 0);
+            match f64_err {
+                DecodeFloat64Error::ReadPayload(io_err) => {
+                    assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+                }
             }
-        },
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1279,18 +1324,21 @@ fn vector_error_read_opcode_truncated() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::ReadOpcode(u32_err)),
                     )),
-                ..
             },
-        )) => match u32_err {
-            DecodeU32Error::Io(io_err) => {
-                assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        )) => {
+            assert_eq!(position, 0);
+            match u32_err {
+                DecodeU32Error::Io(io_err) => {
+                    assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+                }
+                other => panic!("expected Io error, got {other:?}"),
             }
-            other => panic!("expected Io error, got {other:?}"),
-        },
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1307,15 +1355,18 @@ fn vector_error_memarg_offset_missing() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::Memarg(MemargError::Offset(
                             DecodeU32Error::Io(io_err),
                         ))),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1332,13 +1383,14 @@ fn vector_error_laneidx_missing() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::LaneIdx(LaneIdxError(io_err))),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -1357,13 +1409,16 @@ fn vector_error_read_immediate_bytes() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::ReadImmediateBytes(io_err)),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1380,13 +1435,16 @@ fn vector_error_invalid_opcode() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::InvalidOpcode(op)),
                     )),
-                ..
             },
-        )) => assert_eq!(op, 65535),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(op, 65535);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1403,15 +1461,18 @@ fn memarg_error_align_missing() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Memory(MemoryError::DecodeMemarg(MemargError::Align(
                             DecodeU32Error::Io(io_err),
                         ))),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1428,13 +1489,14 @@ fn lane_idx_error_missing_byte() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::LaneIdx(LaneIdxError(io_err))),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -1453,15 +1515,18 @@ fn block_type_error_read_marker_byte() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(
                             BlockTypeError::ReadMarkerByte(io_err),
                         )),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1478,15 +1543,18 @@ fn block_type_error_decode_index_truncated() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(BlockTypeError::DecodeIndex(
                             DecodeI64Error::Io(io_err),
                         ))),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1503,15 +1571,18 @@ fn block_type_error_negative_type_index() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(
                             BlockTypeError::NegativeTypeIndex(n),
                         )),
                     )),
-                ..
             },
-        )) => assert!(n < 0),
+        )) => {
+            assert_eq!(position, 0);
+            assert!(n < 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -1528,15 +1599,18 @@ fn block_type_error_type_index_too_large() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(
                             BlockTypeError::TypeIndexTooLarge(n),
                         )),
                     )),
-                ..
             },
-        )) => assert!(n > i64::from(u32::MAX)),
+        )) => {
+            assert_eq!(position, 0);
+            assert!(n > i64::from(u32::MAX));
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2168,10 +2242,11 @@ fn decode_import_section_error_entity_name_utf8() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeImportError::DecodeName(DecodeNameError::Utf8(err)),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             let utf8_err = err.utf8_error();
             assert_eq!(utf8_err.valid_up_to(), 0);
             assert_eq!(utf8_err.error_len(), Some(1));
@@ -2192,10 +2267,13 @@ fn decode_import_error_descriptor_missing_byte() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeImportError::ReadDescriptorMarkerByte(io_err),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2212,10 +2290,13 @@ fn decode_import_error_invalid_descriptor() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeImportError::InvalidDescriptorMarkerByte(b),
-                ..
             },
-        )) => assert_eq!(b, 0xFF),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(b, 0xFF);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2232,11 +2313,13 @@ fn decode_import_error_typeidx_overlong() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2253,13 +2336,14 @@ fn decode_import_error_table_invalid_reftype() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeImportError::DecodeTable(DecodeTableError::DecodeRefType(
                         DecodeRefTypeError::InvalidMarkerByte(err),
                     )),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(err.0, 0x00);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -2278,13 +2362,15 @@ fn decode_import_error_memory_invalid_limits() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeImportError::DecodeMemType(DecodeMemoryTypeError(
                         ParseLimitsError::UnexpectedMaxLimitByte(0x02),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2302,11 +2388,12 @@ fn decode_import_error_global_invalid_mutability() {
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeImportError::DecodeGlobalType(DecodeGlobalTypeError::InvalidMutability(err)),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(err.0, 0x02);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -2325,13 +2412,15 @@ fn decode_export_section_error_name_decode() {
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeExportError::DecodeName(DecodeNameError::DecodeByteVector(
                         DecodeByteVectorError::DecodeLength(DecodeU32Error::RepresentationTooLong),
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2348,10 +2437,13 @@ fn decode_export_error_descriptor_missing_byte() {
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeExportError::ReadDescriptorMarkerByte(io_err),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2368,13 +2460,16 @@ fn decode_export_error_index_decode() {
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeExportError::DecodeIndex(u32_err),
-                ..
             },
-        )) => assert!(
-            matches!(u32_err, DecodeU32Error::TooLarge),
-            "unexpected export index error: {u32_err:?}"
-        ),
+        )) => {
+            assert_eq!(position, 0);
+            assert!(
+                matches!(u32_err, DecodeU32Error::TooLarge),
+                "unexpected export index error: {u32_err:?}"
+            );
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2391,10 +2486,11 @@ fn decode_export_error_invalid_descriptor() {
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeExportError::InvalidDescriptorMarkerByte(err),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(err.0, 0xFF);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -2485,14 +2581,23 @@ fn decode_code_locals_error_count_out_of_bounds() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
-                        source: DecodeCodeLocalsError::LocalsCountOutOfBound { .. },
-                        ..
+                        position: locals_position,
+                        source:
+                            DecodeCodeLocalsError::LocalsCountOutOfBound {
+                                max_locals,
+                                actual_locals,
+                            },
                     }),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(locals_position, 1);
+            assert_eq!(max_locals, u64::from(u32::MAX));
+            assert_eq!(actual_locals, u64::from(u32::MAX) + 1);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2510,14 +2615,18 @@ fn decode_code_locals_error_decode_count() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                        position: locals_position,
                         source: DecodeCodeLocalsError::DecodeLocalsCount(DecodeU32Error::Io(io_err)),
-                        ..
                     }),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(locals_position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2535,17 +2644,19 @@ fn decode_code_error_local_valtype_invalid() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                        position: locals_position,
                         source:
                             DecodeCodeLocalsError::DecodeLocalValType(
                                 DecodeValTypeError::InvalidMarkerByte(err),
                             ),
-                        ..
                     }),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
+            assert_eq!(locals_position, 0);
             assert_eq!(err.0, 0xFF);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -2565,17 +2676,19 @@ fn decode_code_error_entry_size_mismatch() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeCodeError::EntrySizeMismatch {
                         declared_bytes,
                         leftover_bytes,
-                        ..
+                        consumed_bytes,
                     },
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(declared_bytes, 3);
             assert_eq!(leftover_bytes, 1);
+            assert_eq!(consumed_bytes, 2);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -2593,10 +2706,12 @@ fn parse_expression_error_unexpected_else() {
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeCodeError::DecodeFunctionBody(ParseExpressionError::UnexpectedElse),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2633,10 +2748,13 @@ fn decode_element_error_invalid_bitfield() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeElementError::InvalidBitfield(n),
-                ..
             },
-        )) => assert_eq!(n, 9),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(n, 9);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2653,13 +2771,16 @@ fn decode_element_error_offset_expression() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeOffsetExpression(ParseExpressionError::ParseInstruction(
                         ParseError::ReadOpcode(io_err),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2676,11 +2797,13 @@ fn decode_element_error_elemkind_invalid() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeElementKind(DecodeElementKindError::InvalidElemKind(0x01)),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2697,10 +2820,13 @@ fn decode_element_error_elemkind_io() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeElementError::DecodeElementKind(DecodeElementKindError::Io(io_err)),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2717,11 +2843,12 @@ fn decode_element_error_reference_type_invalid() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeReferenceType(DecodeRefTypeError::InvalidMarkerByte(err)),
-                ..
             },
         )) => {
+            assert_eq!(position, 0);
             assert_eq!(err.0, 0x00);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -2740,13 +2867,15 @@ fn decode_element_error_init_decode_length() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeInit(DecodeVectorError::DecodeLength(
                         DecodeU32Error::RepresentationTooLong,
                     )),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2763,14 +2892,17 @@ fn decode_element_error_funcidx_vector_overlong() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeFuncIdxVector(DecodeVectorError::ParseElement {
+                        position: func_pos,
                         source: DecodeFuncIdxError(DecodeU32Error::TooLarge),
-                        ..
                     }),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(func_pos, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2787,11 +2919,13 @@ fn decode_element_error_table_idx_overlong() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeTableIdx(DecodeTableIdxError(DecodeU32Error::TooLarge)),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2809,13 +2943,16 @@ fn decode_element_error_expression_missing_opcode() {
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeElementError::DecodeElementExpression(ParseExpressionError::ParseInstruction(
                         ParseError::ReadOpcode(io_err),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2832,11 +2969,13 @@ fn decode_data_section_error_bitfield_decode() {
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeDataSegmentError::DecodeBitfield(DecodeU32Error::RepresentationTooLong),
-                ..
             },
-        )) => {}
+        )) => {
+            assert_eq!(position, 0);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2853,10 +2992,13 @@ fn decode_data_section_error_invalid_bitfield() {
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source: DecodeDataSegmentError::InvalidBitfield(n),
-                ..
             },
-        )) => assert_eq!(n, 3),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(n, 3);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2873,13 +3015,16 @@ fn decode_data_section_error_offset_expr_missing() {
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeDataSegmentError::DecodeOffsetExpr(ParseExpressionError::ParseInstruction(
                         ParseError::ReadOpcode(io_err),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2896,13 +3041,16 @@ fn decode_data_section_error_init_vector_truncated() {
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeDataSegmentError::DecodeInitVector(DecodeByteVectorError::ReadElements(
                         io_err,
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
@@ -2939,13 +3087,16 @@ fn decode_global_error_init_missing_expr() {
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
             DecodeVectorError::ParseElement {
+                position,
                 source:
                     DecodeGlobalError::DecodeInit(ParseExpressionError::ParseInstruction(
                         ParseError::ReadOpcode(io_err),
                     )),
-                ..
             },
-        )) => assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof),
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
         other => panic!("unexpected error: {other:?}"),
     }
 }
