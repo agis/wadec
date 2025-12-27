@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::fs::File;
 use wadec::core::indices::*;
 use wadec::core::instruction::*;
@@ -1706,578 +1706,302 @@ fn it_decodes_data_section_multiple_segments() {
 fn it_decodes_numeric_instructions() {
     let f = File::open("./tests/fixtures/numeric_instructions.wasm").unwrap();
 
+    use std::mem::discriminant;
+
     let module = decode_module(f).unwrap();
-    let mut seen = BTreeSet::new();
+    let mut seen = HashSet::new();
 
     for func in &module.funcs {
         for instr in &func.body {
             match instr {
-                Instruction::I32Const(_) => {
-                    seen.insert("i32.const");
-                }
-                Instruction::I64Const(_) => {
-                    seen.insert("i64.const");
-                }
-                Instruction::F32Const(_) => {
-                    seen.insert("f32.const");
-                }
-                Instruction::F64Const(_) => {
-                    seen.insert("f64.const");
-                }
-                Instruction::I32Eqz => {
-                    seen.insert("i32.eqz");
-                }
-                Instruction::I32Eq => {
-                    seen.insert("i32.eq");
-                }
-                Instruction::I32Ne => {
-                    seen.insert("i32.ne");
-                }
-                Instruction::I32LtS => {
-                    seen.insert("i32.lt_s");
-                }
-                Instruction::I32LtU => {
-                    seen.insert("i32.lt_u");
-                }
-                Instruction::I32GtS => {
-                    seen.insert("i32.gt_s");
-                }
-                Instruction::I32GtU => {
-                    seen.insert("i32.gt_u");
-                }
-                Instruction::I32LeS => {
-                    seen.insert("i32.le_s");
-                }
-                Instruction::I32LeU => {
-                    seen.insert("i32.le_u");
-                }
-                Instruction::I32GeS => {
-                    seen.insert("i32.ge_s");
-                }
-                Instruction::I32GeU => {
-                    seen.insert("i32.ge_u");
-                }
-                Instruction::I64Eqz => {
-                    seen.insert("i64.eqz");
-                }
-                Instruction::I64Eq => {
-                    seen.insert("i64.eq");
-                }
-                Instruction::I64Ne => {
-                    seen.insert("i64.ne");
-                }
-                Instruction::I64LtS => {
-                    seen.insert("i64.lt_s");
-                }
-                Instruction::I64LtU => {
-                    seen.insert("i64.lt_u");
-                }
-                Instruction::I64GtS => {
-                    seen.insert("i64.gt_s");
-                }
-                Instruction::I64GtU => {
-                    seen.insert("i64.gt_u");
-                }
-                Instruction::I64LeS => {
-                    seen.insert("i64.le_s");
-                }
-                Instruction::I64LeU => {
-                    seen.insert("i64.le_u");
-                }
-                Instruction::I64GeS => {
-                    seen.insert("i64.ge_s");
-                }
-                Instruction::I64GeU => {
-                    seen.insert("i64.ge_u");
-                }
-                Instruction::F32Eq => {
-                    seen.insert("f32.eq");
-                }
-                Instruction::F32Ne => {
-                    seen.insert("f32.ne");
-                }
-                Instruction::F32Lt => {
-                    seen.insert("f32.lt");
-                }
-                Instruction::F32Gt => {
-                    seen.insert("f32.gt");
-                }
-                Instruction::F32Le => {
-                    seen.insert("f32.le");
-                }
-                Instruction::F32Ge => {
-                    seen.insert("f32.ge");
-                }
-                Instruction::F64Eq => {
-                    seen.insert("f64.eq");
-                }
-                Instruction::F64Ne => {
-                    seen.insert("f64.ne");
-                }
-                Instruction::F64Lt => {
-                    seen.insert("f64.lt");
-                }
-                Instruction::F64Gt => {
-                    seen.insert("f64.gt");
-                }
-                Instruction::F64Le => {
-                    seen.insert("f64.le");
-                }
-                Instruction::F64Ge => {
-                    seen.insert("f64.ge");
-                }
-                Instruction::I32Clz => {
-                    seen.insert("i32.clz");
-                }
-                Instruction::I32Ctz => {
-                    seen.insert("i32.ctz");
-                }
-                Instruction::I32Popcnt => {
-                    seen.insert("i32.popcnt");
-                }
-                Instruction::I32Add => {
-                    seen.insert("i32.add");
-                }
-                Instruction::I32Sub => {
-                    seen.insert("i32.sub");
-                }
-                Instruction::I32Mul => {
-                    seen.insert("i32.mul");
-                }
-                Instruction::I32DivS => {
-                    seen.insert("i32.div_s");
-                }
-                Instruction::I32DivU => {
-                    seen.insert("i32.div_u");
-                }
-                Instruction::I32RemS => {
-                    seen.insert("i32.rem_s");
-                }
-                Instruction::I32RemU => {
-                    seen.insert("i32.rem_u");
-                }
-                Instruction::I32And => {
-                    seen.insert("i32.and");
-                }
-                Instruction::I32Or => {
-                    seen.insert("i32.or");
-                }
-                Instruction::I32Xor => {
-                    seen.insert("i32.xor");
-                }
-                Instruction::I32Shl => {
-                    seen.insert("i32.shl");
-                }
-                Instruction::I32ShrS => {
-                    seen.insert("i32.shr_s");
-                }
-                Instruction::I32ShrU => {
-                    seen.insert("i32.shr_u");
-                }
-                Instruction::I32Rotl => {
-                    seen.insert("i32.rotl");
-                }
-                Instruction::I32Rotr => {
-                    seen.insert("i32.rotr");
-                }
-                Instruction::I64Clz => {
-                    seen.insert("i64.clz");
-                }
-                Instruction::I64Ctz => {
-                    seen.insert("i64.ctz");
-                }
-                Instruction::I64Popcnt => {
-                    seen.insert("i64.popcnt");
-                }
-                Instruction::I64Add => {
-                    seen.insert("i64.add");
-                }
-                Instruction::I64Sub => {
-                    seen.insert("i64.sub");
-                }
-                Instruction::I64Mul => {
-                    seen.insert("i64.mul");
-                }
-                Instruction::I64DivS => {
-                    seen.insert("i64.div_s");
-                }
-                Instruction::I64DivU => {
-                    seen.insert("i64.div_u");
-                }
-                Instruction::I64RemS => {
-                    seen.insert("i64.rem_s");
-                }
-                Instruction::I64RemU => {
-                    seen.insert("i64.rem_u");
-                }
-                Instruction::I64And => {
-                    seen.insert("i64.and");
-                }
-                Instruction::I64Or => {
-                    seen.insert("i64.or");
-                }
-                Instruction::I64Xor => {
-                    seen.insert("i64.xor");
-                }
-                Instruction::I64Shl => {
-                    seen.insert("i64.shl");
-                }
-                Instruction::I64ShrS => {
-                    seen.insert("i64.shr_s");
-                }
-                Instruction::I64ShrU => {
-                    seen.insert("i64.shr_u");
-                }
-                Instruction::I64Rotl => {
-                    seen.insert("i64.rotl");
-                }
-                Instruction::I64Rotr => {
-                    seen.insert("i64.rotr");
-                }
-                Instruction::F32Abs => {
-                    seen.insert("f32.abs");
-                }
-                Instruction::F32Neg => {
-                    seen.insert("f32.neg");
-                }
-                Instruction::F32Ceil => {
-                    seen.insert("f32.ceil");
-                }
-                Instruction::F32Floor => {
-                    seen.insert("f32.floor");
-                }
-                Instruction::F32Trunc => {
-                    seen.insert("f32.trunc");
-                }
-                Instruction::F32Nearest => {
-                    seen.insert("f32.nearest");
-                }
-                Instruction::F32Sqrt => {
-                    seen.insert("f32.sqrt");
-                }
-                Instruction::F32Add => {
-                    seen.insert("f32.add");
-                }
-                Instruction::F32Sub => {
-                    seen.insert("f32.sub");
-                }
-                Instruction::F32Mul => {
-                    seen.insert("f32.mul");
-                }
-                Instruction::F32Div => {
-                    seen.insert("f32.div");
-                }
-                Instruction::F32Min => {
-                    seen.insert("f32.min");
-                }
-                Instruction::F32Max => {
-                    seen.insert("f32.max");
-                }
-                Instruction::F32Copysign => {
-                    seen.insert("f32.copysign");
-                }
-                Instruction::F64Abs => {
-                    seen.insert("f64.abs");
-                }
-                Instruction::F64Neg => {
-                    seen.insert("f64.neg");
-                }
-                Instruction::F64Ceil => {
-                    seen.insert("f64.ceil");
-                }
-                Instruction::F64Floor => {
-                    seen.insert("f64.floor");
-                }
-                Instruction::F64Trunc => {
-                    seen.insert("f64.trunc");
-                }
-                Instruction::F64Nearest => {
-                    seen.insert("f64.nearest");
-                }
-                Instruction::F64Sqrt => {
-                    seen.insert("f64.sqrt");
-                }
-                Instruction::F64Add => {
-                    seen.insert("f64.add");
-                }
-                Instruction::F64Sub => {
-                    seen.insert("f64.sub");
-                }
-                Instruction::F64Mul => {
-                    seen.insert("f64.mul");
-                }
-                Instruction::F64Div => {
-                    seen.insert("f64.div");
-                }
-                Instruction::F64Min => {
-                    seen.insert("f64.min");
-                }
-                Instruction::F64Max => {
-                    seen.insert("f64.max");
-                }
-                Instruction::F64Copysign => {
-                    seen.insert("f64.copysign");
-                }
-                Instruction::I32WrapI64 => {
-                    seen.insert("i32.wrap_i64");
-                }
-                Instruction::I32TruncF32S => {
-                    seen.insert("i32.trunc_f32_s");
-                }
-                Instruction::I32TruncF32U => {
-                    seen.insert("i32.trunc_f32_u");
-                }
-                Instruction::I32TruncF64S => {
-                    seen.insert("i32.trunc_f64_s");
-                }
-                Instruction::I32TruncF64U => {
-                    seen.insert("i32.trunc_f64_u");
-                }
-                Instruction::I64ExtendI32S => {
-                    seen.insert("i64.extend_i32_s");
-                }
-                Instruction::I64ExtendI32U => {
-                    seen.insert("i64.extend_i32_u");
-                }
-                Instruction::I64TruncF32S => {
-                    seen.insert("i64.trunc_f32_s");
-                }
-                Instruction::I64TruncF32U => {
-                    seen.insert("i64.trunc_f32_u");
-                }
-                Instruction::I64TruncF64S => {
-                    seen.insert("i64.trunc_f64_s");
-                }
-                Instruction::I64TruncF64U => {
-                    seen.insert("i64.trunc_f64_u");
-                }
-                Instruction::F32ConvertI32S => {
-                    seen.insert("f32.convert_i32_s");
-                }
-                Instruction::F32ConvertI32U => {
-                    seen.insert("f32.convert_i32_u");
-                }
-                Instruction::F32ConvertI64S => {
-                    seen.insert("f32.convert_i64_s");
-                }
-                Instruction::F32ConvertI64U => {
-                    seen.insert("f32.convert_i64_u");
-                }
-                Instruction::F32DemoteF64 => {
-                    seen.insert("f32.demote_f64");
-                }
-                Instruction::F64ConvertI32S => {
-                    seen.insert("f64.convert_i32_s");
-                }
-                Instruction::F64ConvertI32U => {
-                    seen.insert("f64.convert_i32_u");
-                }
-                Instruction::F64ConvertI64S => {
-                    seen.insert("f64.convert_i64_s");
-                }
-                Instruction::F64ConvertI64U => {
-                    seen.insert("f64.convert_i64_u");
-                }
-                Instruction::F64PromoteF32 => {
-                    seen.insert("f64.promote_f32");
-                }
-                Instruction::I32ReinterpretF32 => {
-                    seen.insert("i32.reinterpret_f32");
-                }
-                Instruction::I64ReinterpretF64 => {
-                    seen.insert("i64.reinterpret_f64");
-                }
-                Instruction::F32ReinterpretI32 => {
-                    seen.insert("f32.reinterpret_i32");
-                }
-                Instruction::F64ReinterpretI64 => {
-                    seen.insert("f64.reinterpret_i64");
-                }
-                Instruction::I32Extend8S => {
-                    seen.insert("i32.extend8_s");
-                }
-                Instruction::I32Extend16S => {
-                    seen.insert("i32.extend16_s");
-                }
-                Instruction::I64Extend8S => {
-                    seen.insert("i64.extend8_s");
-                }
-                Instruction::I64Extend16S => {
-                    seen.insert("i64.extend16_s");
-                }
-                Instruction::I64Extend32S => {
-                    seen.insert("i64.extend32_s");
-                }
-                Instruction::I32TruncSatF32S => {
-                    seen.insert("i32.trunc_sat_f32_s");
-                }
-                Instruction::I32TruncSatF32U => {
-                    seen.insert("i32.trunc_sat_f32_u");
-                }
-                Instruction::I32TruncSatF64S => {
-                    seen.insert("i32.trunc_sat_f64_s");
-                }
-                Instruction::I32TruncSatF64U => {
-                    seen.insert("i32.trunc_sat_f64_u");
-                }
-                Instruction::I64TruncSatF32S => {
-                    seen.insert("i64.trunc_sat_f32_s");
-                }
-                Instruction::I64TruncSatF32U => {
-                    seen.insert("i64.trunc_sat_f32_u");
-                }
-                Instruction::I64TruncSatF64S => {
-                    seen.insert("i64.trunc_sat_f64_s");
-                }
-                Instruction::I64TruncSatF64U => {
-                    seen.insert("i64.trunc_sat_f64_u");
+                Instruction::I32Const(_)
+                | Instruction::I64Const(_)
+                | Instruction::F32Const(_)
+                | Instruction::F64Const(_)
+                | Instruction::I32Eqz
+                | Instruction::I32Eq
+                | Instruction::I32Ne
+                | Instruction::I32LtS
+                | Instruction::I32LtU
+                | Instruction::I32GtS
+                | Instruction::I32GtU
+                | Instruction::I32LeS
+                | Instruction::I32LeU
+                | Instruction::I32GeS
+                | Instruction::I32GeU
+                | Instruction::I64Eqz
+                | Instruction::I64Eq
+                | Instruction::I64Ne
+                | Instruction::I64LtS
+                | Instruction::I64LtU
+                | Instruction::I64GtS
+                | Instruction::I64GtU
+                | Instruction::I64LeS
+                | Instruction::I64LeU
+                | Instruction::I64GeS
+                | Instruction::I64GeU
+                | Instruction::F32Eq
+                | Instruction::F32Ne
+                | Instruction::F32Lt
+                | Instruction::F32Gt
+                | Instruction::F32Le
+                | Instruction::F32Ge
+                | Instruction::F64Eq
+                | Instruction::F64Ne
+                | Instruction::F64Lt
+                | Instruction::F64Gt
+                | Instruction::F64Le
+                | Instruction::F64Ge
+                | Instruction::I32Clz
+                | Instruction::I32Ctz
+                | Instruction::I32Popcnt
+                | Instruction::I32Add
+                | Instruction::I32Sub
+                | Instruction::I32Mul
+                | Instruction::I32DivS
+                | Instruction::I32DivU
+                | Instruction::I32RemS
+                | Instruction::I32RemU
+                | Instruction::I32And
+                | Instruction::I32Or
+                | Instruction::I32Xor
+                | Instruction::I32Shl
+                | Instruction::I32ShrS
+                | Instruction::I32ShrU
+                | Instruction::I32Rotl
+                | Instruction::I32Rotr
+                | Instruction::I64Clz
+                | Instruction::I64Ctz
+                | Instruction::I64Popcnt
+                | Instruction::I64Add
+                | Instruction::I64Sub
+                | Instruction::I64Mul
+                | Instruction::I64DivS
+                | Instruction::I64DivU
+                | Instruction::I64RemS
+                | Instruction::I64RemU
+                | Instruction::I64And
+                | Instruction::I64Or
+                | Instruction::I64Xor
+                | Instruction::I64Shl
+                | Instruction::I64ShrS
+                | Instruction::I64ShrU
+                | Instruction::I64Rotl
+                | Instruction::I64Rotr
+                | Instruction::F32Abs
+                | Instruction::F32Neg
+                | Instruction::F32Ceil
+                | Instruction::F32Floor
+                | Instruction::F32Trunc
+                | Instruction::F32Nearest
+                | Instruction::F32Sqrt
+                | Instruction::F32Add
+                | Instruction::F32Sub
+                | Instruction::F32Mul
+                | Instruction::F32Div
+                | Instruction::F32Min
+                | Instruction::F32Max
+                | Instruction::F32Copysign
+                | Instruction::F64Abs
+                | Instruction::F64Neg
+                | Instruction::F64Ceil
+                | Instruction::F64Floor
+                | Instruction::F64Trunc
+                | Instruction::F64Nearest
+                | Instruction::F64Sqrt
+                | Instruction::F64Add
+                | Instruction::F64Sub
+                | Instruction::F64Mul
+                | Instruction::F64Div
+                | Instruction::F64Min
+                | Instruction::F64Max
+                | Instruction::F64Copysign
+                | Instruction::I32WrapI64
+                | Instruction::I32TruncF32S
+                | Instruction::I32TruncF32U
+                | Instruction::I32TruncF64S
+                | Instruction::I32TruncF64U
+                | Instruction::I64ExtendI32S
+                | Instruction::I64ExtendI32U
+                | Instruction::I64TruncF32S
+                | Instruction::I64TruncF32U
+                | Instruction::I64TruncF64S
+                | Instruction::I64TruncF64U
+                | Instruction::F32ConvertI32S
+                | Instruction::F32ConvertI32U
+                | Instruction::F32ConvertI64S
+                | Instruction::F32ConvertI64U
+                | Instruction::F32DemoteF64
+                | Instruction::F64ConvertI32S
+                | Instruction::F64ConvertI32U
+                | Instruction::F64ConvertI64S
+                | Instruction::F64ConvertI64U
+                | Instruction::F64PromoteF32
+                | Instruction::I32ReinterpretF32
+                | Instruction::I64ReinterpretF64
+                | Instruction::F32ReinterpretI32
+                | Instruction::F64ReinterpretI64
+                | Instruction::I32Extend8S
+                | Instruction::I32Extend16S
+                | Instruction::I64Extend8S
+                | Instruction::I64Extend16S
+                | Instruction::I64Extend32S
+                | Instruction::I32TruncSatF32S
+                | Instruction::I32TruncSatF32U
+                | Instruction::I32TruncSatF64S
+                | Instruction::I32TruncSatF64U
+                | Instruction::I64TruncSatF32S
+                | Instruction::I64TruncSatF32U
+                | Instruction::I64TruncSatF64S
+                | Instruction::I64TruncSatF64U => {
+                    seen.insert(discriminant(instr));
                 }
                 _ => {}
             }
         }
     }
 
-    let expected: BTreeSet<&'static str> = [
-        "i32.const",
-        "i64.const",
-        "f32.const",
-        "f64.const",
-        "i32.eqz",
-        "i32.eq",
-        "i32.ne",
-        "i32.lt_s",
-        "i32.lt_u",
-        "i32.gt_s",
-        "i32.gt_u",
-        "i32.le_s",
-        "i32.le_u",
-        "i32.ge_s",
-        "i32.ge_u",
-        "i64.eqz",
-        "i64.eq",
-        "i64.ne",
-        "i64.lt_s",
-        "i64.lt_u",
-        "i64.gt_s",
-        "i64.gt_u",
-        "i64.le_s",
-        "i64.le_u",
-        "i64.ge_s",
-        "i64.ge_u",
-        "f32.eq",
-        "f32.ne",
-        "f32.lt",
-        "f32.gt",
-        "f32.le",
-        "f32.ge",
-        "f64.eq",
-        "f64.ne",
-        "f64.lt",
-        "f64.gt",
-        "f64.le",
-        "f64.ge",
-        "i32.clz",
-        "i32.ctz",
-        "i32.popcnt",
-        "i32.add",
-        "i32.sub",
-        "i32.mul",
-        "i32.div_s",
-        "i32.div_u",
-        "i32.rem_s",
-        "i32.rem_u",
-        "i32.and",
-        "i32.or",
-        "i32.xor",
-        "i32.shl",
-        "i32.shr_s",
-        "i32.shr_u",
-        "i32.rotl",
-        "i32.rotr",
-        "i64.clz",
-        "i64.ctz",
-        "i64.popcnt",
-        "i64.add",
-        "i64.sub",
-        "i64.mul",
-        "i64.div_s",
-        "i64.div_u",
-        "i64.rem_s",
-        "i64.rem_u",
-        "i64.and",
-        "i64.or",
-        "i64.xor",
-        "i64.shl",
-        "i64.shr_s",
-        "i64.shr_u",
-        "i64.rotl",
-        "i64.rotr",
-        "f32.abs",
-        "f32.neg",
-        "f32.ceil",
-        "f32.floor",
-        "f32.trunc",
-        "f32.nearest",
-        "f32.sqrt",
-        "f32.add",
-        "f32.sub",
-        "f32.mul",
-        "f32.div",
-        "f32.min",
-        "f32.max",
-        "f32.copysign",
-        "f64.abs",
-        "f64.neg",
-        "f64.ceil",
-        "f64.floor",
-        "f64.trunc",
-        "f64.nearest",
-        "f64.sqrt",
-        "f64.add",
-        "f64.sub",
-        "f64.mul",
-        "f64.div",
-        "f64.min",
-        "f64.max",
-        "f64.copysign",
-        "i32.wrap_i64",
-        "i32.trunc_f32_s",
-        "i32.trunc_f32_u",
-        "i32.trunc_f64_s",
-        "i32.trunc_f64_u",
-        "i64.extend_i32_s",
-        "i64.extend_i32_u",
-        "i64.trunc_f32_s",
-        "i64.trunc_f32_u",
-        "i64.trunc_f64_s",
-        "i64.trunc_f64_u",
-        "f32.convert_i32_s",
-        "f32.convert_i32_u",
-        "f32.convert_i64_s",
-        "f32.convert_i64_u",
-        "f32.demote_f64",
-        "f64.convert_i32_s",
-        "f64.convert_i32_u",
-        "f64.convert_i64_s",
-        "f64.convert_i64_u",
-        "f64.promote_f32",
-        "i32.reinterpret_f32",
-        "i64.reinterpret_f64",
-        "f32.reinterpret_i32",
-        "f64.reinterpret_i64",
-        "i32.extend8_s",
-        "i32.extend16_s",
-        "i64.extend8_s",
-        "i64.extend16_s",
-        "i64.extend32_s",
-        "i32.trunc_sat_f32_s",
-        "i32.trunc_sat_f32_u",
-        "i32.trunc_sat_f64_s",
-        "i32.trunc_sat_f64_u",
-        "i64.trunc_sat_f32_s",
-        "i64.trunc_sat_f32_u",
-        "i64.trunc_sat_f64_s",
-        "i64.trunc_sat_f64_u",
+    let expected: HashSet<_> = [
+        discriminant(&Instruction::I32Const(0)),
+        discriminant(&Instruction::I64Const(0)),
+        discriminant(&Instruction::F32Const(0.0_f32)),
+        discriminant(&Instruction::F64Const(0.0)),
+        discriminant(&Instruction::I32Eqz),
+        discriminant(&Instruction::I32Eq),
+        discriminant(&Instruction::I32Ne),
+        discriminant(&Instruction::I32LtS),
+        discriminant(&Instruction::I32LtU),
+        discriminant(&Instruction::I32GtS),
+        discriminant(&Instruction::I32GtU),
+        discriminant(&Instruction::I32LeS),
+        discriminant(&Instruction::I32LeU),
+        discriminant(&Instruction::I32GeS),
+        discriminant(&Instruction::I32GeU),
+        discriminant(&Instruction::I64Eqz),
+        discriminant(&Instruction::I64Eq),
+        discriminant(&Instruction::I64Ne),
+        discriminant(&Instruction::I64LtS),
+        discriminant(&Instruction::I64LtU),
+        discriminant(&Instruction::I64GtS),
+        discriminant(&Instruction::I64GtU),
+        discriminant(&Instruction::I64LeS),
+        discriminant(&Instruction::I64LeU),
+        discriminant(&Instruction::I64GeS),
+        discriminant(&Instruction::I64GeU),
+        discriminant(&Instruction::F32Eq),
+        discriminant(&Instruction::F32Ne),
+        discriminant(&Instruction::F32Lt),
+        discriminant(&Instruction::F32Gt),
+        discriminant(&Instruction::F32Le),
+        discriminant(&Instruction::F32Ge),
+        discriminant(&Instruction::F64Eq),
+        discriminant(&Instruction::F64Ne),
+        discriminant(&Instruction::F64Lt),
+        discriminant(&Instruction::F64Gt),
+        discriminant(&Instruction::F64Le),
+        discriminant(&Instruction::F64Ge),
+        discriminant(&Instruction::I32Clz),
+        discriminant(&Instruction::I32Ctz),
+        discriminant(&Instruction::I32Popcnt),
+        discriminant(&Instruction::I32Add),
+        discriminant(&Instruction::I32Sub),
+        discriminant(&Instruction::I32Mul),
+        discriminant(&Instruction::I32DivS),
+        discriminant(&Instruction::I32DivU),
+        discriminant(&Instruction::I32RemS),
+        discriminant(&Instruction::I32RemU),
+        discriminant(&Instruction::I32And),
+        discriminant(&Instruction::I32Or),
+        discriminant(&Instruction::I32Xor),
+        discriminant(&Instruction::I32Shl),
+        discriminant(&Instruction::I32ShrS),
+        discriminant(&Instruction::I32ShrU),
+        discriminant(&Instruction::I32Rotl),
+        discriminant(&Instruction::I32Rotr),
+        discriminant(&Instruction::I64Clz),
+        discriminant(&Instruction::I64Ctz),
+        discriminant(&Instruction::I64Popcnt),
+        discriminant(&Instruction::I64Add),
+        discriminant(&Instruction::I64Sub),
+        discriminant(&Instruction::I64Mul),
+        discriminant(&Instruction::I64DivS),
+        discriminant(&Instruction::I64DivU),
+        discriminant(&Instruction::I64RemS),
+        discriminant(&Instruction::I64RemU),
+        discriminant(&Instruction::I64And),
+        discriminant(&Instruction::I64Or),
+        discriminant(&Instruction::I64Xor),
+        discriminant(&Instruction::I64Shl),
+        discriminant(&Instruction::I64ShrS),
+        discriminant(&Instruction::I64ShrU),
+        discriminant(&Instruction::I64Rotl),
+        discriminant(&Instruction::I64Rotr),
+        discriminant(&Instruction::F32Abs),
+        discriminant(&Instruction::F32Neg),
+        discriminant(&Instruction::F32Ceil),
+        discriminant(&Instruction::F32Floor),
+        discriminant(&Instruction::F32Trunc),
+        discriminant(&Instruction::F32Nearest),
+        discriminant(&Instruction::F32Sqrt),
+        discriminant(&Instruction::F32Add),
+        discriminant(&Instruction::F32Sub),
+        discriminant(&Instruction::F32Mul),
+        discriminant(&Instruction::F32Div),
+        discriminant(&Instruction::F32Min),
+        discriminant(&Instruction::F32Max),
+        discriminant(&Instruction::F32Copysign),
+        discriminant(&Instruction::F64Abs),
+        discriminant(&Instruction::F64Neg),
+        discriminant(&Instruction::F64Ceil),
+        discriminant(&Instruction::F64Floor),
+        discriminant(&Instruction::F64Trunc),
+        discriminant(&Instruction::F64Nearest),
+        discriminant(&Instruction::F64Sqrt),
+        discriminant(&Instruction::F64Add),
+        discriminant(&Instruction::F64Sub),
+        discriminant(&Instruction::F64Mul),
+        discriminant(&Instruction::F64Div),
+        discriminant(&Instruction::F64Min),
+        discriminant(&Instruction::F64Max),
+        discriminant(&Instruction::F64Copysign),
+        discriminant(&Instruction::I32WrapI64),
+        discriminant(&Instruction::I32TruncF32S),
+        discriminant(&Instruction::I32TruncF32U),
+        discriminant(&Instruction::I32TruncF64S),
+        discriminant(&Instruction::I32TruncF64U),
+        discriminant(&Instruction::I64ExtendI32S),
+        discriminant(&Instruction::I64ExtendI32U),
+        discriminant(&Instruction::I64TruncF32S),
+        discriminant(&Instruction::I64TruncF32U),
+        discriminant(&Instruction::I64TruncF64S),
+        discriminant(&Instruction::I64TruncF64U),
+        discriminant(&Instruction::F32ConvertI32S),
+        discriminant(&Instruction::F32ConvertI32U),
+        discriminant(&Instruction::F32ConvertI64S),
+        discriminant(&Instruction::F32ConvertI64U),
+        discriminant(&Instruction::F32DemoteF64),
+        discriminant(&Instruction::F64ConvertI32S),
+        discriminant(&Instruction::F64ConvertI32U),
+        discriminant(&Instruction::F64ConvertI64S),
+        discriminant(&Instruction::F64ConvertI64U),
+        discriminant(&Instruction::F64PromoteF32),
+        discriminant(&Instruction::I32ReinterpretF32),
+        discriminant(&Instruction::I64ReinterpretF64),
+        discriminant(&Instruction::F32ReinterpretI32),
+        discriminant(&Instruction::F64ReinterpretI64),
+        discriminant(&Instruction::I32Extend8S),
+        discriminant(&Instruction::I32Extend16S),
+        discriminant(&Instruction::I64Extend8S),
+        discriminant(&Instruction::I64Extend16S),
+        discriminant(&Instruction::I64Extend32S),
+        discriminant(&Instruction::I32TruncSatF32S),
+        discriminant(&Instruction::I32TruncSatF32U),
+        discriminant(&Instruction::I32TruncSatF64S),
+        discriminant(&Instruction::I32TruncSatF64U),
+        discriminant(&Instruction::I64TruncSatF32S),
+        discriminant(&Instruction::I64TruncSatF32U),
+        discriminant(&Instruction::I64TruncSatF64S),
+        discriminant(&Instruction::I64TruncSatF64U),
     ]
     .into_iter()
     .collect();
@@ -2361,39 +2085,75 @@ fn it_decodes_vector_instructions() {
     assert_eq!(func.r#type, TypeIdx(0));
     assert!(func.locals.is_empty());
     assert_eq!(func.body.len(), 26);
-    let actual_body: Vec<String> = func.body.iter().map(|instr| format!("{instr:?}")).collect();
-    let expected_body: Vec<String> = vec![
-        "I32Const(0)",
-        "V128Load(Memarg { align: 4, offset: 0 })",
-        "I32Const(16)",
-        "V128Load(Memarg { align: 4, offset: 0 })",
-        "I8x16Add",
-        "V128Const([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])",
-        "V128Const([16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])",
-        "V128Bitselect",
-        "Drop",
-        "V128Const([32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47])",
-        "I8x16ExtractLaneS(LaneIdx(0))",
-        "Drop",
-        "V128Const([48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63])",
-        "I32Const(7)",
-        "I8x16ReplaceLane(LaneIdx(5))",
-        "Drop",
-        "V128Const([64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79])",
-        "V128Const([80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95])",
-        "I8x16Shuffle([LaneIdx(0), LaneIdx(16), LaneIdx(1), LaneIdx(17), LaneIdx(2), LaneIdx(18), LaneIdx(3), LaneIdx(19), LaneIdx(4), LaneIdx(20), LaneIdx(5), LaneIdx(21), LaneIdx(6), LaneIdx(22), LaneIdx(7), LaneIdx(23)])",
-        "Drop",
-        "V128Const([96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111])",
-        "V128AnyTrue",
-        "Drop",
-        "I32Const(0)",
-        "V128Const([112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127])",
-        "V128Store(Memarg { align: 4, offset: 0 })",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect();
-    assert_eq!(actual_body, expected_body);
+    let expected_body = vec![
+        Instruction::I32Const(0),
+        Instruction::V128Load(Memarg {
+            align: 4,
+            offset: 0,
+        }),
+        Instruction::I32Const(16),
+        Instruction::V128Load(Memarg {
+            align: 4,
+            offset: 0,
+        }),
+        Instruction::I8x16Add,
+        Instruction::V128Const([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+        Instruction::V128Const([
+            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+        ]),
+        Instruction::V128Bitselect,
+        Instruction::Drop,
+        Instruction::V128Const([
+            32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        ]),
+        Instruction::I8x16ExtractLaneS(LaneIdx(0)),
+        Instruction::Drop,
+        Instruction::V128Const([
+            48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+        ]),
+        Instruction::I32Const(7),
+        Instruction::I8x16ReplaceLane(LaneIdx(5)),
+        Instruction::Drop,
+        Instruction::V128Const([
+            64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
+        ]),
+        Instruction::V128Const([
+            80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+        ]),
+        Instruction::I8x16Shuffle([
+            LaneIdx(0),
+            LaneIdx(16),
+            LaneIdx(1),
+            LaneIdx(17),
+            LaneIdx(2),
+            LaneIdx(18),
+            LaneIdx(3),
+            LaneIdx(19),
+            LaneIdx(4),
+            LaneIdx(20),
+            LaneIdx(5),
+            LaneIdx(21),
+            LaneIdx(6),
+            LaneIdx(22),
+            LaneIdx(7),
+            LaneIdx(23),
+        ]),
+        Instruction::Drop,
+        Instruction::V128Const([
+            96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+        ]),
+        Instruction::V128AnyTrue,
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::V128Const([
+            112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
+        ]),
+        Instruction::V128Store(Memarg {
+            align: 4,
+            offset: 0,
+        }),
+    ];
+    assert_eq!(func.body, expected_body);
 
     assert_eq!(module.datas.len(), 1);
     let data = &module.datas[0];
@@ -2441,64 +2201,6 @@ fn it_fails_on_code_size_mismatch() {
 
     let f = File::open("tests/fixtures/custom_section_size_overreported.wasm").unwrap();
     assert!(decode_module(f).is_err())
-}
-
-#[test]
-fn it_fails_on_code_entry_size_mismatch() {
-    let f = File::open("tests/fixtures/code_entry_size_overreported.wasm").unwrap();
-    assert!(decode_module(f).is_err());
-}
-
-#[test]
-fn it_enforces_section_ordering() {
-    let f = File::open("tests/fixtures/invalid_section_order.wasm").unwrap();
-    assert!(decode_module(f).is_err());
-}
-
-#[test]
-fn it_surfaces_vector_element_index_on_type_decode_failure() {
-    let f = File::open("tests/fixtures/type_section_invalid_functype.wasm").unwrap();
-
-    let err = decode_module(f).expect_err("type section should fail on bad functype marker");
-
-    match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position: nth_element,
-                source,
-            },
-        )) => {
-            assert_eq!(nth_element, 1);
-            assert!(matches!(
-                source,
-                DecodeFuncTypeError::InvalidMarkerByte(0x00)
-            ));
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn it_surfaces_invalid_valtype_marker() {
-    let f = File::open("tests/fixtures/type_section_invalid_valtype_marker.wasm").unwrap();
-
-    let err = decode_module(f).expect_err("type section should fail on bad value type marker");
-
-    match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position: 0,
-                source:
-                    DecodeFuncTypeError::DecodeParameterTypes(DecodeResultTypeError::DecodeVector(
-                        DecodeVectorError::ParseElement {
-                            position: 0,
-                            source: DecodeValTypeError::InvalidMarkerByte(err),
-                        },
-                    )),
-            },
-        )) => assert!(err.to_string().contains("0xAA")),
-        other => panic!("unexpected error: {other:?}"),
-    }
 }
 
 #[test]

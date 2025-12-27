@@ -2574,8 +2574,8 @@ fn decode_code_error_entry_size_mismatch() {
                 ..
             },
         )) => {
-            assert!(leftover_bytes > 0);
-            assert!(declared_bytes > 0);
+            assert_eq!(declared_bytes, 3);
+            assert_eq!(leftover_bytes, 1);
         }
         other => panic!("unexpected error: {other:?}"),
     }
