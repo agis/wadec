@@ -1,0 +1,7 @@
+DISCLAIMER: Most of the fixtures and tests in this directory were
+generated using an LLM, are human-reviewed and cross-verified with wasm-tools[1]
+to ensure validity.
+
+An exception to the above is the specification-conformance tests (`z_spec.rs`).
+
+[1] https://github.com/bytecodealliance/wasm-tools
