@@ -23,7 +23,7 @@ performance-critical tasks. For such use-cases, consider using a streaming
 decoder.
 
 
-## Specification-conformance testing
+## Specification conformance
 
 wadec is 100% conforming to the official WebAssembly specification, [version
 2](https://www.w3.org/TR/wasm-core-2/). (Version 3 is on the roadmap.)
