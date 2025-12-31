@@ -18,6 +18,8 @@ pub enum Instruction {
     Return,
     Call(indices::FuncIdx),
     CallIndirect(indices::TableIdx, indices::TypeIdx),
+    ReturnCall(indices::FuncIdx),
+    ReturnCallIndirect(indices::TableIdx, indices::TypeIdx),
 
     // --- Reference instructions (5.4.2) ---
     RefNull(RefType),

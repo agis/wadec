@@ -460,6 +460,60 @@ fn it_decodes_control_instructions() {
         }
     )
 }
+
+#[test]
+fn it_decodes_return_call_instructions() {
+    let f = File::open("tests/fixtures/return_call_instructions.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    let types = rectypes(vec![
+        CompType::Func {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        },
+        CompType::Func {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        },
+    ]);
+
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![],
+    )];
+
+    let funcs = vec![
+        Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![Instruction::Nop],
+        },
+        Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![Instruction::ReturnCall(FuncIdx(0))],
+        },
+        Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![
+                Instruction::I32Const(0),
+                Instruction::ReturnCallIndirect(TableIdx(0), TypeIdx(1)),
+            ],
+        },
+    ];
+
+    assert_eq!(module.types, types);
+    assert_eq!(module.tables, tables);
+    assert_eq!(module.funcs, funcs);
+}
 #[test]
 fn it_decodes_element_section_all_alts() {
     let f = File::open("tests/fixtures/element_section_all_alts.wasm").unwrap();

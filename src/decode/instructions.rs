@@ -4,14 +4,14 @@
 use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
 use crate::core::types::{reftype::RefType, valtype::ValType};
-use crate::decode::FromMarkerByte;
-use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
+use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
 use crate::decode::indices::*;
 use crate::decode::integer::{
-    DecodeI32Error, DecodeI64Error, DecodeU32Error, decode_i32, decode_i64, decode_u32,
+    decode_i32, decode_i64, decode_u32, DecodeI32Error, DecodeI64Error, DecodeU32Error,
 };
 use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
+use crate::decode::FromMarkerByte;
 use crate::read_byte;
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -236,6 +236,14 @@ impl Instruction {
                 let y = TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?;
                 let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
                 Instruction::CallIndirect(x, y)
+            }
+            0x12 => {
+                Instruction::ReturnCall(FuncIdx::decode(reader).map_err(ControlError::FuncIdx)?)
+            }
+            0x13 => {
+                let y = TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?;
+                let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
+                Instruction::ReturnCallIndirect(x, y)
             }
 
             // --- Reference instructions (5decode) ---
