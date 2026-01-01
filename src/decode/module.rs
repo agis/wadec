@@ -266,7 +266,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
 
                     for instr in code.expr.iter() {
                         match instr {
-                            Instruction::MemoryInit(_) | Instruction::DataDrop(_) => {
+                            Instruction::MemoryInit(_, _) | Instruction::DataDrop(_) => {
                                 encountered_data_idx_in_code_section = true;
                                 break;
                             }

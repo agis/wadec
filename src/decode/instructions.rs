@@ -8,7 +8,8 @@ use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
 use crate::decode::indices::*;
 use crate::decode::integer::{
-    decode_i32, decode_i64, decode_u32, DecodeI32Error, DecodeI64Error, DecodeU32Error,
+    decode_i32, decode_i64, decode_u32, decode_u64, DecodeI32Error, DecodeI64Error, DecodeU32Error,
+    DecodeU64Error,
 };
 use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
 use crate::decode::FromMarkerByte;
@@ -117,26 +118,8 @@ pub enum MemoryError {
     #[error("failed decoding data index")]
     DecodeDataIdx(DecodeDataIdxError),
 
-    #[error("failed reading reserved byte")]
-    ReadReservedByte(io::Error),
-
-    #[error("failed reading reserved bytes")]
-    ReadReservedBytes(io::Error),
-
-    #[error("unexpected byte {0:#04X} for memory.size")]
-    InvalidMemorySizeByte(u8),
-
-    #[error("unexpected byte {0:#04X} for memory.grow")]
-    InvalidMemoryGrowByte(u8),
-
-    #[error("unexpected byte {0:#04X} for memory.init")]
-    InvalidMemoryInitByte(u8),
-
-    #[error("unexpected bytes {0:?} for memory.copy")]
-    InvalidMemoryCopyBytes([u8; 2]),
-
-    #[error("unexpected byte {0:#04X} for memory.fill")]
-    InvalidMemoryFillByte(u8),
+    #[error("failed decoding memory index")]
+    DecodeMemIdx(DecodeMemIdxError),
 }
 
 #[derive(Debug, Error)]
@@ -310,18 +293,11 @@ impl Instruction {
                 }
             }
             0x3F => {
-                let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                if b != 0x00 {
-                    return Err(MemoryError::InvalidMemorySizeByte(b))?;
-                }
-                Instruction::MemorySize
+                Instruction::MemorySize(MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?)
             }
+
             0x40 => {
-                let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                if b != 0x00 {
-                    return Err(MemoryError::InvalidMemoryGrowByte(b))?;
-                }
-                Instruction::MemoryGrow
+                Instruction::MemoryGrow(MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?)
             }
 
             // --- Numeric instructions (5.4.7) ---
@@ -472,32 +448,21 @@ impl Instruction {
 
                 // --- Memory ---
                 8 => {
-                    let x = DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?;
-                    let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                    if b != 0x00 {
-                        return Err(MemoryError::InvalidMemoryInitByte(b))?;
-                    }
-                    Instruction::MemoryInit(x)
+                    let y = DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?;
+                    let x = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    Instruction::MemoryInit(x, y)
                 }
                 9 => Instruction::DataDrop(
                     DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?,
                 ),
                 10 => {
-                    let mut buf = [0u8; 2];
-                    reader
-                        .read_exact(&mut buf)
-                        .map_err(MemoryError::ReadReservedBytes)?;
-                    if buf != [0u8, 0u8] {
-                        return Err(MemoryError::InvalidMemoryCopyBytes(buf))?;
-                    }
-                    Instruction::MemoryCopy
+                    let x1 = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    let x2 = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    Instruction::MemoryCopy(x1, x2)
                 }
                 11 => {
-                    let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                    if b != 0x00 {
-                        return Err(MemoryError::InvalidMemoryFillByte(b))?;
-                    }
-                    Instruction::MemoryFill
+                    let x = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    Instruction::MemoryFill(x)
                 }
 
                 // --- Table ---
@@ -836,19 +801,38 @@ pub(crate) enum ParseResult {
 
 #[derive(Debug, Error)]
 pub enum MemargError {
+    #[error("Invalid alignment flag {0}; should be less than 2^7")]
+    InvalidFlagsBit(u32),
+
     #[error("failed decoding alignment")]
     Align(DecodeU32Error),
 
     #[error("failed decoding offset")]
-    Offset(DecodeU32Error),
+    Offset(DecodeU64Error),
+
+    #[error("failed decoding memory index")]
+    MemIdx(#[from] DecodeMemIdxError),
 }
 
 impl Memarg {
     fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Memarg, MemargError> {
-        let align = decode_u32(reader).map_err(MemargError::Align)?;
-        let offset = decode_u32(reader).map_err(MemargError::Offset)?;
+        let n = decode_u32(reader).map_err(MemargError::Align)?;
 
-        Ok(Self { align, offset })
+        let (mem_idx, align) = if n < 2u32.pow(6) {
+            (MemIdx(0), n)
+        } else if n < 2u32.pow(7) {
+            (MemIdx::decode(reader)?, n - 2u32.pow(6))
+        } else {
+            return Err(MemargError::InvalidFlagsBit(n));
+        };
+
+        let offset = decode_u64(reader).map_err(MemargError::Offset)?;
+
+        Ok(Self {
+            mem_idx,
+            align,
+            offset,
+        })
     }
 }
 

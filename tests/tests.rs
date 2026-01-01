@@ -1070,18 +1070,21 @@ fn it_decodes_memory_instructions() {
         body: vec![
             Instruction::I32Const(0),
             Instruction::I32Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::F32Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
@@ -1089,6 +1092,7 @@ fn it_decodes_memory_instructions() {
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::F64Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
@@ -1096,60 +1100,70 @@ fn it_decodes_memory_instructions() {
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load8s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load8u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load16s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load16u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load8s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load8u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load16s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load16u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load32s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load32u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
@@ -1157,75 +1171,84 @@ fn it_decodes_memory_instructions() {
             Instruction::I32Const(4),
             Instruction::I32Const(1),
             Instruction::I32Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::I32Const(8),
             Instruction::I64Const(2),
             Instruction::I64Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
             Instruction::I32Const(16),
             Instruction::LocalGet(LocalIdx(0)),
             Instruction::F32Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::I32Const(24),
             Instruction::LocalGet(LocalIdx(1)),
             Instruction::F64Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
             Instruction::I32Const(32),
             Instruction::I32Const(5),
             Instruction::I32Store8(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::I32Const(34),
             Instruction::I32Const(6),
             Instruction::I32Store16(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::I32Const(36),
             Instruction::I64Const(7),
             Instruction::I64Store8(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::I32Const(38),
             Instruction::I64Const(8),
             Instruction::I64Store16(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::I32Const(40),
             Instruction::I64Const(9),
             Instruction::I64Store32(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
-            Instruction::MemorySize,
+            Instruction::MemorySize(MemIdx(0)),
             Instruction::Drop,
             Instruction::I32Const(0),
-            Instruction::MemoryGrow,
+            Instruction::MemoryGrow(MemIdx(0)),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Const(0),
             Instruction::I32Const(4),
-            Instruction::MemoryInit(DataIdx(1)),
+            Instruction::MemoryInit(MemIdx(0), DataIdx(1)),
             Instruction::DataDrop(DataIdx(1)),
             Instruction::I32Const(8),
             Instruction::I32Const(0),
             Instruction::I32Const(4),
-            Instruction::MemoryCopy,
+            Instruction::MemoryCopy(MemIdx(0), MemIdx(0)),
             Instruction::I32Const(12),
             Instruction::I32Const(255),
             Instruction::I32Const(4),
-            Instruction::MemoryFill,
+            Instruction::MemoryFill(MemIdx(0)),
         ],
     }];
 
@@ -1276,6 +1299,59 @@ fn it_decodes_memory_instructions() {
             ..Default::default()
         }
     )
+}
+
+#[test]
+fn it_decodes_multi_memory_immediates() {
+    let f = File::open("tests/fixtures/memory_instructions_multi_memidx.wasm").unwrap();
+
+    let module = decode_module(f).unwrap();
+    assert_eq!(module.mems.len(), 2);
+    assert_eq!(
+        module.mems,
+        vec![
+            MemType {
+                limits: Limits { min: 1, max: None },
+            },
+            MemType {
+                limits: Limits { min: 1, max: None },
+            },
+        ],
+    );
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    let expected_body = vec![
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(1),
+            align: 2,
+            offset: 0,
+        }),
+        Instruction::Drop,
+        Instruction::MemorySize(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(1),
+        Instruction::MemoryGrow(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(2),
+        Instruction::MemoryInit(MemIdx(1), DataIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(2),
+        Instruction::MemoryCopy(MemIdx(1), MemIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(7),
+        Instruction::I32Const(2),
+        Instruction::MemoryFill(MemIdx(1)),
+    ];
+    assert_eq!(func.body, expected_body);
+
+    assert_eq!(module.datas.len(), 1);
+    assert_eq!(module.datas[0].init, b"hi".to_vec());
+    assert_eq!(module.datas[0].mode, DataMode::Passive);
 }
 
 #[test]
@@ -2106,11 +2182,13 @@ fn it_decodes_vector_instructions() {
     let expected_body = vec![
         Instruction::I32Const(0),
         Instruction::V128Load(Memarg {
+            mem_idx: MemIdx(0),
             align: 4,
             offset: 0,
         }),
         Instruction::I32Const(16),
         Instruction::V128Load(Memarg {
+            mem_idx: MemIdx(0),
             align: 4,
             offset: 0,
         }),
@@ -2167,6 +2245,7 @@ fn it_decodes_vector_instructions() {
             112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
         ]),
         Instruction::V128Store(Memarg {
+            mem_idx: MemIdx(0),
             align: 4,
             offset: 0,
         }),
