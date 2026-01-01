@@ -401,33 +401,6 @@ fn parse_error_table() {
 }
 
 #[test]
-fn parse_error_memory() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.size using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.size reserved byte must be 0x00; non-zero is invalid.
-    // memory.size with reserved byte set to 0x01.
-    let wasm = File::open("tests/fixtures/malformed/memory_size_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemorySizeByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
 fn parse_error_numeric() {
     // Sections: Type, Function, Code.
     // Fixture: single function with f32.const missing its 4-byte payload.
@@ -1025,197 +998,11 @@ fn memory_error_decode_memarg_missing_offset() {
         )) => {
             assert_eq!(position, 0);
             match memarg_err {
-                MemargError::Offset(DecodeU32Error::Io(io_err)) => {
+                MemargError::Offset(DecodeU64Error::Io(io_err)) => {
                     assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
                 }
                 other => panic!("expected offset decoding failure, got {other:?}"),
             }
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_read_reserved_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.size missing its reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.size immediate includes a reserved byte; it is missing.
-    // memory.size without the required reserved byte.
-    let wasm =
-        File::open("tests/fixtures/malformed/memory_size_missing_reserved_byte.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("missing reserved byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::ReadReservedByte(io_err)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_read_reserved_bytes() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.copy missing its two reserved bytes.
-    // Spec 5.4.6 (Memory Instructions): memory.copy has two reserved zero bytes; both are missing.
-    // memory.copy with the two reserved bytes missing entirely.
-    let wasm =
-        File::open("tests/fixtures/malformed/memory_copy_missing_reserved_bytes.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("missing reserved bytes should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::ReadReservedBytes(io_err)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_size_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.size using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.size reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_size_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemorySizeByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_grow_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.grow using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.grow reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_grow_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved grow byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryGrowByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_init_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.init using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.init reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_init_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved init byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryInitByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_copy_bytes() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.copy using non-zero reserved bytes.
-    // Spec 5.4.6 (Memory Instructions): memory.copy reserved bytes must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_copy_reserved_wrong.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved bytes should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryCopyBytes(bytes)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(bytes, [0x00, 0x01]);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_fill_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.fill using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.fill reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_fill_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved fill byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryFillByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -1359,7 +1146,7 @@ fn vector_error_memarg_offset_missing() {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::Memarg(MemargError::Offset(
-                            DecodeU32Error::Io(io_err),
+                            DecodeU64Error::Io(io_err),
                         ))),
                     )),
             },
@@ -1472,6 +1259,35 @@ fn memarg_error_align_missing() {
         )) => {
             assert_eq!(position, 0);
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+// # spec version: 3
+fn memarg_error_invalid_flags_bit() {
+    // Sections: Type, Function, Memory, Code.
+    // Fixture: single function with a memory instruction whose memarg flags use a reserved bit.
+    // Spec 5.4.6 (Memory Instructions): memarg flags must fit within 7 bits; bit 7 is invalid.
+    let wasm = File::open("tests/fixtures/malformed/memarg_invalid_flags_bit.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid memarg flags should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Memory(MemoryError::DecodeMemarg(MemargError::InvalidFlagsBit(
+                            flags,
+                        ))),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(flags, 128);
         }
         other => panic!("unexpected error: {other:?}"),
     }

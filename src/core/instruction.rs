@@ -71,12 +71,12 @@ pub enum Instruction {
     I64Store8(Memarg),
     I64Store16(Memarg),
     I64Store32(Memarg),
-    MemorySize,
-    MemoryGrow,
-    MemoryInit(indices::DataIdx),
+    MemorySize(indices::MemIdx),
+    MemoryGrow(indices::MemIdx),
+    MemoryInit(indices::MemIdx, indices::DataIdx),
     DataDrop(indices::DataIdx),
-    MemoryCopy,
-    MemoryFill,
+    MemoryCopy(indices::MemIdx, indices::MemIdx),
+    MemoryFill(indices::MemIdx),
 
     // --- Numeric constants (5.4.7) ---
     I32Const(i32),
@@ -484,8 +484,9 @@ pub enum Instruction {
 /// (expressed as the exponent of a power of 2).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Memarg {
+    pub mem_idx: indices::MemIdx,
     pub align: u32,
-    pub offset: u32,
+    pub offset: u64,
 }
 
 /// Vector loads can specify a shape that is half the bit width of v128. Each lane is half its
