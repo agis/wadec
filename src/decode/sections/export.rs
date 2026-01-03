@@ -1,7 +1,7 @@
 use crate::core::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx};
 use crate::core::{Export, ExportDesc};
-use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
-use crate::decode::integer::{DecodeU32Error, decode_u32};
+use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
+use crate::decode::integer::{decode_u32, DecodeU32Error};
 use crate::read_byte;
 use std::io;
 use std::io::Read;
@@ -10,13 +10,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeExportSectionError {
     #[error("failed decoding Export section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeExportError>),
+    DecodeVector(#[from] DecodeListError<DecodeExportError>),
 }
 
 pub(crate) fn decode_export_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Export>, DecodeExportSectionError> {
-    Ok(decode_vector(reader, parse_export)?)
+    Ok(decode_list(reader, parse_export)?)
 }
 
 #[derive(Debug, Error)]

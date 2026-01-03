@@ -29,7 +29,7 @@ pub use crate::decode::types::{
     InvalidRefTypeMarkerError, InvalidValTypeMarkerError, ParseLimitsError,
 };
 pub use crate::decode::{
-    DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeModuleError,
-    DecodeNameError, DecodeSectionHeaderError, DecodeVectorError, InvalidSectionIdError,
+    DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeListError,
+    DecodeModuleError, DecodeNameError, DecodeSectionHeaderError, InvalidSectionIdError,
     ParseExpressionError, ParsePreambleError,
 };

@@ -1,7 +1,7 @@
-use crate::Expr;
 use crate::core::instruction::Instruction;
 use crate::decode::instructions;
-use crate::decode::integer::{DecodeU32Error, decode_u32};
+use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::Expr;
 use std::io;
 use std::io::Read;
 use thiserror::Error;
@@ -62,7 +62,7 @@ pub(crate) fn decode_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64, DecodeFloat
 }
 
 #[derive(Error)]
-pub enum DecodeVectorError<E> {
+pub enum DecodeListError<E> {
     #[error("failed decoding vector length")]
     DecodeLength(#[from] DecodeU32Error),
 
@@ -70,10 +70,10 @@ pub enum DecodeVectorError<E> {
     ParseElement { position: u32, source: E },
 }
 
-pub(crate) fn decode_vector<R, F, T, E>(
+pub(crate) fn decode_list<R, F, T, E>(
     reader: &mut R,
     mut parse_fn: F,
-) -> Result<Vec<T>, DecodeVectorError<E>>
+) -> Result<Vec<T>, DecodeListError<E>>
 where
     R: Read + ?Sized,
     F: FnMut(&mut R) -> Result<T, E>,
@@ -82,7 +82,7 @@ where
 
     let mut items = Vec::with_capacity(len.try_into().unwrap());
     for i in 0..len {
-        let elem = parse_fn(reader).map_err(|err| DecodeVectorError::ParseElement {
+        let elem = parse_fn(reader).map_err(|err| DecodeListError::ParseElement {
             position: i,
             source: err,
         })?;
@@ -94,7 +94,7 @@ where
 
 // we want any DecodeVectorError::ParseElement errors to also display the inner
 // error type pointed to by source.
-impl<E: std::fmt::Debug> std::fmt::Debug for DecodeVectorError<E> {
+impl<E: std::fmt::Debug> std::fmt::Debug for DecodeListError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DecodeLength(e) => f.debug_tuple("DecodeLength").field(e).finish(),

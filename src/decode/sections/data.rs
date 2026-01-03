@@ -1,24 +1,24 @@
 use crate::core::indices::MemIdx;
 use crate::core::{Data, DataMode};
 use crate::decode::helpers::{
-    DecodeByteVectorError, DecodeVectorError, ParseExpressionError, decode_byte_vector,
-    decode_expr, decode_vector,
+    decode_byte_vector, decode_expr, decode_list, DecodeByteVectorError, DecodeListError,
+    ParseExpressionError,
 };
 use crate::decode::indices::DecodeMemIdxError;
-use crate::decode::integer::{DecodeU32Error, decode_u32};
+use crate::decode::integer::{decode_u32, DecodeU32Error};
 use std::io::Read;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DecodeDataSectionError {
     #[error("failed decoding Data section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeDataSegmentError>),
+    DecodeVector(#[from] DecodeListError<DecodeDataSegmentError>),
 }
 
 pub(crate) fn decode_data_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Data>, DecodeDataSectionError> {
-    Ok(decode_vector(reader, parse_data)?)
+    Ok(decode_list(reader, parse_data)?)
 }
 
 #[derive(Debug, Error)]

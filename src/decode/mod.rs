@@ -9,12 +9,12 @@ pub mod types;
 
 pub(crate) use helpers::read_byte;
 pub use helpers::{
-    DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeNameError,
-    DecodeVectorError, ParseExpressionError,
+    DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeListError,
+    DecodeNameError, ParseExpressionError,
 };
 pub use module::{
-    DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError, ParsePreambleError,
-    decode_module,
+    decode_module, DecodeModuleError, DecodeSectionHeaderError, InvalidSectionIdError,
+    ParsePreambleError,
 };
 
 pub(crate) trait FromMarkerByte

@@ -2469,7 +2469,7 @@ fn it_fails_on_code_size_mismatch() {
     let err = decode_module(f).expect_err("underreported code section should fail");
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -2521,7 +2521,7 @@ fn it_rejects_overlong_type_index_encoding() {
 
     match err {
         DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
             },

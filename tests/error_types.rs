@@ -17,7 +17,7 @@ fn type_idx_error_for_overlong_function_index() {
 
     match err {
         DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
             },
@@ -63,7 +63,7 @@ fn decode_i32_error_too_large() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -91,7 +91,7 @@ fn decode_i32_error_representation_too_long() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -118,7 +118,7 @@ fn decode_i32_error_io() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -151,7 +151,7 @@ fn decode_i64_error_representation_too_long() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -179,7 +179,7 @@ fn decode_i64_error_incorrect_sign_extension() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -206,7 +206,7 @@ fn decode_i64_error_io() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -238,7 +238,7 @@ fn parse_error_read_opcode() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -265,7 +265,7 @@ fn parse_error_control() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -293,7 +293,7 @@ fn parse_error_reference() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -322,12 +322,12 @@ fn parse_error_parametric() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Parametric(ParametricError::DecodeVector(
-                            DecodeVectorError::ParseElement {
+                            DecodeListError::ParseElement {
                                 position: vec_pos,
                                 source: DecodeValTypeError::InvalidMarkerByte(err),
                             },
@@ -355,7 +355,7 @@ fn parse_error_variable() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -384,7 +384,7 @@ fn parse_error_table() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -412,7 +412,7 @@ fn parse_error_numeric() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -441,7 +441,7 @@ fn parse_error_vector() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -468,7 +468,7 @@ fn parse_error_invalid_opcode() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -494,7 +494,7 @@ fn parse_error_invalid_marker_after_fc() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -522,12 +522,12 @@ fn control_error_decode_label_idx_vector() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::DecodeLabelIdxVector(
-                            DecodeVectorError::ParseElement {
+                            DecodeListError::ParseElement {
                                 position: vec_pos,
                                 source: DecodeLabelIdxError(DecodeU32Error::RepresentationTooLong),
                             },
@@ -554,7 +554,7 @@ fn control_error_table_idx() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -582,7 +582,7 @@ fn control_error_type_idx() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -610,7 +610,7 @@ fn control_error_block_type() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -639,7 +639,7 @@ fn control_error_unexpected_else() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -665,7 +665,7 @@ fn reference_error_func_idx() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -693,7 +693,7 @@ fn func_idx_error_for_overlong_call_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -721,7 +721,7 @@ fn table_idx_error_for_overlong_table_get_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -749,7 +749,7 @@ fn mem_idx_error_for_overlong_data_segment_memory_index() {
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeMemIdx(DecodeMemIdxError(
@@ -774,7 +774,7 @@ fn global_idx_error_for_overlong_global_get_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -801,7 +801,7 @@ fn elem_idx_error_for_overlong_elem_drop_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -828,7 +828,7 @@ fn data_idx_error_for_overlong_data_drop_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -855,7 +855,7 @@ fn local_idx_error_for_overlong_local_get_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -882,7 +882,7 @@ fn label_idx_error_for_overlong_br_instruction() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -909,7 +909,7 @@ fn decode_u32_error_too_large_for_type_section_length() {
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::DecodeLength(u32_err),
+            DecodeListError::DecodeLength(u32_err),
         )) => {
             assert!(
                 matches!(u32_err, DecodeU32Error::TooLarge),
@@ -954,12 +954,12 @@ fn parametric_error_decode_vector_invalid_valtype() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Parametric(ParametricError::DecodeVector(
-                            DecodeVectorError::ParseElement {
+                            DecodeListError::ParseElement {
                                 position: vec_pos,
                                 source: DecodeValTypeError::InvalidMarkerByte(err),
                             },
@@ -988,7 +988,7 @@ fn memory_error_decode_memarg_missing_offset() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1019,7 +1019,7 @@ fn numeric_error_read_opcode_truncated_fc_prefix() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1050,7 +1050,7 @@ fn numeric_error_decode_f32_truncated_payload() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1080,7 +1080,7 @@ fn numeric_error_decode_f64_truncated_payload() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1110,7 +1110,7 @@ fn vector_error_read_opcode_truncated() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1141,7 +1141,7 @@ fn vector_error_memarg_offset_missing() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1169,7 +1169,7 @@ fn vector_error_laneidx_missing() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1195,7 +1195,7 @@ fn vector_error_read_immediate_bytes() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1221,7 +1221,7 @@ fn vector_error_invalid_opcode() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1247,7 +1247,7 @@ fn memarg_error_align_missing() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1304,7 +1304,7 @@ fn lane_idx_error_missing_byte() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1330,7 +1330,7 @@ fn block_type_error_read_marker_byte() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1358,7 +1358,7 @@ fn block_type_error_decode_index_truncated() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1386,7 +1386,7 @@ fn block_type_error_negative_type_index() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1414,7 +1414,7 @@ fn block_type_error_type_index_too_large() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1443,7 +1443,7 @@ fn decode_func_type_error_read_marker_byte() {
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeFuncTypeError::ReadMarkerByte(io_err),
             },
@@ -1467,7 +1467,7 @@ fn decode_func_type_error_invalid_marker_byte() {
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeFuncTypeError::InvalidMarkerByte(b),
             },
@@ -1491,11 +1491,11 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeFuncTypeError::DecodeParameterTypes(DecodeResultTypeError::DecodeVector(
-                        DecodeVectorError::ParseElement {
+                        DecodeListError::ParseElement {
                             position: inner_pos,
                             source: DecodeValTypeError::InvalidMarkerByte(err),
                         },
@@ -1522,11 +1522,11 @@ fn decode_func_type_error_result_types_truncated() {
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeFuncTypeError::DecodeResultTypes(DecodeResultTypeError::DecodeVector(
-                        DecodeVectorError::ParseElement {
+                        DecodeListError::ParseElement {
                             position: inner_pos,
                             source: DecodeValTypeError::Io(io_err),
                         },
@@ -1552,7 +1552,7 @@ fn decode_table_error_invalid_reftype_marker() {
 
     match err {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeTableError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(err)),
             },
@@ -1575,7 +1575,7 @@ fn decode_table_error_reftype_truncated() {
 
     match err {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeTableError::DecodeRefType(DecodeRefTypeError::Io(io_err)),
             },
@@ -1599,7 +1599,7 @@ fn decode_table_error_limits_invalid_flag() {
 
     match err {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeTableError::DecodeLimits(ParseLimitsError::UnexpectedMaxLimitByte(0x02)),
@@ -1620,7 +1620,7 @@ fn decode_memory_type_error_missing_limits_byte() {
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeMemoryTypeError(ParseLimitsError::DetermineMaxLimitPresence(io_err)),
             },
@@ -1644,7 +1644,7 @@ fn decode_memory_type_error_unexpected_max_limit_byte() {
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeMemoryTypeError(ParseLimitsError::UnexpectedMaxLimitByte(0x02)),
             },
@@ -1666,7 +1666,7 @@ fn decode_memory_type_error_missing_min_limit() {
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeMemoryTypeError(ParseLimitsError::ReadMinLimit(DecodeU32Error::Io(io_err))),
@@ -1690,7 +1690,7 @@ fn decode_memory_type_error_missing_max_limit() {
 
     match err {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeMemoryTypeError(ParseLimitsError::ReadMaxLimit(DecodeU32Error::Io(io_err))),
@@ -1714,7 +1714,7 @@ fn decode_global_type_error_invalid_valtype() {
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::DecodeValueType(
@@ -1741,7 +1741,7 @@ fn decode_global_type_error_missing_mutability() {
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::DecodeMutability(io_err)),
@@ -1766,7 +1766,7 @@ fn decode_global_type_error_invalid_mutability() {
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::InvalidMutability(err)),
@@ -2031,7 +2031,7 @@ fn decode_import_section_error_module_name() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeImportError::DecodeModuleName(DecodeNameError::DecodeByteVector(
@@ -2057,7 +2057,7 @@ fn decode_import_section_error_entity_name_utf8() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeImportError::DecodeName(DecodeNameError::Utf8(err)),
             },
@@ -2082,7 +2082,7 @@ fn decode_import_error_descriptor_missing_byte() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeImportError::ReadDescriptorMarkerByte(io_err),
             },
@@ -2105,7 +2105,7 @@ fn decode_import_error_invalid_descriptor() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeImportError::InvalidDescriptorMarkerByte(b),
             },
@@ -2128,7 +2128,7 @@ fn decode_import_error_typeidx_overlong() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
@@ -2151,7 +2151,7 @@ fn decode_import_error_table_invalid_reftype() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeImportError::DecodeTable(DecodeTableError::DecodeRefType(
@@ -2177,7 +2177,7 @@ fn decode_import_error_memory_invalid_limits() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeImportError::DecodeMemType(DecodeMemoryTypeError(
@@ -2203,7 +2203,7 @@ fn decode_import_error_global_invalid_mutability() {
 
     match err {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeImportError::DecodeGlobalType(DecodeGlobalTypeError::InvalidMutability(err)),
@@ -2227,7 +2227,7 @@ fn decode_export_section_error_name_decode() {
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeExportError::DecodeName(DecodeNameError::DecodeByteVector(
@@ -2252,7 +2252,7 @@ fn decode_export_error_descriptor_missing_byte() {
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::ReadDescriptorMarkerByte(io_err),
             },
@@ -2275,7 +2275,7 @@ fn decode_export_error_index_decode() {
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::DecodeIndex(u32_err),
             },
@@ -2301,7 +2301,7 @@ fn decode_export_error_invalid_descriptor() {
 
     match err {
         DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::InvalidDescriptorMarkerByte(err),
             },
@@ -2342,7 +2342,7 @@ fn decode_code_error_function_size_truncated() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeCodeError::DecodeFunctionSize(u32_err),
             },
@@ -2372,10 +2372,10 @@ fn decode_code_error_locals_vector_length_overlong() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::DecodeLength(
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::DecodeLength(
                         DecodeU32Error::RepresentationTooLong,
                     )),
             },
@@ -2396,10 +2396,10 @@ fn decode_code_locals_error_count_out_of_bounds() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::ParseElement {
                         position: locals_position,
                         source:
                             DecodeCodeLocalsError::LocalsCountOutOfBound {
@@ -2430,10 +2430,10 @@ fn decode_code_locals_error_decode_count() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::ParseElement {
                         position: locals_position,
                         source: DecodeCodeLocalsError::DecodeLocalsCount(DecodeU32Error::Io(io_err)),
                     }),
@@ -2459,10 +2459,10 @@ fn decode_code_error_local_valtype_invalid() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::ParseElement {
                         position: locals_position,
                         source:
                             DecodeCodeLocalsError::DecodeLocalValType(
@@ -2491,7 +2491,7 @@ fn decode_code_error_entry_size_mismatch() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::EntrySizeMismatch {
@@ -2521,7 +2521,7 @@ fn parse_expression_error_unexpected_else() {
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeCodeError::DecodeFunctionBody(ParseExpressionError::UnexpectedElse),
             },
@@ -2543,7 +2543,7 @@ fn decode_element_section_error_bitfield_decode() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::DecodeBitfield(DecodeU32Error::RepresentationTooLong),
             },
@@ -2563,7 +2563,7 @@ fn decode_element_error_invalid_bitfield() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::InvalidBitfield(n),
             },
@@ -2586,7 +2586,7 @@ fn decode_element_error_offset_expression() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeOffsetExpression(ParseExpressionError::ParseInstruction(
@@ -2612,7 +2612,7 @@ fn decode_element_error_elemkind_invalid() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeElementKind(DecodeElementKindError::InvalidElemKind(0x01)),
@@ -2635,7 +2635,7 @@ fn decode_element_error_elemkind_io() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::DecodeElementKind(DecodeElementKindError::Io(io_err)),
             },
@@ -2658,7 +2658,7 @@ fn decode_element_error_reference_type_invalid() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeReferenceType(DecodeRefTypeError::InvalidMarkerByte(err)),
@@ -2682,10 +2682,10 @@ fn decode_element_error_init_decode_length() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeElementError::DecodeInit(DecodeVectorError::DecodeLength(
+                    DecodeElementError::DecodeInit(DecodeListError::DecodeLength(
                         DecodeU32Error::RepresentationTooLong,
                     )),
             },
@@ -2707,10 +2707,10 @@ fn decode_element_error_funcidx_vector_overlong() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeElementError::DecodeFuncIdxVector(DecodeVectorError::ParseElement {
+                    DecodeElementError::DecodeFuncIdxVector(DecodeListError::ParseElement {
                         position: func_pos,
                         source: DecodeFuncIdxError(DecodeU32Error::TooLarge),
                     }),
@@ -2734,7 +2734,7 @@ fn decode_element_error_table_idx_overlong() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeTableIdx(DecodeTableIdxError(DecodeU32Error::TooLarge)),
@@ -2758,7 +2758,7 @@ fn decode_element_error_expression_missing_opcode() {
 
     match err {
         DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeElementExpression(ParseExpressionError::ParseInstruction(
@@ -2784,7 +2784,7 @@ fn decode_data_section_error_bitfield_decode() {
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeBitfield(DecodeU32Error::RepresentationTooLong),
@@ -2807,7 +2807,7 @@ fn decode_data_section_error_invalid_bitfield() {
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeDataSegmentError::InvalidBitfield(n),
             },
@@ -2830,7 +2830,7 @@ fn decode_data_section_error_offset_expr_missing() {
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeOffsetExpr(ParseExpressionError::ParseInstruction(
@@ -2856,7 +2856,7 @@ fn decode_data_section_error_init_vector_truncated() {
 
     match err {
         DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeInitVector(DecodeByteVectorError::ReadElements(
@@ -2902,7 +2902,7 @@ fn decode_global_error_init_missing_expr() {
 
     match err {
         DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeInit(ParseExpressionError::ParseInstruction(

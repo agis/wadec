@@ -1,6 +1,6 @@
-use crate::core::Global;
 use crate::core::types::GlobalType;
-use crate::decode::helpers::{DecodeVectorError, ParseExpressionError, decode_expr, decode_vector};
+use crate::core::Global;
+use crate::decode::helpers::{decode_expr, decode_list, DecodeListError, ParseExpressionError};
 use crate::decode::types::DecodeGlobalTypeError;
 use std::io::Read;
 use thiserror::Error;
@@ -8,13 +8,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeGlobalSectionError {
     #[error("failed decoding Global section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeGlobalError>),
+    DecodeVector(#[from] DecodeListError<DecodeGlobalError>),
 }
 
 pub(crate) fn decode_global_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Global>, DecodeGlobalSectionError> {
-    Ok(decode_vector(reader, parse_global)?)
+    Ok(decode_list(reader, parse_global)?)
 }
 
 #[derive(Debug, Error)]
