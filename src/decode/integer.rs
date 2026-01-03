@@ -50,6 +50,50 @@ pub(crate) fn decode_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32, De
 }
 
 #[derive(Error, Debug)]
+pub enum DecodeU64Error {
+    #[error("uint64 too large")]
+    TooLarge,
+
+    #[error("uint64 representation too long")]
+    RepresentationTooLong,
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+pub(crate) fn decode_u64<R: io::Read + ?Sized>(reader: &mut R) -> Result<u64, DecodeU64Error> {
+    let mut result: u64 = 0;
+    let mut shift: u8 = 0;
+
+    // 10 == ceil(64/7)
+    for i in 1..=10 {
+        let byte = read_byte(reader)?;
+
+        result |= u64::from(byte & 0b0111_1111 /* 0x7F */) << shift;
+
+        let continuation_bit = byte & 0b1000_0000 /* 0x80 */;
+        if continuation_bit == 0 {
+            if i == 10 && (byte & 0b0111_1110/* 0x7E */) != 0 {
+                // we're at byte 10, which means 9*7=63 bits have been
+                // consumed by the payload at this point. This leaves no more
+                // than 64-63=1 more bit available for the rest of the payload.
+                //
+                // Therefore, ensure that the rest of those bits do not carry
+                // any payload.
+                return Err(DecodeU64Error::TooLarge);
+            }
+            return Ok(result);
+        }
+
+        // payload is encoded in groups of 7 bits. We parsed a chunk, so move to
+        // the next one
+        shift += 7;
+    }
+
+    Err(DecodeU64Error::RepresentationTooLong)
+}
+
+#[derive(Error, Debug)]
 pub enum DecodeI32Error {
     #[error("int32 too large")]
     TooLarge,
@@ -164,6 +208,22 @@ mod tests {
         out
     }
 
+    fn encode_u64(mut value: u64) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let mut byte = (value & 0x7F) as u8;
+            value >>= 7;
+            if value != 0 {
+                byte |= 0x80;
+                out.push(byte);
+            } else {
+                out.push(byte);
+                break;
+            }
+        }
+        out
+    }
+
     fn encode_sleb64(mut value: i64) -> Vec<u8> {
         let mut out = Vec::new();
         loop {
@@ -184,6 +244,11 @@ mod tests {
     fn read_u32_from(bytes: Vec<u8>) -> Result<u32, DecodeU32Error> {
         let mut cursor = Cursor::new(bytes);
         decode_u32(&mut cursor)
+    }
+
+    fn read_u64_from(bytes: Vec<u8>) -> Result<u64, DecodeU64Error> {
+        let mut cursor = Cursor::new(bytes);
+        decode_u64(&mut cursor)
     }
 
     fn read_i32_from(bytes: Vec<u8>) -> Result<i32, DecodeI32Error> {
@@ -219,6 +284,33 @@ mod tests {
     fn read_u32_rejects_representation_too_long() {
         let err = read_u32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
         assert!(matches!(err, DecodeU32Error::RepresentationTooLong));
+    }
+
+    #[test]
+    fn read_u64_decodes_simple_values() {
+        assert_eq!(read_u64_from(encode_u64(0)).unwrap(), 0);
+        assert_eq!(read_u64_from(encode_u64(127)).unwrap(), 127);
+        assert_eq!(read_u64_from(encode_u64(128)).unwrap(), 128);
+        assert_eq!(read_u64_from(encode_u64(u64::MAX)).unwrap(), u64::MAX);
+    }
+
+    #[test]
+    fn read_u64_rejects_payload_bits_in_last_byte() {
+        let mut bytes = vec![0xFF; 9];
+        bytes.push(0x02);
+        let err = read_u64_from(bytes).unwrap_err();
+        assert!(matches!(err, DecodeU64Error::TooLarge));
+    }
+
+    #[test]
+    fn read_u64_accepts_extended_zero() {
+        assert_eq!(read_u64_from(vec![0x80, 0x00]).unwrap(), 0);
+    }
+
+    #[test]
+    fn read_u64_rejects_representation_too_long() {
+        let err = read_u64_from(vec![0x80; 10]).unwrap_err();
+        assert!(matches!(err, DecodeU64Error::RepresentationTooLong));
     }
 
     #[test]
