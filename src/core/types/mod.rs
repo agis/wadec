@@ -30,3 +30,6 @@ pub use valtype::ValType;
 
 pub mod vectype;
 pub use vectype::VecType;
+
+pub mod addrtype;
+pub use addrtype::AddrType;

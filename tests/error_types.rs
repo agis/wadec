@@ -1572,8 +1572,7 @@ fn decode_table_error_limits_invalid_flag() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeTableError::DecodeLimits(ParseLimitsError::UnexpectedMaxLimitByte(0x02)),
+                source: DecodeTableError::DecodeLimits(ParseLimitsError::UnexpectedFlagByte(0x02)),
             },
         )) => assert_eq!(position, 0),
         other => panic!("unexpected error: {other:?}"),
@@ -1593,7 +1592,7 @@ fn decode_memory_type_error_missing_limits_byte() {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeMemoryTypeError(ParseLimitsError::DetermineMaxLimitPresence(io_err)),
+                source: DecodeMemoryTypeError(ParseLimitsError::ReadFlagByte(io_err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1617,7 +1616,7 @@ fn decode_memory_type_error_unexpected_max_limit_byte() {
         DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeMemoryTypeError(ParseLimitsError::UnexpectedMaxLimitByte(0x02)),
+                source: DecodeMemoryTypeError(ParseLimitsError::UnexpectedFlagByte(0x02)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1640,7 +1639,7 @@ fn decode_memory_type_error_missing_min_limit() {
             DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeMemoryTypeError(ParseLimitsError::ReadMinLimit(DecodeU32Error::Io(io_err))),
+                    DecodeMemoryTypeError(ParseLimitsError::ReadMinLimit(DecodeU64Error::Io(io_err))),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1664,7 +1663,7 @@ fn decode_memory_type_error_missing_max_limit() {
             DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeMemoryTypeError(ParseLimitsError::ReadMaxLimit(DecodeU32Error::Io(io_err))),
+                    DecodeMemoryTypeError(ParseLimitsError::ReadMaxLimit(DecodeU64Error::Io(io_err))),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2152,7 +2151,7 @@ fn decode_import_error_memory_invalid_limits() {
                 position,
                 source:
                     DecodeImportError::DecodeMemType(DecodeMemoryTypeError(
-                        ParseLimitsError::UnexpectedMaxLimitByte(0x02),
+                        ParseLimitsError::UnexpectedFlagByte(0x02),
                     )),
             },
         )) => {
