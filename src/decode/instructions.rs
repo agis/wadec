@@ -4,8 +4,8 @@
 use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
 use crate::core::types::{reftype::RefType, valtype::ValType};
-use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
-use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
+use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
+use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
 use crate::decode::indices::*;
 use crate::decode::integer::{
     decode_i32, decode_i64, decode_u32, decode_u64, DecodeI32Error, DecodeI64Error, DecodeU32Error,
@@ -59,7 +59,7 @@ pub enum ControlError {
     LabelIdx(#[from] DecodeLabelIdxError),
 
     #[error("failed decoding label index")]
-    DecodeLabelIdxVector(#[from] DecodeVectorError<DecodeLabelIdxError>),
+    DecodeLabelIdxVector(#[from] DecodeListError<DecodeLabelIdxError>),
 
     #[error("failed decoding function index")]
     FuncIdx(DecodeFuncIdxError),
@@ -89,7 +89,7 @@ pub enum ReferenceError {
 #[derive(Debug, Error)]
 pub enum ParametricError {
     #[error("failed decoding value type vector")]
-    DecodeVector(#[from] DecodeVectorError<DecodeValTypeError>),
+    DecodeVector(#[from] DecodeListError<DecodeValTypeError>),
 }
 
 #[derive(Debug, Error)]
@@ -208,7 +208,7 @@ impl Instruction {
             0x0C => Instruction::Br(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0D => Instruction::BrIf(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0E => {
-                let l = decode_vector(reader, LabelIdx::decode)
+                let l = decode_list(reader, LabelIdx::decode)
                     .map_err(ControlError::DecodeLabelIdxVector)?;
                 let ln = LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?;
                 Instruction::BrTable(l, ln)
@@ -238,7 +238,7 @@ impl Instruction {
             0x1A => Instruction::Drop,
             0x1B => Instruction::Select(None),
             0x1C => Instruction::Select(Some(
-                decode_vector(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
+                decode_list(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
             )),
 
             // --- Variable instructions (5.4.4) ---

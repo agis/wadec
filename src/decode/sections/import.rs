@@ -2,7 +2,7 @@ use crate::core::indices::TypeIdx;
 use crate::core::types::globaltype::GlobalType;
 use crate::core::types::tabletype::TableType;
 use crate::core::{Import, ImportDesc};
-use crate::decode::helpers::{DecodeNameError, DecodeVectorError, decode_name, decode_vector};
+use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
 use crate::decode::indices::DecodeTypeIdxError;
 use crate::decode::types::memtype::parse_memtype;
 use crate::decode::types::{DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeTableError};
@@ -13,13 +13,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeImportSectionError {
     #[error("failed decoding Import section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeImportError>),
+    DecodeVector(#[from] DecodeListError<DecodeImportError>),
 }
 
 pub(crate) fn decode_import_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Import>, DecodeImportSectionError> {
-    Ok(decode_vector(reader, parse_import)?)
+    Ok(decode_list(reader, parse_import)?)
 }
 
 #[derive(Debug, Error)]
