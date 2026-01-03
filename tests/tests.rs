@@ -201,7 +201,11 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
             module: "env".to_owned(),
             name: "table".to_owned(),
             desc: ImportDesc::Table(TableType {
-                limits: Limits { min: 1, max: None },
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
                 reftype: RefType::Func,
             }),
         },
@@ -209,7 +213,11 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
             module: "env".to_owned(),
             name: "memory".to_owned(),
             desc: ImportDesc::Mem(MemType {
-                limits: Limits { min: 1, max: None },
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
             }),
         },
         Import {
@@ -438,7 +446,11 @@ fn it_decodes_control_instructions() {
     ];
 
     let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
         reftype: RefType::Func,
     }];
 
@@ -588,11 +600,19 @@ fn it_decodes_element_section_all_alts() {
 
     let tables = vec![
         TableType {
-            limits: Limits { min: 12, max: None },
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 12,
+                max: None,
+            },
             reftype: RefType::Func,
         },
         TableType {
-            limits: Limits { min: 12, max: None },
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 12,
+                max: None,
+            },
             reftype: RefType::Func,
         },
     ];
@@ -748,7 +768,11 @@ fn it_decodes_reference_instructions() {
     ];
 
     let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
         reftype: RefType::Func,
     }];
 
@@ -1024,11 +1048,19 @@ fn it_decodes_table_instructions() {
 
     let tables = vec![
         TableType {
-            limits: Limits { min: 4, max: None },
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 4,
+                max: None,
+            },
             reftype: RefType::Func,
         },
         TableType {
-            limits: Limits { min: 4, max: None },
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 4,
+                max: None,
+            },
             reftype: RefType::Func,
         },
     ];
@@ -1307,7 +1339,11 @@ fn it_decodes_memory_instructions() {
     }];
 
     let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
     }];
 
     let exports = vec![
@@ -1365,10 +1401,18 @@ fn it_decodes_multi_memory_immediates() {
         module.mems,
         vec![
             MemType {
-                limits: Limits { min: 1, max: None },
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
             },
             MemType {
-                limits: Limits { min: 1, max: None },
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
             },
         ],
     );
@@ -1692,12 +1736,20 @@ fn it_accepts_kitchensink() {
     ];
 
     let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
         reftype: RefType::Func,
     }];
 
     let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
     }];
 
     let globals = vec![Global {
@@ -1785,7 +1837,11 @@ fn it_decodes_data_section_multiple_segments() {
     ];
 
     let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
     }];
 
     let datas = vec![
@@ -2183,7 +2239,11 @@ fn it_decodes_vector_instructions() {
     assert_eq!(
         module.mems,
         vec![MemType {
-            limits: Limits { min: 1, max: None },
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
         }]
     );
 
@@ -2296,6 +2356,7 @@ fn it_respects_mem_limits() {
 
     let mems = vec![MemType {
         limits: Limits {
+            address_type: AddrType::I32,
             min: 1,
             max: Some(129),
         },
@@ -2310,6 +2371,52 @@ fn it_respects_mem_limits() {
             ..Default::default()
         }
     )
+}
+
+#[test]
+fn it_decodes_memory64_limits_flags() {
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_min.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1,
+                max: None,
+            },
+        }]
+    );
+
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_min_max.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1,
+                max: Some(2),
+            },
+        }]
+    );
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_memory64_limits_large_values() {
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_large.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1u64 << 32,
+                max: Some((1u64 << 32) + 5),
+            },
+        }]
+    );
 }
 
 #[test]
