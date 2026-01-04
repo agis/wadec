@@ -492,6 +492,7 @@ fn it_decodes_control_instructions() {
 
     let parsed_section_kinds = vec![
         SectionKind::Type,
+        SectionKind::Import,
         SectionKind::Function,
         SectionKind::Table,
         SectionKind::Export,
@@ -501,6 +502,10 @@ fn it_decodes_control_instructions() {
         SectionHeader {
             kind: SectionKind::Type,
             size: 9,
+        },
+        SectionHeader {
+            kind: SectionKind::Import,
+            size: 25,
         },
         SectionHeader {
             kind: SectionKind::Function,
@@ -516,7 +521,7 @@ fn it_decodes_control_instructions() {
         },
         SectionHeader {
             kind: SectionKind::Code,
-            size: 64,
+            size: 82,
         },
     ];
 
@@ -530,6 +535,17 @@ fn it_decodes_control_instructions() {
             results: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         },
     ];
+
+    let imports = vec![Import {
+        module_name: "env".to_owned(),
+        item_name: "tag0".to_owned(),
+        extern_type: ExternType::Tag(TagType(TypeIdx(0))),
+    },
+    Import {
+        module_name: "env".to_owned(),
+        item_name: "tag1".to_owned(),
+        extern_type: ExternType::Tag(TagType(TypeIdx(0))),
+    }];
 
     let funcs = vec![
         Func {
@@ -581,6 +597,18 @@ fn it_decodes_control_instructions() {
                 Instruction::Call(FuncIdx(0)),
                 Instruction::I32Const(0),
                 Instruction::CallIndirect(TableIdx(0), TypeIdx(0)),
+                Instruction::Throw(TagIdx(1)),
+                Instruction::ThrowRef,
+                Instruction::TryTable(
+                    BlockType::Empty,
+                    vec![
+                        Catch::Catch(TagIdx(1), LabelIdx(1)),
+                        Catch::CatchRef(TagIdx(1), LabelIdx(1)),
+                        Catch::CatchAll(LabelIdx(1)),
+                        Catch::CatchAllRef(LabelIdx(1)),
+                    ],
+                    vec![Instruction::Unreachable],
+                ),
                 Instruction::Return,
             ],
         },
@@ -606,6 +634,7 @@ fn it_decodes_control_instructions() {
             parsed_section_kinds,
             section_headers,
             types,
+            imports,
             funcs,
             tables,
             exports,

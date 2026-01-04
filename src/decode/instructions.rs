@@ -2,7 +2,7 @@
 //!
 //! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
 use crate::core::indices::*;
-use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
+use crate::core::instruction::{BlockType, Catch, Instruction, LaneIdx, Memarg};
 use crate::core::types::{reftype::RefType, valtype::ValType};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
@@ -69,6 +69,12 @@ pub enum ControlError {
 
     #[error("failed decoding type index")]
     TypeIdx(DecodeTypeIdxError),
+
+    #[error("failed decoding tag index")]
+    TagIdx(DecodeTagIdxError),
+
+    #[error("failed decoding Catch list")]
+    DecodeCatchListError(#[from] DecodeListError<CatchError>),
 
     #[error("failed decoding block type")]
     BlockType(BlockTypeError),
@@ -205,6 +211,8 @@ impl Instruction {
                     _ => unreachable!(),
                 }
             }
+            0x08 => Instruction::Throw(TagIdx::decode(reader).map_err(ControlError::TagIdx)?),
+            0x0A => Instruction::ThrowRef,
             0x0C => Instruction::Br(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0D => Instruction::BrIf(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0E => {
@@ -227,6 +235,23 @@ impl Instruction {
                 let y = TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?;
                 let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
                 Instruction::ReturnCallIndirect(x, y)
+            }
+            0x1F => {
+                let bt = BlockType::decode(reader).map_err(ControlError::BlockType)?;
+                let c = decode_list(reader, Catch::decode)
+                    .map_err(ControlError::DecodeCatchListError)?;
+
+                let mut ins = Vec::new();
+                let mut parsed;
+                loop {
+                    parsed = Self::parse(reader)?;
+                    match parsed {
+                        ParseResult::Instruction(i) => ins.push(i),
+                        ParseResult::End | ParseResult::Else => break,
+                    }
+                }
+
+                Instruction::TryTable(bt, c, ins)
             }
 
             // --- Reference instructions (5decode) ---
@@ -890,5 +915,42 @@ impl BlockType {
         let x = u32::try_from(x).map_err(|_| BlockTypeError::TypeIndexTooLarge(x))?;
 
         Ok(Self::X(x))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum CatchError {
+    #[error("failed reading catch block marker byte")]
+    ReadMarkerByte(#[from] io::Error),
+
+    #[error("invalid marker byte: expected 0x00, 0x01, 0x02 or 0x03; got {0:#04X}")]
+    InvalidMarkerByte(u8),
+
+    #[error(transparent)]
+    DecodeTagIdx(#[from] DecodeTagIdxError),
+
+    #[error(transparent)]
+    DecodeLabelIdx(#[from] DecodeLabelIdxError),
+}
+
+impl Catch {
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, CatchError> {
+        let marker = read_byte(reader)?;
+
+        Ok(match marker {
+            0x00 => {
+                let x = TagIdx::decode(reader)?;
+                let l = LabelIdx::decode(reader)?;
+                Catch::Catch(x, l)
+            }
+            0x01 => {
+                let x = TagIdx::decode(reader)?;
+                let l = LabelIdx::decode(reader)?;
+                Catch::CatchRef(x, l)
+            }
+            0x02 => Catch::CatchAll(LabelIdx::decode(reader)?),
+            0x03 => Catch::CatchAllRef(LabelIdx::decode(reader)?),
+            n => return Err(CatchError::InvalidMarkerByte(n)),
+        })
     }
 }
