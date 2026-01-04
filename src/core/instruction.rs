@@ -20,6 +20,9 @@ pub enum Instruction {
     CallIndirect(indices::TableIdx, indices::TypeIdx),
     ReturnCall(indices::FuncIdx),
     ReturnCallIndirect(indices::TableIdx, indices::TypeIdx),
+    Throw(indices::TagIdx),
+    ThrowRef,
+    TryTable(BlockType, Vec<Catch>, Vec<Instruction>),
 
     // --- Reference instructions (5.4.2) ---
     RefNull(RefType),
@@ -501,4 +504,12 @@ pub enum BlockType {
     Empty,
     T(ValType),
     X(u32),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Catch {
+    Catch(indices::TagIdx, indices::LabelIdx),
+    CatchRef(indices::TagIdx, indices::LabelIdx),
+    CatchAll(indices::LabelIdx),
+    CatchAllRef(indices::LabelIdx),
 }
