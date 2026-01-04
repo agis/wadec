@@ -1,7 +1,7 @@
 use std::fs::File;
 use wadec::core::SectionKind;
 use wadec::decode::sections::DecodeTagSectionError;
-use wadec::decode::types::DecodeTagTypeError;
+use wadec::decode::types::{DecodeExternTypeError, DecodeTagTypeError};
 use wadec::decode_errors::*;
 use wadec::decode_module;
 
@@ -1556,7 +1556,8 @@ fn decode_table_error_invalid_reftype_marker() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(err)),
+                source:
+                    DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1579,7 +1580,7 @@ fn decode_table_error_reftype_truncated() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeRefType(DecodeRefTypeError::Io(io_err)),
+                source: DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::Io(io_err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1603,7 +1604,8 @@ fn decode_table_error_limits_invalid_flag() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeLimits(ParseLimitsError::UnexpectedFlagByte(0x02)),
+                source:
+                    DecodeTableTypeError::DecodeLimits(ParseLimitsError::UnexpectedFlagByte(0x02)),
             },
         )) => assert_eq!(position, 0),
         other => panic!("unexpected error: {other:?}"),
@@ -2060,7 +2062,7 @@ fn decode_import_section_error_entity_name_utf8() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeName(DecodeNameError::Utf8(err)),
+                source: DecodeImportError::DecodeItemName(DecodeNameError::Utf8(err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2085,7 +2087,9 @@ fn decode_import_error_descriptor_missing_byte() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::ReadDescriptorMarkerByte(io_err),
+                source: DecodeImportError::DecodeExternType(DecodeExternTypeError::ReadMarkerByte(
+                    io_err,
+                )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2108,7 +2112,9 @@ fn decode_import_error_invalid_descriptor() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::InvalidDescriptorMarkerByte(b),
+                source: DecodeImportError::DecodeExternType(
+                    DecodeExternTypeError::InvalidMarkerByte(b),
+                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2131,8 +2137,11 @@ fn decode_import_error_typeidx_overlong() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
+                source: DecodeImportError::DecodeExternType(
+                    DecodeExternTypeError::DecodeTypeIndex(DecodeTypeIdxError(
+                        DecodeU32Error::TooLarge,
+                    )),
+                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2154,10 +2163,11 @@ fn decode_import_error_table_invalid_reftype() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeImportError::DecodeTable(DecodeTableError::DecodeRefType(
+                source: DecodeImportError::DecodeExternType(
+                    DecodeExternTypeError::DecodeTableType(DecodeTableTypeError::DecodeRefType(
                         DecodeRefTypeError::InvalidMarkerByte(err),
                     )),
+                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2180,10 +2190,11 @@ fn decode_import_error_memory_invalid_limits() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeImportError::DecodeMemType(DecodeMemoryTypeError(
+                source: DecodeImportError::DecodeExternType(
+                    DecodeExternTypeError::DecodeMemoryType(DecodeMemoryTypeError(
                         ParseLimitsError::UnexpectedFlagByte(0x02),
                     )),
+                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2206,8 +2217,11 @@ fn decode_import_error_global_invalid_mutability() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeImportError::DecodeGlobalType(DecodeGlobalTypeError::InvalidMutability(err)),
+                source: DecodeImportError::DecodeExternType(
+                    DecodeExternTypeError::DecodeGlobalType(
+                        DecodeGlobalTypeError::InvalidMutability(err),
+                    ),
+                ),
             },
         )) => {
             assert_eq!(position, 0);

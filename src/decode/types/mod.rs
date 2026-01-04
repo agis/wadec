@@ -17,10 +17,13 @@ pub mod resulttype;
 pub use resulttype::DecodeResultTypeError;
 
 pub mod tabletype;
-pub use tabletype::DecodeTableError;
+pub use tabletype::DecodeTableTypeError;
 
 pub mod valtype;
 pub use valtype::{DecodeValTypeError, InvalidValTypeMarkerError};
 
 pub mod tagtype;
 pub use tagtype::DecodeTagTypeError;
+
+pub mod externtype;
+pub use externtype::DecodeExternTypeError;
