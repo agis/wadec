@@ -14,6 +14,7 @@ macro_rules! define_index_decoder {
         pub struct $errorname(#[from] pub DecodeU32Error);
 
         impl $name {
+            #[allow(dead_code)]
             pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, $errorname> {
                 let idx = decode_u32(reader)?;
                 Ok(Self(idx))

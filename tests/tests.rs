@@ -233,9 +233,9 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
 
     let imports = vec![
         Import {
-            module: "env".to_owned(),
-            name: "table".to_owned(),
-            desc: ImportDesc::Table(TableType {
+            module_name: "env".to_owned(),
+            item_name: "table".to_owned(),
+            extern_type: ExternType::Table(TableType {
                 limits: Limits {
                     address_type: AddrType::I32,
                     min: 1,
@@ -245,9 +245,9 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
             }),
         },
         Import {
-            module: "env".to_owned(),
-            name: "memory".to_owned(),
-            desc: ImportDesc::Mem(MemType {
+            module_name: "env".to_owned(),
+            item_name: "memory".to_owned(),
+            extern_type: ExternType::Mem(MemType {
                 limits: Limits {
                     address_type: AddrType::I32,
                     min: 1,
@@ -256,14 +256,14 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
             }),
         },
         Import {
-            module: "env".to_owned(),
-            name: "global_i".to_owned(),
-            desc: ImportDesc::Global(GlobalType(Mut::Const, ValType::Num(NumType::Int32))),
+            module_name: "env".to_owned(),
+            item_name: "global_i".to_owned(),
+            extern_type: ExternType::Global(GlobalType(Mut::Const, ValType::Num(NumType::Int32))),
         },
         Import {
-            module: "env".to_owned(),
-            name: "global_mut".to_owned(),
-            desc: ImportDesc::Global(GlobalType(Mut::Var, ValType::Num(NumType::Int64))),
+            module_name: "env".to_owned(),
+            item_name: "global_mut".to_owned(),
+            extern_type: ExternType::Global(GlobalType(Mut::Var, ValType::Num(NumType::Int64))),
         },
     ];
 
@@ -1638,9 +1638,9 @@ fn it_accepts_kitchensink() {
     }];
 
     let imports = vec![Import {
-        module: "env".to_owned(),
-        name: "impstart".to_owned(),
-        desc: ImportDesc::Type(TypeIdx(0)),
+        module_name: "env".to_owned(),
+        item_name: "impstart".to_owned(),
+        extern_type: ExternType::Func(TypeIdx(0)),
     }];
 
     let exports = vec![

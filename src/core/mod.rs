@@ -14,34 +14,27 @@ pub mod instruction;
 pub use instruction::Instruction;
 
 pub mod types;
-use types::{GlobalType, MemType, RefType, TableType, ValType};
+use types::ExternType;
+use types::{GlobalType, RefType, ValType};
 
 pub(crate) type Expr = Vec<Instruction>;
 
 /// The imports component of a module defines a set of imports that are required for
-/// instantiation. Each import is labeled by a two-level name space, consisting of a module
-/// name and a name for an entity within that module. Importable definitions are functions,
-/// tables, memories, and globals. Each import is specified by a descriptor with a
-/// respective type that a definition provided during instantiation is required to match.
-/// Every import defines an index in the respective index space. In each index space, the
-/// indices of imports go before the first index of any definition contained in the module
-/// itself.
+/// instantiation. Each import is labeled by a two-level name space, consisting of a module name
+/// and an item name for an entity within that module. Importable definitions are tags, globals,
+/// memories, tables, and functions. Each import is specified by a respective external type that a
+/// definition provided during instantiation is required to match.
 ///
-/// <https://www.w3.org/TR/wasm-core-2/#imports>
-/// <https://www.w3.org/TR/wasm-core-2/#import-section>
+/// Every import defines an index in the respective index space. In each index space, the indices
+/// of imports go before the first index of any definition contained in the module itself.
+///
+/// <https://webassembly.github.io/spec/core/syntax/modules.html#syntax-import>
+/// <https://webassembly.github.io/spec/core/binary/modules.html#binary-importsec>
 #[derive(Debug, PartialEq)]
 pub struct Import {
-    pub module: String,
-    pub name: String,
-    pub desc: ImportDesc,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ImportDesc {
-    Type(TypeIdx),
-    Table(TableType),
-    Mem(MemType),
-    Global(GlobalType),
+    pub module_name: String,
+    pub item_name: String,
+    pub extern_type: ExternType,
 }
 
 /// The exports component of a module defines a set of exports that become accessible to the
