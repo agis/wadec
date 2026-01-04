@@ -1,5 +1,5 @@
 //! Type definitions for WebAssembly modules.
-use super::types::{FuncType, MemType, TableType};
+use super::types::{FuncType, MemType, TableType, TagType};
 use super::{Data, Elem, Export, Func, Global, Import};
 use crate::core::custom_section::CustomSection;
 use crate::core::indices::FuncIdx;
@@ -149,6 +149,13 @@ pub struct Module {
     /// <https://www.w3.org/TR/wasm-core-2/#exports>
     /// <https://www.w3.org/TR/wasm-core-2/#export-section>
     pub exports: Vec<Export>,
+
+    /// The tag section of a module defines a list of tags. The type index of a tag must refer to a
+    /// function type that declares its tag type.
+    ///
+    /// <https://webassembly.github.io/spec/core/syntax/modules.html#tags>
+    /// <https://webassembly.github.io/spec/core/binary/modules.html#tag-section>
+    pub tags: Vec<TagType>,
 }
 
 /// Each section constists of a one-byte section id, the u32 size of the contents
@@ -169,6 +176,7 @@ pub enum SectionKind {
     Function,
     Table,
     Memory,
+    Tag,
     Global,
     Export,
     Start,

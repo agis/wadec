@@ -115,6 +115,86 @@ fn it_accepts_add_sample() {
 }
 
 #[test]
+fn it_decodes_tag_section() {
+    let f = File::open("tests/fixtures/tag_section.wasm").unwrap();
+
+    let parsed_section_kinds = vec![SectionKind::Type, SectionKind::Tag];
+    let section_headers = vec![
+        SectionHeader {
+            kind: SectionKind::Type,
+            size: 4,
+        },
+        SectionHeader {
+            kind: SectionKind::Tag,
+            size: 3,
+        },
+    ];
+
+    let types = vec![FuncType {
+        parameters: vec![],
+        results: vec![],
+    }];
+
+    let tags = vec![TagType(TypeIdx(0))];
+
+    assert_eq!(
+        decode_module(f).unwrap(),
+        Module {
+            parsed_section_kinds,
+            section_headers,
+            types,
+            tags,
+            ..Default::default()
+        }
+    )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_tag_section_multiple_entries() {
+    let f = File::open("tests/fixtures/tag_section_multi.wasm").unwrap();
+
+    let parsed_section_kinds = vec![SectionKind::Type, SectionKind::Tag];
+    let section_headers = vec![
+        SectionHeader {
+            kind: SectionKind::Type,
+            size: 9,
+        },
+        SectionHeader {
+            kind: SectionKind::Tag,
+            size: 5,
+        },
+    ];
+
+    let types = rectypes(vec![
+        CompType::Func {
+            parameters: vec![],
+            results: vec![],
+        },
+        CompType::Func {
+            parameters: vec![
+                ValType::Num(NumType::Int32),
+                ValType::Num(NumType::Int64),
+            ],
+            results: vec![],
+        },
+    ]);
+
+    let tags = vec![TagType(TypeIdx(0)), TagType(TypeIdx(1))];
+
+    assert_eq!(
+        decode_module(f).unwrap(),
+        Module {
+            parsed_section_kinds,
+            section_headers,
+            types,
+            tags,
+            ..Default::default()
+        }
+    )
+}
+
+#[test]
 fn it_accepts_two_funcs_exporting_second() {
     // two funcs (i32,i32)->i32; exports func 1 as "add2"
     // Body: local.get 0, local.get 1, i32.add, end.

@@ -69,6 +69,7 @@ impl Default for Module {
             start: None,
             imports: vec![],
             exports: vec![],
+            tags: vec![],
         }
     }
 }
@@ -99,6 +100,7 @@ static SectionId_MARKERS: phf::OrderedMap<u8, SectionKind> = phf_ordered_map! {
             10u8 => SectionKind::Code,
             11u8 => SectionKind::Data,
             12u8 => SectionKind::DataCount,
+            13u8 => SectionKind::Tag,
 };
 
 impl FromMarkerByte for SectionKind {
@@ -194,6 +196,9 @@ pub enum DecodeModuleError {
 
     #[error(transparent)]
     DecodeDataSection(#[from] DecodeDataSectionError),
+
+    #[error(transparent)]
+    DecodeTagSection(#[from] DecodeTagSectionError),
 }
 
 /// Decode `input` into a WebAssembly [Module].
@@ -290,6 +295,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                 }
                 module.datas = datas;
             }
+            SectionKind::Tag => module.tags = decode_tag_section(section_reader)?
         }
 
         if section_reader.limit() != 0 {

@@ -1,5 +1,7 @@
 use std::fs::File;
 use wadec::core::SectionKind;
+use wadec::decode::sections::DecodeTagSectionError;
+use wadec::decode::types::DecodeTagTypeError;
 use wadec::decode_errors::*;
 use wadec::decode_module;
 
@@ -1814,7 +1816,7 @@ fn parse_preamble_error_unexpected() {
 
 #[test]
 fn decode_section_header_error_invalid_section_id() {
-    // Sections: invalid section id 0x0d.
+    // Sections: invalid section id 0x0e.
     // Fixture: module starts with an invalid section id.
     // Spec 5.5.2 (Sections): section id must be one of the defined values; this id is invalid.
     let wasm = File::open("tests/fixtures/malformed/invalid_section_id.wasm").unwrap();
@@ -1823,7 +1825,7 @@ fn decode_section_header_error_invalid_section_id() {
 
     match err {
         DecodeModuleError::DecodeSectionHeader(DecodeSectionHeaderError::InvalidSectionId(err)) => {
-            assert_eq!(err.0, 0x0D);
+            assert_eq!(err.0, 0x0E);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -2911,6 +2913,29 @@ fn decode_global_error_init_missing_expr() {
         )) => {
             assert_eq!(position, 0);
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn decode_tag_section_error_invalid_marker() {
+    // Sections: Type, Tag.
+    // Fixture: tag section entry has an invalid tagtype marker byte.
+    // Spec 5.3.10 (Tag Types): tagtype must begin with 0x00.
+    let wasm = File::open("tests/fixtures/malformed/tag_section_invalid_marker.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid tagtype marker should fail");
+
+    match err {
+        DecodeModuleError::DecodeTagSection(DecodeTagSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source: DecodeTagTypeError::InvalidMarkerByte(byte),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(byte, 0x01);
         }
         other => panic!("unexpected error: {other:?}"),
     }
