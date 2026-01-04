@@ -286,12 +286,12 @@ fn parse_error_control() {
 #[test]
 fn parse_error_reference() {
     // Sections: Type, Function, Code.
-    // Fixture: single function with ref.null using an invalid reference type marker.
-    // Spec 5.4.2 (Reference Instructions) and 5.3.3 (Reference Types): ref.null reftype marker is invalid.
-    // ref.null followed by an invalid reference type marker byte.
+    // Fixture: single function with ref.null using an invalid heap type.
+    // Spec 5.4.6 (Reference Instructions) and 5.3.3 (Heap Types): ref.null heaptype must be non-negative.
+    // ref.null followed by a negative type index (s33 = -1).
     let wasm = File::open("tests/fixtures/malformed/ref_null_invalid_marker.wasm").unwrap();
 
-    let err = decode_module(wasm).expect_err("invalid ref type marker should fail");
+    let err = decode_module(wasm).expect_err("invalid heap type should fail");
 
     match err {
         DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
@@ -299,14 +299,14 @@ fn parse_error_reference() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Reference(ReferenceError::RefType(
-                            DecodeRefTypeError::InvalidMarkerByte(err),
+                        ParseError::Reference(ReferenceError::HeapType(
+                            DecodeHeapTypeError::NegativeTypeIndex(n),
                         )),
                     )),
             },
         )) => {
             assert_eq!(position, 0);
-            assert_eq!(err.0, 0x00);
+            assert_eq!(n, -1);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -331,7 +331,7 @@ fn parse_error_parametric() {
                         ParseError::Parametric(ParametricError::DecodeVector(
                             DecodeListError::ParseElement {
                                 position: vec_pos,
-                                source: DecodeValTypeError::InvalidMarkerByte(err),
+                                source: DecodeValTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
                             },
                         )),
                     )),
@@ -963,7 +963,7 @@ fn parametric_error_decode_vector_invalid_valtype() {
                         ParseError::Parametric(ParametricError::DecodeVector(
                             DecodeListError::ParseElement {
                                 position: vec_pos,
-                                source: DecodeValTypeError::InvalidMarkerByte(err),
+                                source: DecodeValTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
                             },
                         )),
                     )),
@@ -1471,7 +1471,7 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
                     DecodeFuncTypeError::DecodeParameterTypes(DecodeResultTypeError::DecodeVector(
                         DecodeListError::ParseElement {
                             position: inner_pos,
-                            source: DecodeValTypeError::InvalidMarkerByte(err),
+                            source: DecodeValTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
                         },
                     )),
             },
@@ -1529,7 +1529,7 @@ fn decode_table_error_invalid_reftype_marker() {
             DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(err)),
+                    DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1693,7 +1693,7 @@ fn decode_global_type_error_invalid_valtype() {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::DecodeValueType(
-                        DecodeValTypeError::InvalidMarkerByte(err),
+                        DecodeValTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
                     )),
             },
         )) => {
@@ -2135,7 +2135,7 @@ fn decode_import_error_table_invalid_reftype() {
                 source:
                     DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeTableType(
                         DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(
-                            err,
+                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
                         )),
                     )),
             },
@@ -2449,7 +2449,7 @@ fn decode_code_error_local_valtype_invalid() {
                         position: locals_position,
                         source:
                             DecodeCodeLocalsError::DecodeLocalValType(
-                                DecodeValTypeError::InvalidMarkerByte(err),
+                                DecodeValTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
                             ),
                     }),
             },
@@ -2644,7 +2644,7 @@ fn decode_element_error_reference_type_invalid() {
             DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeElementError::DecodeReferenceType(DecodeRefTypeError::InvalidMarkerByte(err)),
+                    DecodeElementError::DecodeReferenceType(DecodeRefTypeError::InvalidMarkerByte(DecodeAbsHeapTypeError::InvalidMarkerByte(err))),
             },
         )) => {
             assert_eq!(position, 0);

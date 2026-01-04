@@ -3,7 +3,7 @@
 //! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
 use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Catch, Instruction, LaneIdx, Memarg};
-use crate::core::types::{reftype::RefType, valtype::ValType};
+use crate::core::types::{heaptype::HeapType, valtype::ValType};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
 use crate::decode::indices::*;
@@ -11,8 +11,7 @@ use crate::decode::integer::{
     decode_i32, decode_i64, decode_s33, decode_u32, decode_u64, DecodeI32Error, DecodeI64Error,
     DecodeS33Error, DecodeU32Error, DecodeU64Error,
 };
-use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
-use crate::decode::FromMarkerByte;
+use crate::decode::types::{DecodeHeapTypeError, DecodeValTypeError};
 use crate::read_byte;
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -85,8 +84,8 @@ pub enum ControlError {
 
 #[derive(Debug, Error)]
 pub enum ReferenceError {
-    #[error("failed decoding reference type")]
-    RefType(DecodeRefTypeError),
+    #[error("failed decoding heap type")]
+    HeapType(DecodeHeapTypeError),
 
     #[error("failed decoding function index")]
     FuncIdx(DecodeFuncIdxError),
@@ -255,7 +254,9 @@ impl Instruction {
             }
 
             // --- Reference instructions (5decode) ---
-            0xD0 => Instruction::RefNull(RefType::decode(reader).map_err(ReferenceError::RefType)?),
+            0xD0 => {
+                Instruction::RefNull(HeapType::decode(reader).map_err(ReferenceError::HeapType)?)
+            }
             0xD1 => Instruction::RefIsNull,
             0xD2 => Instruction::RefFunc(FuncIdx::decode(reader).map_err(ReferenceError::FuncIdx)?),
 
@@ -894,7 +895,8 @@ impl BlockType {
             return Ok(Self::Empty);
         }
 
-        if let Ok(t) = ValType::from_marker(b) {
+        let mut reader = Cursor::new([b]).chain(reader);
+        if let Ok(t) = ValType::decode(&mut reader) {
             return Ok(Self::T(t));
         }
 
@@ -903,8 +905,8 @@ impl BlockType {
         // of value types or the special code 0x40, which correspond to the LEB128 encoding of
         // negative integers. To avoid any loss in the range of allowed indices, it is treated as a
         // 33 bit signed integer.
-        let mut chain = Cursor::new([b]).chain(reader);
-        let x = decode_s33(&mut chain)?;
+        let mut reader = Cursor::new([b]).chain(reader);
+        let x = decode_s33(&mut reader)?;
         if x < 0 {
             return Err(BlockTypeError::NegativeTypeIndex(x));
         }

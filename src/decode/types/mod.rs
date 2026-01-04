@@ -11,7 +11,7 @@ pub mod memtype;
 pub use memtype::DecodeMemoryTypeError;
 
 pub mod reftype;
-pub use reftype::{DecodeRefTypeError, InvalidRefTypeMarkerError};
+pub use reftype::DecodeRefTypeError;
 
 pub mod resulttype;
 pub use resulttype::DecodeResultTypeError;
@@ -20,10 +20,13 @@ pub mod tabletype;
 pub use tabletype::DecodeTableTypeError;
 
 pub mod valtype;
-pub use valtype::{DecodeValTypeError, InvalidValTypeMarkerError};
+pub use valtype::DecodeValTypeError;
 
 pub mod tagtype;
 pub use tagtype::DecodeTagTypeError;
 
 pub mod externtype;
 pub use externtype::DecodeExternTypeError;
+
+pub mod heaptype;
+pub use heaptype::{DecodeAbsHeapTypeError, DecodeHeapTypeError};

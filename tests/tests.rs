@@ -3,10 +3,29 @@ use std::collections::HashSet;
 use std::fs::File;
 use wadec::core::indices::*;
 use wadec::core::instruction::*;
+use wadec::core::types::heaptype::AbsHeapType;
 use wadec::core::types::*;
 use wadec::core::*;
 use wadec::decode_errors::*;
 use wadec::*;
+
+fn ref_null_func() -> RefType {
+    RefType {
+        nullable: true,
+        ht: heaptype_func(),
+    }
+}
+
+fn ref_func() -> RefType {
+    RefType {
+        nullable: false,
+        ht: heaptype_func(),
+    }
+}
+
+fn heaptype_func() -> HeapType {
+    HeapType::Ht(AbsHeapType::Func)
+}
 
 #[allow(dead_code)]
 #[test]
@@ -313,7 +332,7 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
                     min: 1,
                     max: None,
                 },
-                reftype: RefType::Func,
+                reftype: ref_null_func(),
             }),
         },
         Import {
@@ -622,7 +641,7 @@ fn it_decodes_control_instructions() {
             min: 1,
             max: None,
         },
-        reftype: RefType::Func,
+        reftype: ref_null_func(),
     }];
 
     let exports = vec![Export {
@@ -777,7 +796,7 @@ fn it_decodes_element_section_all_alts() {
                 min: 12,
                 max: None,
             },
-            reftype: RefType::Func,
+            reftype: ref_null_func(),
         },
         TableType {
             limits: Limits {
@@ -785,13 +804,13 @@ fn it_decodes_element_section_all_alts() {
                 min: 12,
                 max: None,
             },
-            reftype: RefType::Func,
+            reftype: ref_null_func(),
         },
     ];
 
     let elems = vec![
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(0))],
                 vec![Instruction::RefFunc(FuncIdx(1))],
@@ -802,7 +821,7 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(2))],
                 vec![Instruction::RefFunc(FuncIdx(3))],
@@ -810,7 +829,7 @@ fn it_decodes_element_section_all_alts() {
             mode: ElemMode::Passive,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(4))]],
             mode: ElemMode::Active {
                 table: TableIdx(1),
@@ -818,15 +837,15 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(5))]],
-            mode: ElemMode::Declarative,
+            mode: ElemMode::Declare,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(0))],
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(0),
@@ -834,18 +853,18 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(1))],
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
             ],
             mode: ElemMode::Passive,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(2))],
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(1),
@@ -853,12 +872,12 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
                 vec![Instruction::RefFunc(FuncIdx(3))],
             ],
-            mode: ElemMode::Declarative,
+            mode: ElemMode::Declare,
         },
     ];
 
@@ -930,7 +949,7 @@ fn it_decodes_reference_instructions() {
             r#type: TypeIdx(0),
             locals: Vec::new(),
             body: vec![
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::RefIsNull,
                 Instruction::Drop,
                 Instruction::RefFunc(FuncIdx(0)),
@@ -945,7 +964,7 @@ fn it_decodes_reference_instructions() {
             min: 1,
             max: None,
         },
-        reftype: RefType::Func,
+        reftype: ref_null_func(),
     }];
 
     let exports = vec![Export {
@@ -954,9 +973,9 @@ fn it_decodes_reference_instructions() {
     }];
 
     let elems = vec![Elem {
-        r#type: RefType::Func,
+        r#type: ref_null_func(),
         init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
-        mode: ElemMode::Declarative,
+        mode: ElemMode::Declare,
     }];
 
     assert_eq!(
@@ -1191,7 +1210,7 @@ fn it_decodes_table_instructions() {
                 Instruction::TableGet(TableIdx(0)),
                 Instruction::Drop,
                 Instruction::LocalGet(LocalIdx(0)),
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::TableSet(TableIdx(0)),
                 Instruction::I32Const(0),
                 Instruction::I32Const(0),
@@ -1199,12 +1218,12 @@ fn it_decodes_table_instructions() {
                 Instruction::TableInit(TableIdx(0), ElemIdx(1)),
                 Instruction::ElemDrop(ElemIdx(1)),
                 Instruction::I32Const(0),
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::I32Const(1),
                 Instruction::TableFill(TableIdx(0)),
                 Instruction::TableSize(TableIdx(0)),
                 Instruction::Drop,
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::LocalGet(LocalIdx(1)),
                 Instruction::TableGrow(TableIdx(0)),
                 Instruction::Drop,
@@ -1225,7 +1244,7 @@ fn it_decodes_table_instructions() {
                 min: 4,
                 max: None,
             },
-            reftype: RefType::Func,
+            reftype: ref_null_func(),
         },
         TableType {
             limits: Limits {
@@ -1233,18 +1252,18 @@ fn it_decodes_table_instructions() {
                 min: 4,
                 max: None,
             },
-            reftype: RefType::Func,
+            reftype: ref_null_func(),
         },
     ];
 
     let elems = vec![
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
             mode: ElemMode::Passive,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
             mode: ElemMode::Passive,
         },
@@ -1913,7 +1932,7 @@ fn it_accepts_kitchensink() {
             min: 1,
             max: None,
         },
-        reftype: RefType::Func,
+        reftype: ref_null_func(),
     }];
 
     let mems = vec![MemType {
@@ -1930,7 +1949,7 @@ fn it_accepts_kitchensink() {
     }];
 
     let elems = vec![Elem {
-        r#type: RefType::Func,
+        r#type: ref_func(),
         init: vec![vec![Instruction::RefFunc(FuncIdx(2))]],
         mode: ElemMode::Active {
             table: TableIdx(0),
