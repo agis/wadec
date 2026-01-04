@@ -34,7 +34,6 @@ pub enum DecodeExportError {
     InvalidDescriptorMarkerByte(#[from] InvalidExportDescMarkerByte),
 }
 
-// TODO: validate that names are unique?
 fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExportError> {
     let name = decode_name(reader)?;
 
