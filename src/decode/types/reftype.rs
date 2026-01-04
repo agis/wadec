@@ -8,8 +8,8 @@ use thiserror::Error;
 // Valid marker bytes for [RefType].
 #[expect(non_upper_case_globals)]
 static RefType_MARKERS: phf::OrderedMap<u8, RefType> = phf_ordered_map! {
-  0x70u8 => RefType::Func,
   0x6Fu8 => RefType::Extern,
+  0x70u8 => RefType::Func,
 };
 
 #[derive(Debug, Error)]
