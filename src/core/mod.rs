@@ -147,5 +147,5 @@ pub struct Elem {
 pub enum ElemMode {
     Passive,
     Active { table: TableIdx, offset: Expr },
-    Declarative,
+    Declare,
 }

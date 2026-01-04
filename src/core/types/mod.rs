@@ -39,3 +39,6 @@ pub use tagtype::TagType;
 
 pub mod externtype;
 pub use externtype::ExternType;
+
+pub mod heaptype;
+pub use heaptype::HeapType;

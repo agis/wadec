@@ -26,9 +26,9 @@ pub use crate::decode::sections::{
     DecodeTypeSectionError,
 };
 pub use crate::decode::types::{
-    DecodeFuncTypeError, DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeRefTypeError,
-    DecodeResultTypeError, DecodeTableTypeError, DecodeValTypeError, InvalidMutabilityByteError,
-    InvalidRefTypeMarkerError, InvalidValTypeMarkerError, ParseLimitsError,
+    DecodeAbsHeapTypeError, DecodeFuncTypeError, DecodeGlobalTypeError, DecodeHeapTypeError,
+    DecodeMemoryTypeError, DecodeRefTypeError, DecodeResultTypeError, DecodeTableTypeError,
+    DecodeValTypeError, InvalidMutabilityByteError, ParseLimitsError,
 };
 pub use crate::decode::{
     DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeListError,
