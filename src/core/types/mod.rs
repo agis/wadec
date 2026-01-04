@@ -33,3 +33,6 @@ pub use vectype::VecType;
 
 pub mod addrtype;
 pub use addrtype::AddrType;
+
+pub mod tagtype;
+pub use tagtype::TagType;
