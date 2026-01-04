@@ -1,7 +1,7 @@
 use crate::core::types::valtype::ValType;
-use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::helpers::{DecodeListError, ParseExpressionError};
-use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::decode::helpers::{decode_expr, decode_list};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeValTypeError;
 use std::io::Read;
 use thiserror::Error;

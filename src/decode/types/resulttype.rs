@@ -1,6 +1,6 @@
 use crate::core::types::resulttype::ResultType;
 use crate::core::types::valtype::ValType;
-use crate::decode::helpers::{decode_list, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list};
 use crate::decode::types::valtype::DecodeValTypeError;
 use std::io::Read;
 use thiserror::Error;

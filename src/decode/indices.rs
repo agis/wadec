@@ -3,7 +3,7 @@
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
 
 use crate::core::indices::*;
-use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 

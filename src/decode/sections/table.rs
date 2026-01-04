@@ -1,5 +1,5 @@
 use crate::core::types::tabletype::TableType;
-use crate::decode::helpers::{decode_list, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list};
 use crate::decode::types::DecodeTableTypeError;
 use std::io::Read;
 use thiserror::Error;

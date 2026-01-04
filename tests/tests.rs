@@ -536,16 +536,18 @@ fn it_decodes_control_instructions() {
         },
     ];
 
-    let imports = vec![Import {
-        module_name: "env".to_owned(),
-        item_name: "tag0".to_owned(),
-        extern_type: ExternType::Tag(TagType(TypeIdx(0))),
-    },
-    Import {
-        module_name: "env".to_owned(),
-        item_name: "tag1".to_owned(),
-        extern_type: ExternType::Tag(TagType(TypeIdx(0))),
-    }];
+    let imports = vec![
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "tag0".to_owned(),
+            extern_type: ExternType::Tag(TagType(TypeIdx(0))),
+        },
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "tag1".to_owned(),
+            extern_type: ExternType::Tag(TagType(TypeIdx(0))),
+        },
+    ];
 
     let funcs = vec![
         Func {

@@ -1,6 +1,6 @@
-use crate::core::types::GlobalType;
 use crate::core::Global;
-use crate::decode::helpers::{decode_expr, decode_list, DecodeListError, ParseExpressionError};
+use crate::core::types::GlobalType;
+use crate::decode::helpers::{DecodeListError, ParseExpressionError, decode_expr, decode_list};
 use crate::decode::types::DecodeGlobalTypeError;
 use std::io::Read;
 use thiserror::Error;

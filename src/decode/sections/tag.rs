@@ -1,5 +1,5 @@
 use crate::core::types::tagtype::TagType;
-use crate::decode::helpers::{decode_list, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list};
 use crate::decode::types::tagtype::DecodeTagTypeError;
 use std::io::Read;
 use thiserror::Error;

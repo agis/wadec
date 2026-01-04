@@ -1,7 +1,7 @@
 use crate::core::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TagIdx};
 use crate::core::{Export, ExternIdx};
-use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
-use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::decode::helpers::{DecodeListError, DecodeNameError, decode_list, decode_name};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::read_byte;
 use std::io;
 use std::io::Read;

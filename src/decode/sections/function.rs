@@ -1,5 +1,5 @@
 use crate::core::indices::TypeIdx;
-use crate::decode::helpers::{decode_list, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list};
 use crate::decode::indices::DecodeTypeIdxError;
 use std::io::Read;
 use thiserror::Error;

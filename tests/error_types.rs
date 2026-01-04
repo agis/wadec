@@ -2087,9 +2087,8 @@ fn decode_import_error_descriptor_missing_byte() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeExternType(DecodeExternTypeError::ReadMarkerByte(
-                    io_err,
-                )),
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::ReadMarkerByte(io_err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2112,9 +2111,8 @@ fn decode_import_error_invalid_descriptor() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeExternType(
-                    DecodeExternTypeError::InvalidMarkerByte(b),
-                ),
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::InvalidMarkerByte(b)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2137,11 +2135,10 @@ fn decode_import_error_typeidx_overlong() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeExternType(
-                    DecodeExternTypeError::DecodeTypeIndex(DecodeTypeIdxError(
-                        DecodeU32Error::TooLarge,
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeTypeIndex(
+                        DecodeTypeIdxError(DecodeU32Error::TooLarge),
                     )),
-                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2163,11 +2160,12 @@ fn decode_import_error_table_invalid_reftype() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeExternType(
-                    DecodeExternTypeError::DecodeTableType(DecodeTableTypeError::DecodeRefType(
-                        DecodeRefTypeError::InvalidMarkerByte(err),
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeTableType(
+                        DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(
+                            err,
+                        )),
                     )),
-                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2190,11 +2188,10 @@ fn decode_import_error_memory_invalid_limits() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeExternType(
-                    DecodeExternTypeError::DecodeMemoryType(DecodeMemoryTypeError(
-                        ParseLimitsError::UnexpectedFlagByte(0x02),
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeMemoryType(
+                        DecodeMemoryTypeError(ParseLimitsError::UnexpectedFlagByte(0x02)),
                     )),
-                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2217,11 +2214,10 @@ fn decode_import_error_global_invalid_mutability() {
         DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeExternType(
-                    DecodeExternTypeError::DecodeGlobalType(
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeGlobalType(
                         DecodeGlobalTypeError::InvalidMutability(err),
-                    ),
-                ),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);

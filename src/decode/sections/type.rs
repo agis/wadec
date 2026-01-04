@@ -1,5 +1,5 @@
 use crate::core::types::functype::FuncType;
-use crate::decode::helpers::{decode_list, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list};
 use crate::decode::types::DecodeFuncTypeError;
 use std::io::Read;
 use thiserror::Error;
