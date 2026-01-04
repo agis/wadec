@@ -98,7 +98,7 @@ fn it_accepts_add_sample() {
 
     let exports = vec![Export {
         name: "add".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -195,6 +195,33 @@ fn it_decodes_tag_section_multiple_entries() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_tag_export() {
+    let f = File::open("tests/fixtures/tag_export.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(
+        module.parsed_section_kinds,
+        vec![SectionKind::Type, SectionKind::Tag, SectionKind::Export]
+    );
+    assert_eq!(
+        module.types,
+        rectypes(vec![CompType::Func {
+            parameters: vec![],
+            results: vec![],
+        }])
+    );
+    assert_eq!(module.tags, vec![TagType(TypeIdx(0))]);
+    assert_eq!(
+        module.exports,
+        vec![Export {
+            name: "tag0".to_owned(),
+            externidx: ExternIdx::Tag(TagIdx(0)),
+        }]
+    );
+}
+
+#[test]
 fn it_accepts_two_funcs_exporting_second() {
     // two funcs (i32,i32)->i32; exports func 1 as "add2"
     // Body: local.get 0, local.get 1, i32.add, end.
@@ -251,7 +278,7 @@ fn it_accepts_two_funcs_exporting_second() {
 
     let exports = vec![Export {
         name: "add2".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     assert_eq!(
@@ -536,7 +563,7 @@ fn it_decodes_control_instructions() {
 
     let exports = vec![Export {
         name: "control".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     assert_eq!(
@@ -858,7 +885,7 @@ fn it_decodes_reference_instructions() {
 
     let exports = vec![Export {
         name: "refs".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     let elems = vec![Elem {
@@ -944,7 +971,7 @@ fn it_decodes_variable_instructions() {
 
     let exports = vec![Export {
         name: "var".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -1019,7 +1046,7 @@ fn it_decodes_parametric_instructions() {
 
     let exports = vec![Export {
         name: "param".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -1160,7 +1187,7 @@ fn it_decodes_table_instructions() {
 
     let exports = vec![Export {
         name: "table_ops".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     assert_eq!(
@@ -1429,11 +1456,11 @@ fn it_decodes_memory_instructions() {
     let exports = vec![
         Export {
             name: "mem".to_owned(),
-            desc: ExportDesc::Mem(MemIdx(0)),
+            externidx: ExternIdx::Mem(MemIdx(0)),
         },
         Export {
             name: "use-memory".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(0)),
+            externidx: ExternIdx::Func(FuncIdx(0)),
         },
     ];
 
@@ -1698,7 +1725,7 @@ fn it_accepts_export_with_locals() {
 
     let exports = vec![Export {
         name: "add_locals".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -1863,19 +1890,19 @@ fn it_accepts_kitchensink() {
     let exports = vec![
         Export {
             name: "add".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(2)),
+            externidx: ExternIdx::Func(FuncIdx(2)),
         },
         Export {
             name: "mem".to_owned(),
-            desc: ExportDesc::Mem(MemIdx(0)),
+            externidx: ExternIdx::Mem(MemIdx(0)),
         },
         Export {
             name: "tab".to_owned(),
-            desc: ExportDesc::Table(TableIdx(0)),
+            externidx: ExternIdx::Table(TableIdx(0)),
         },
         Export {
             name: "g0".to_owned(),
-            desc: ExportDesc::Global(GlobalIdx(0)),
+            externidx: ExternIdx::Global(GlobalIdx(0)),
         },
     ];
 
@@ -2331,7 +2358,7 @@ fn it_decodes_vector_instructions() {
         module.exports,
         vec![Export {
             name: "use_vectors".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(0)),
+            externidx: ExternIdx::Func(FuncIdx(0)),
         }]
     );
 

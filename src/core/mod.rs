@@ -54,15 +54,16 @@ pub enum ImportDesc {
 #[derive(Debug, PartialEq)]
 pub struct Export {
     pub name: String,
-    pub desc: ExportDesc,
+    pub externidx: ExternIdx,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ExportDesc {
+pub enum ExternIdx {
     Func(FuncIdx),
+    Global(GlobalIdx),
     Table(TableIdx),
     Mem(MemIdx),
-    Global(GlobalIdx),
+    Tag(TagIdx),
 }
 
 /// The funcs component of a module defines a vector of functions.

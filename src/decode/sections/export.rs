@@ -1,5 +1,5 @@
-use crate::core::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx};
-use crate::core::{Export, ExportDesc};
+use crate::core::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TagIdx};
+use crate::core::{Export, ExternIdx};
 use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
 use crate::decode::integer::{decode_u32, DecodeU32Error};
 use crate::read_byte;
@@ -40,24 +40,28 @@ fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExport
 
     let desc_kind = read_byte(reader).map_err(DecodeExportError::ReadDescriptorMarkerByte)?;
     let idx = decode_u32(reader)?;
-    let desc = ExportDesc::from(desc_kind, idx)?;
+    let desc = ExternIdx::from(desc_kind, idx)?;
 
-    Ok(Export { name, desc })
+    Ok(Export {
+        name,
+        externidx: desc,
+    })
 }
 
 #[derive(Debug, Error)]
 #[error(
-    "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem) or 0x03 (global); got {0:#04X}"
+    "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem), 0x03 (global), 0x04 (tag); got {0:#04X}"
 )]
 pub struct InvalidExportDescMarkerByte(pub u8);
 
-impl ExportDesc {
+impl ExternIdx {
     fn from(b: u8, idx: u32) -> Result<Self, InvalidExportDescMarkerByte> {
         Ok(match b {
-            0x00 => ExportDesc::Func(FuncIdx(idx)),
-            0x01 => ExportDesc::Table(TableIdx(idx)),
-            0x02 => ExportDesc::Mem(MemIdx(idx)),
-            0x03 => ExportDesc::Global(GlobalIdx(idx)),
+            0x00 => ExternIdx::Func(FuncIdx(idx)),
+            0x01 => ExternIdx::Table(TableIdx(idx)),
+            0x02 => ExternIdx::Mem(MemIdx(idx)),
+            0x03 => ExternIdx::Global(GlobalIdx(idx)),
+            0x04 => ExternIdx::Tag(TagIdx(idx)),
             _ => return Err(InvalidExportDescMarkerByte(b)),
         })
     }
