@@ -2,10 +2,8 @@
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
 
-use crate::core::indices::{
-    DataIdx, ElemIdx, FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx,
-};
-use crate::decode::integer::{DecodeU32Error, decode_u32};
+use crate::core::indices::*;
+use crate::decode::integer::{decode_u32, DecodeU32Error};
 use std::io::Read;
 use thiserror::Error;
 
@@ -33,3 +31,4 @@ define_index_decoder!(ElemIdx, DecodeElemIdxError);
 define_index_decoder!(DataIdx, DecodeDataIdxError);
 define_index_decoder!(LocalIdx, DecodeLocalIdxError);
 define_index_decoder!(LabelIdx, DecodeLabelIdxError);
+define_index_decoder!(TagIdx, DecodeTagIdxError);
