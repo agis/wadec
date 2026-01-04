@@ -1,6 +1,6 @@
 use crate::core::types::addrtype::AddrType;
 use crate::core::types::limits::Limits;
-use crate::decode::integer::{decode_u64, DecodeU64Error};
+use crate::decode::integer::{DecodeU64Error, decode_u64};
 use crate::read_byte;
 use std::io::{self, Read};
 use thiserror::Error;

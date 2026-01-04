@@ -295,7 +295,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                 }
                 module.datas = datas;
             }
-            SectionKind::Tag => module.tags = decode_tag_section(section_reader)?
+            SectionKind::Tag => module.tags = decode_tag_section(section_reader)?,
         }
 
         if section_reader.limit() != 0 {

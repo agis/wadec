@@ -4,15 +4,15 @@
 use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Catch, Instruction, LaneIdx, Memarg};
 use crate::core::types::{reftype::RefType, valtype::ValType};
-use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
+use crate::decode::FromMarkerByte;
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
+use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
 use crate::decode::indices::*;
 use crate::decode::integer::{
-    decode_i32, decode_i64, decode_u32, decode_u64, DecodeI32Error, DecodeI64Error, DecodeU32Error,
-    DecodeU64Error,
+    DecodeI32Error, DecodeI64Error, DecodeU32Error, DecodeU64Error, decode_i32, decode_i64,
+    decode_u32, decode_u64,
 };
 use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
-use crate::decode::FromMarkerByte;
 use crate::read_byte;
 use std::io::{self, Cursor, Read};
 use thiserror::Error;

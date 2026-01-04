@@ -1,7 +1,7 @@
+use crate::Expr;
 use crate::core::instruction::Instruction;
 use crate::decode::instructions;
-use crate::decode::integer::{decode_u32, DecodeU32Error};
-use crate::Expr;
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io;
 use std::io::Read;
 use thiserror::Error;

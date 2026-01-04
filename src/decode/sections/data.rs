@@ -1,11 +1,11 @@
 use crate::core::indices::MemIdx;
 use crate::core::{Data, DataMode};
 use crate::decode::helpers::{
-    decode_byte_vector, decode_expr, decode_list, DecodeByteVectorError, DecodeListError,
-    ParseExpressionError,
+    DecodeByteVectorError, DecodeListError, ParseExpressionError, decode_byte_vector, decode_expr,
+    decode_list,
 };
 use crate::decode::indices::DecodeMemIdxError;
-use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
 

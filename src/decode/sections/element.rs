@@ -1,13 +1,13 @@
+use crate::Expr;
 use crate::core::indices::{FuncIdx, TableIdx};
 use crate::core::instruction::Instruction;
 use crate::core::types::reftype::RefType;
 use crate::core::{Elem, ElemMode};
-use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::helpers::{DecodeListError, ParseExpressionError};
+use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::indices::{DecodeFuncIdxError, DecodeTableIdxError};
-use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeRefTypeError;
-use crate::Expr;
 use std::io::Read;
 use thiserror::Error;
 
