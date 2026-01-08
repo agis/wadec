@@ -9,7 +9,9 @@ pub use crate::decode::instructions::{
     BlockTypeError, ControlError, LaneIdxError, MemargError, MemoryError, NumericError,
     ParametricError, ParseError, ReferenceError, TableError, VariableError, VectorError,
 };
-pub use crate::decode::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error, DecodeU64Error};
+pub use crate::decode::integer::{
+    DecodeI32Error, DecodeI64Error, DecodeS33Error, DecodeU32Error, DecodeU64Error,
+};
 pub use crate::decode::sections::code::{DecodeCodeError, DecodeCodeLocalsError};
 pub use crate::decode::sections::data::DecodeDataSegmentError;
 pub use crate::decode::sections::element::{DecodeElementError, DecodeElementKindError};
