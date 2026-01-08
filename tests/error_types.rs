@@ -1365,7 +1365,7 @@ fn block_type_error_decode_index_truncated() {
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(BlockTypeError::DecodeIndex(
-                            DecodeI64Error::Io(io_err),
+                            DecodeS33Error::Io(io_err),
                         ))),
                     )),
             },
@@ -1400,34 +1400,6 @@ fn block_type_error_negative_type_index() {
         )) => {
             assert_eq!(position, 0);
             assert!(n < 0);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn block_type_error_type_index_too_large() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with a block type index encoded too large for u32.
-    // Spec 5.4.1 (Control Instructions) and 5.5.1 (Indices): blocktype encodes a type index as s33; this value exceeds u32 range.
-    let wasm = File::open("tests/fixtures/malformed/blocktype_index_too_large.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("too-large block type index should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeListError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::BlockType(
-                            BlockTypeError::TypeIndexTooLarge(n),
-                        )),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert!(n > i64::from(u32::MAX));
         }
         other => panic!("unexpected error: {other:?}"),
     }

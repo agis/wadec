@@ -591,7 +591,7 @@ fn it_decodes_control_instructions() {
                     ],
                 ),
                 Instruction::Block(
-                    BlockType::X(1),
+                    BlockType::I(1),
                     vec![Instruction::I32Const(42), Instruction::I32Const(7)],
                 ),
                 Instruction::Drop,
@@ -2652,6 +2652,30 @@ fn it_rejects_overlong_type_index_encoding() {
             DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn it_rejects_overlong_blocktype_s33() {
+    let path = "tests/fixtures/overlong_blocktype_s33.wasm";
+    let err = decode_module(File::open(path).unwrap())
+        .expect_err("overlong s33 blocktype encoding should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::BlockType(BlockTypeError::DecodeIndex(
+                            DecodeS33Error::RepresentationTooLong,
+                        ))),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);

@@ -503,7 +503,7 @@ pub struct LaneIdx(pub u8);
 pub enum BlockType {
     Empty,
     T(ValType),
-    X(u32),
+    I(u32),
 }
 
 #[derive(Debug, Clone, PartialEq)]

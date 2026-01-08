@@ -4,15 +4,15 @@
 use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Catch, Instruction, LaneIdx, Memarg};
 use crate::core::types::{reftype::RefType, valtype::ValType};
-use crate::decode::FromMarkerByte;
-use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
+use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
 use crate::decode::indices::*;
 use crate::decode::integer::{
-    DecodeI32Error, DecodeI64Error, DecodeU32Error, DecodeU64Error, decode_i32, decode_i64,
-    decode_u32, decode_u64,
+    decode_i32, decode_i64, decode_s33, decode_u32, decode_u64, DecodeI32Error, DecodeI64Error,
+    DecodeS33Error, DecodeU32Error, DecodeU64Error,
 };
 use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
+use crate::decode::FromMarkerByte;
 use crate::read_byte;
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -881,13 +881,10 @@ pub enum BlockTypeError {
     ReadMarkerByte(io::Error),
 
     #[error("failed decoding block type index")]
-    DecodeIndex(#[from] DecodeI64Error),
+    DecodeIndex(#[from] DecodeS33Error),
 
     #[error("blocktype Type index negative: {0}")]
     NegativeTypeIndex(i64),
-
-    #[error("blocktype Type index too large (max={max}): {0}", max = u32::MAX)]
-    TypeIndexTooLarge(i64),
 }
 
 impl BlockType {
@@ -907,14 +904,14 @@ impl BlockType {
         // negative integers. To avoid any loss in the range of allowed indices, it is treated as a
         // 33 bit signed integer.
         let mut chain = Cursor::new([b]).chain(reader);
-        let x = decode_i64(&mut chain)?;
+        let x = decode_s33(&mut chain)?;
         if x < 0 {
             return Err(BlockTypeError::NegativeTypeIndex(x));
         }
 
-        let x = u32::try_from(x).map_err(|_| BlockTypeError::TypeIndexTooLarge(x))?;
+        let x = u32::try_from(x).unwrap();
 
-        Ok(Self::X(x))
+        Ok(Self::I(x))
     }
 }
 
