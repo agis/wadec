@@ -3,7 +3,7 @@
 //! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
 use crate::core::indices::*;
 use crate::core::instruction::{BlockType, Catch, Instruction, LaneIdx, Memarg};
-use crate::core::types::{heaptype::HeapType, valtype::ValType};
+use crate::core::types::{heaptype::HeapType, reftype::RefType, valtype::ValType};
 use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
 use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
 use crate::decode::indices::*;
@@ -89,6 +89,12 @@ pub enum ReferenceError {
 
     #[error("failed decoding function index")]
     FuncIdx(DecodeFuncIdxError),
+
+    #[error("failed reading sub-opcode")]
+    ReadSubOpcode(DecodeU32Error),
+
+    #[error("failed decoding sub-opcode")]
+    InvalidSubOpcode(u32),
 }
 
 #[derive(Debug, Error)]
@@ -259,6 +265,30 @@ impl Instruction {
             }
             0xD1 => Instruction::RefIsNull,
             0xD2 => Instruction::RefFunc(FuncIdx::decode(reader).map_err(ReferenceError::FuncIdx)?),
+            0xD3 => Instruction::RefEq,
+            0xD4 => Instruction::RefAsNonNull,
+            0xFB => {
+                let op = decode_u32(reader).map_err(ReferenceError::ReadSubOpcode)?;
+                match op {
+                    20..=23 => {
+                        let ht = HeapType::decode(reader).map_err(ReferenceError::HeapType)?;
+                        match op {
+                            20 => Instruction::RefTest(RefType {
+                                nullable: false,
+                                ht,
+                            }),
+                            21 => Instruction::RefTest(RefType { nullable: true, ht }),
+                            22 => Instruction::RefCast(RefType {
+                                nullable: false,
+                                ht,
+                            }),
+                            23 => Instruction::RefCast(RefType { nullable: true, ht }),
+                            _ => unreachable!(),
+                        }
+                    }
+                    n => return Err(ReferenceError::InvalidSubOpcode(n).into()),
+                }
+            }
 
             // --- Parametric instructions (5.4.3) ---
             0x1A => Instruction::Drop,

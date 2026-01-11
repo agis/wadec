@@ -27,6 +27,10 @@ fn heaptype_func() -> HeapType {
     HeapType::Ht(AbsHeapType::Func)
 }
 
+fn heaptype_eq() -> HeapType {
+    HeapType::Ht(AbsHeapType::Eq)
+}
+
 #[allow(dead_code)]
 #[test]
 fn it_parses_preamble() {
@@ -930,7 +934,7 @@ fn it_decodes_reference_instructions() {
         },
         SectionHeader {
             kind: SectionKind::Code,
-            size: 14,
+            size: 48,
         },
     ];
 
@@ -953,6 +957,25 @@ fn it_decodes_reference_instructions() {
                 Instruction::RefIsNull,
                 Instruction::Drop,
                 Instruction::RefFunc(FuncIdx(0)),
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_func()),
+                Instruction::RefAsNonNull,
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_eq()),
+                Instruction::RefNull(heaptype_eq()),
+                Instruction::RefEq,
+                Instruction::Drop,
+                Instruction::RefFunc(FuncIdx(0)),
+                Instruction::RefTest(ref_func()),
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_func()),
+                Instruction::RefTest(ref_null_func()),
+                Instruction::Drop,
+                Instruction::RefFunc(FuncIdx(0)),
+                Instruction::RefCast(ref_func()),
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_func()),
+                Instruction::RefCast(ref_null_func()),
                 Instruction::Drop,
             ],
         },

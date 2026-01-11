@@ -2,7 +2,7 @@
 //!
 //! <https://www.w3.org/TR/wasm-core-2/#instructions>
 use super::indices;
-use super::types::{heaptype::HeapType, valtype::ValType};
+use super::types::{heaptype::HeapType, reftype::RefType, valtype::ValType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
@@ -25,9 +25,13 @@ pub enum Instruction {
     TryTable(BlockType, Vec<Catch>, Vec<Instruction>),
 
     // --- Reference instructions (5.4.2) ---
+    RefFunc(indices::FuncIdx),
     RefNull(HeapType),
     RefIsNull,
-    RefFunc(indices::FuncIdx),
+    RefAsNonNull,
+    RefEq,
+    RefTest(RefType),
+    RefCast(RefType),
 
     // --- Parametric instructions (5.4.3) ---
     Drop,

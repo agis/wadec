@@ -313,6 +313,62 @@ fn parse_error_reference() {
 }
 
 #[test]
+fn parse_error_reference_invalid_subopcode() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with 0xFB-prefixed reference instruction using an invalid sub-opcode.
+    // Spec 5.4.6 (Reference Instructions): ref.test/ref.cast sub-opcodes are limited to 20..=23.
+    // 0xFB followed by sub-opcode 24.
+    let wasm = File::open("tests/fixtures/malformed/ref_test_invalid_subopcode.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid sub-opcode should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Reference(ReferenceError::InvalidSubOpcode(op)),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(op, 24);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_error_reference_ref_test_negative_heaptype() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with ref.test using a negative heap type index.
+    // Spec 5.4.6 (Reference Instructions) and 5.3.3 (Heap Types): heaptype must be non-negative.
+    // ref.test followed by a negative type index (s33 = -1).
+    let wasm = File::open("tests/fixtures/malformed/ref_test_negative_heaptype.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid heap type should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Reference(ReferenceError::HeapType(
+                            DecodeHeapTypeError::NegativeTypeIndex(n),
+                        )),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(n, -1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn parse_error_parametric() {
     // Sections: Type, Function, Code.
     // Fixture: single function with select using an invalid value type marker.
