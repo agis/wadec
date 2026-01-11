@@ -50,6 +50,9 @@ pub enum ParseError {
 
     #[error("unexpected opcode after 0xFC marker byte: {0:#04X}")]
     InvalidMarkerByteAfterFC(u32),
+
+    #[error("unexpected opcode after 0xFB marker byte: {0:#04X}")]
+    InvalidMarkerByteAfterFB(u32),
 }
 
 #[derive(Debug, Error)]
@@ -80,6 +83,15 @@ pub enum ControlError {
 
     #[error("unexpected `Else` token")]
     UnexpectedElse,
+
+    #[error("failed decoding nullability for cast operation")]
+    ReadCastNullabilityMarker(io::Error),
+
+    #[error("invalid cast operation marker byte: expected 0x00, 0x01, 0x02 or 0x03; got {0:#04X}")]
+    InvalidCastNullabilityMarker(u8),
+
+    #[error("failed decoding heap type for cast operation")]
+    HeapType(#[from] DecodeHeapTypeError),
 }
 
 #[derive(Debug, Error)]
@@ -178,9 +190,16 @@ impl Instruction {
             0x0B => return Ok(ParseResult::End),
             0x05 => return Ok(ParseResult::Else),
 
-            // --- Control instructions (5.4.1) ---
+            // --- Parametric instructions ---
             0x00 => Instruction::Unreachable,
             0x01 => Instruction::Nop,
+            0x1A => Instruction::Drop,
+            0x1B => Instruction::Select(None),
+            0x1C => Instruction::Select(Some(
+                decode_list(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
+            )),
+
+            // --- Control instructions ---
             op @ 0x02..=0x04 => {
                 let bt = BlockType::decode(reader).map_err(ControlError::BlockType)?;
                 let mut in1 = Vec::new();
@@ -241,6 +260,10 @@ impl Instruction {
                 let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
                 Instruction::ReturnCallIndirect(x, y)
             }
+            0x14 => Instruction::CallRef(TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?),
+            0x15 => {
+                Instruction::ReturnCallRef(TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?)
+            }
             0x1F => {
                 let bt = BlockType::decode(reader).map_err(ControlError::BlockType)?;
                 let c = decode_list(reader, Catch::decode)
@@ -258,6 +281,14 @@ impl Instruction {
 
                 Instruction::TryTable(bt, c, ins)
             }
+            0xD5 => {
+                Instruction::BrOnNull(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?)
+            }
+            0xD6 => {
+                Instruction::BrOnNonNull(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?)
+            }
+            // NOTE: 0xFB is grouped further below, since it's common among Control and Reference
+            // instructions
 
             // --- Reference instructions (5decode) ---
             0xD0 => {
@@ -267,9 +298,33 @@ impl Instruction {
             0xD2 => Instruction::RefFunc(FuncIdx::decode(reader).map_err(ReferenceError::FuncIdx)?),
             0xD3 => Instruction::RefEq,
             0xD4 => Instruction::RefAsNonNull,
+
+            // 0xFB prefix is shared among Control and Reference instructions
             0xFB => {
                 let op = decode_u32(reader).map_err(ReferenceError::ReadSubOpcode)?;
                 match op {
+                    // Control
+                    24 | 25 => {
+                        let (nullable1, nullable2) = decode_castop(reader)?;
+                        let l = LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?;
+                        let ht1 = HeapType::decode(reader).map_err(ControlError::HeapType)?;
+                        let ht2 = HeapType::decode(reader).map_err(ControlError::HeapType)?;
+                        let rt1 = RefType {
+                            nullable: nullable1,
+                            ht: ht1,
+                        };
+                        let rt2 = RefType {
+                            nullable: nullable2,
+                            ht: ht2,
+                        };
+
+                        if op == 24 {
+                            Instruction::BrOnCast(l, rt1, rt2)
+                        } else {
+                            Instruction::BrOnCastFail(l, rt1, rt2)
+                        }
+                    }
+                    // Reference
                     20..=23 => {
                         let ht = HeapType::decode(reader).map_err(ReferenceError::HeapType)?;
                         match op {
@@ -286,16 +341,9 @@ impl Instruction {
                             _ => unreachable!(),
                         }
                     }
-                    n => return Err(ReferenceError::InvalidSubOpcode(n).into()),
+                    n => return Err(ParseError::InvalidMarkerByteAfterFB(n)),
                 }
             }
-
-            // --- Parametric instructions (5.4.3) ---
-            0x1A => Instruction::Drop,
-            0x1B => Instruction::Select(None),
-            0x1C => Instruction::Select(Some(
-                decode_list(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
-            )),
 
             // --- Variable instructions (5.4.4) ---
             0x20 => {
@@ -981,5 +1029,15 @@ impl Catch {
             0x03 => Catch::CatchAllRef(LabelIdx::decode(reader)?),
             n => return Err(CatchError::InvalidMarkerByte(n)),
         })
+    }
+}
+
+fn decode_castop<R: Read + ?Sized>(r: &mut R) -> Result<(bool, bool), ControlError> {
+    match read_byte(r).map_err(ControlError::ReadCastNullabilityMarker)? {
+        0x00 => Ok((false, false)),
+        0x01 => Ok((true, false)),
+        0x02 => Ok((false, true)),
+        0x03 => Ok((true, true)),
+        n => Err(ControlError::InvalidCastNullabilityMarker(n)),
     }
 }
