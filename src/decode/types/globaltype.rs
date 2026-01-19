@@ -1,7 +1,7 @@
 use crate::core::types::globaltype::{GlobalType, Mut};
 use crate::core::types::valtype::ValType;
-use crate::decode::FromMarkerByte;
 use crate::decode::types::valtype::DecodeValTypeError;
+use crate::decode::FromMarkerByte;
 use crate::read_byte;
 use phf::phf_ordered_map;
 use std::io::Read;
@@ -22,7 +22,7 @@ pub enum DecodeGlobalTypeError {
 impl GlobalType {
     pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
         let valtype = ValType::decode(reader)?;
-        let r#mut: Mut =
+        let r#mut =
             Mut::from_marker(read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?)?;
 
         Ok(GlobalType(r#mut, valtype))

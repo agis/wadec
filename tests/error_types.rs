@@ -1501,20 +1501,20 @@ fn block_type_error_negative_type_index() {
 }
 
 #[test]
-fn decode_func_type_error_read_marker_byte() {
+fn decode_rec_type_error_read_marker_byte() {
     // Sections: Type.
-    // Fixture: type section functype marker byte is missing.
-    // Spec 5.5.4 (Type Section): functype marker byte 0x60 is missing.
+    // Fixture: type section recursive type marker byte is missing.
+    // Spec 5.5.4 (Type Section): rectype entry marker byte is missing.
     let wasm =
         File::open("tests/fixtures/malformed/type_section_functype_marker_missing.wasm").unwrap();
 
-    let err = decode_module(wasm).expect_err("missing functype marker should fail");
+    let err = decode_module(wasm).expect_err("missing rectype marker should fail");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeFuncTypeError::ReadMarkerByte(io_err),
+                source: DecodeRecTypeError::Io(io_err),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1525,20 +1525,23 @@ fn decode_func_type_error_read_marker_byte() {
 }
 
 #[test]
-fn decode_func_type_error_invalid_marker_byte() {
+fn decode_rec_type_error_invalid_marker_byte() {
     // Sections: Type.
-    // Fixture: type section functype marker is invalid.
-    // Spec 5.5.4 (Type Section): functype entries must start with 0x60; this marker is invalid.
+    // Fixture: type section composite type marker is invalid.
+    // Spec 5.5.4 (Type Section) and 5.3.7 (Composite Types): composite type entries must start
+    // with 0x5E/0x5F/0x60; this marker is invalid.
     let wasm =
         File::open("tests/fixtures/malformed/type_section_functype_invalid_marker.wasm").unwrap();
 
-    let err = decode_module(wasm).expect_err("invalid functype marker should fail");
+    let err = decode_module(wasm).expect_err("invalid composite type marker should fail");
 
     match err {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeFuncTypeError::InvalidMarkerByte(b),
+                source: DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                    DecodeCompTypeError::InvalidMarkerByte(b),
+                )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1549,10 +1552,11 @@ fn decode_func_type_error_invalid_marker_byte() {
 }
 
 #[test]
-fn decode_func_type_error_parameter_types_invalid_valtype() {
+fn decode_rec_type_error_parameter_types_invalid_valtype() {
     // Sections: Type.
     // Fixture: type section parameter list contains an invalid value type.
-    // Spec 5.5.4 (Type Section) and 5.3.4 (Value Types): parameter valtype marker is invalid.
+    // Spec 5.5.4 (Type Section), 5.3.7 (Composite Types), and 5.3.5 (Value Types):
+    // parameter valtype marker is invalid.
     let wasm =
         File::open("tests/fixtures/malformed/type_section_param_invalid_valtype.wasm").unwrap();
 
@@ -1562,8 +1566,8 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeFuncTypeError::DecodeParameterTypes(DecodeResultTypeError::DecodeVector(
+                source: DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                    DecodeCompTypeError::DecodeFuncParameters(DecodeResultTypeError::DecodeVector(
                         DecodeListError::ParseElement {
                             position: inner_pos,
                             source:
@@ -1574,6 +1578,7 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
                                 ),
                         },
                     )),
+                )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1585,10 +1590,11 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
 }
 
 #[test]
-fn decode_func_type_error_result_types_truncated() {
+fn decode_rec_type_error_result_types_truncated() {
     // Sections: Type.
     // Fixture: type section result type marker is truncated.
-    // Spec 5.5.4 (Type Section) and 5.3.4 (Value Types): result valtype marker is truncated.
+    // Spec 5.5.4 (Type Section), 5.3.7 (Composite Types), and 5.3.5 (Value Types):
+    // result valtype marker is truncated.
     let wasm =
         File::open("tests/fixtures/malformed/type_section_result_valtype_truncated.wasm").unwrap();
 
@@ -1598,13 +1604,14 @@ fn decode_func_type_error_result_types_truncated() {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeFuncTypeError::DecodeResultTypes(DecodeResultTypeError::DecodeVector(
+                source: DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                    DecodeCompTypeError::DecodeFuncResults(DecodeResultTypeError::DecodeVector(
                         DecodeListError::ParseElement {
                             position: inner_pos,
                             source: DecodeValTypeError::Io(io_err),
                         },
                     )),
+                )),
             },
         )) => {
             assert_eq!(position, 0);
