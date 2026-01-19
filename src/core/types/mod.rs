@@ -42,3 +42,9 @@ pub use externtype::ExternType;
 
 pub mod heaptype;
 pub use heaptype::HeapType;
+
+pub mod comptype;
+pub use comptype::CompType;
+
+pub mod rectype;
+pub use rectype::{RecType, SubType};

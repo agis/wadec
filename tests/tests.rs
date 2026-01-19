@@ -31,6 +31,22 @@ fn heaptype_eq() -> HeapType {
     HeapType::Ht(AbsHeapType::Eq)
 }
 
+fn rectypes(funcs: Vec<FuncType>) -> Vec<RecType> {
+    funcs
+        .into_iter()
+        .map(|ft| {
+            RecType(vec![SubType {
+                is_final: true,
+                supertypes: Vec::new(),
+                comptype: CompType::Func {
+                    parameters: ft.parameters,
+                    results: ft.results,
+                },
+            }])
+        })
+        .collect()
+}
+
 #[allow(dead_code)]
 #[test]
 fn it_parses_preamble() {
@@ -104,10 +120,10 @@ fn it_accepts_add_sample() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -153,10 +169,10 @@ fn it_decodes_tag_section() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![],
         results: vec![],
-    }];
+    }]);
 
     let tags = vec![TagType(TypeIdx(0))];
 
@@ -203,10 +219,10 @@ fn it_accepts_two_funcs_exporting_second() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let add_body = vec![
         Instruction::LocalGet(LocalIdx(0)),
@@ -323,10 +339,10 @@ fn it_accepts_module_without_exports() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -379,10 +395,10 @@ fn it_decodes_start_section() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: Vec::new(),
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -442,7 +458,7 @@ fn it_decodes_control_instructions() {
         },
     ];
 
-    let types = vec![
+    let types = rectypes(vec![
         FuncType {
             parameters: Vec::new(),
             results: Vec::new(),
@@ -451,7 +467,7 @@ fn it_decodes_control_instructions() {
             parameters: Vec::new(),
             results: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         },
-    ];
+    ]);
 
     let imports = vec![
         Import {
@@ -595,10 +611,10 @@ fn it_decodes_element_section_all_alts() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![],
         results: vec![],
-    }];
+    }]);
 
     let funcs = vec![
         Func {
@@ -778,10 +794,10 @@ fn it_decodes_reference_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: Vec::new(),
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![
         Func {
@@ -890,10 +906,10 @@ fn it_decodes_variable_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -964,14 +980,14 @@ fn it_decodes_parametric_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![
             ValType::Num(NumType::Int32),
             ValType::Num(NumType::Int32),
             ValType::Num(NumType::Int32),
         ],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -1048,7 +1064,7 @@ fn it_decodes_table_instructions() {
         },
     ];
 
-    let types = vec![
+    let types = rectypes(vec![
         FuncType {
             parameters: Vec::new(),
             results: Vec::new(),
@@ -1057,7 +1073,7 @@ fn it_decodes_table_instructions() {
             parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
             results: Vec::new(),
         },
-    ];
+    ]);
 
     let funcs = vec![
         Func {
@@ -1196,10 +1212,10 @@ fn it_decodes_memory_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: Vec::new(),
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -1537,10 +1553,10 @@ fn it_accepts_export_with_locals() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![FuncType {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -1643,7 +1659,7 @@ fn it_accepts_kitchensink() {
         },
     ];
 
-    let types = vec![
+    let types = rectypes(vec![
         FuncType {
             parameters: Vec::new(),
             results: Vec::new(),
@@ -1652,7 +1668,7 @@ fn it_accepts_kitchensink() {
             parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
             results: vec![ValType::Num(NumType::Int32)],
         },
-    ];
+    ]);
 
     let funcs = vec![
         Func {
@@ -2166,10 +2182,10 @@ fn it_decodes_vector_instructions() {
 
     assert_eq!(
         module.types,
-        vec![FuncType {
+        rectypes(vec![FuncType {
             parameters: Vec::new(),
             results: Vec::new(),
-        }]
+        }])
     );
 
     assert_eq!(

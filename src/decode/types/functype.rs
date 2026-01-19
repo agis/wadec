@@ -1,5 +1,5 @@
 use crate::core::types::functype::FuncType;
-use crate::decode::types::resulttype::{DecodeResultTypeError, decode_result_type};
+use crate::decode::types::resulttype::{decode_result_type, DecodeResultTypeError};
 use crate::read_byte;
 use std::io::{self, Read};
 use thiserror::Error;
@@ -22,6 +22,7 @@ pub enum DecodeFuncTypeError {
     DecodeResultTypes(#[source] DecodeResultTypeError),
 }
 
+#[expect(dead_code)]
 impl FuncType {
     const MARKER_BYTE: u8 = 0x60;
 

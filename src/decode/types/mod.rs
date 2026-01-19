@@ -30,3 +30,9 @@ pub use externtype::DecodeExternTypeError;
 
 pub mod heaptype;
 pub use heaptype::{DecodeAbsHeapTypeError, DecodeHeapTypeError};
+
+pub mod comptype;
+pub use comptype::DecodeCompTypeError;
+
+pub mod rectype;
+pub use rectype::{DecodeRecTypeError, DecodeSubTypeError};

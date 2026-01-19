@@ -1,5 +1,5 @@
 //! Type definitions for WebAssembly modules.
-use super::types::{FuncType, MemType, TableType, TagType};
+use super::types::{MemType, RecType, TableType, TagType};
 use super::{Data, Elem, Export, Func, Global, Import};
 use crate::core::custom_section::CustomSection;
 use crate::core::indices::FuncIdx;
@@ -34,7 +34,7 @@ pub struct Module {
     ///
     /// <https://www.w3.org/TR/wasm-core-2/#types>
     /// <https://www.w3.org/TR/wasm-core-2/#binary-typesec>
-    pub types: Vec<FuncType>,
+    pub types: Vec<RecType>,
 
     /// The funcs component of a module defines a vector of functions with the following
     /// structure: The type of a function declares its signature by reference to a type defined
