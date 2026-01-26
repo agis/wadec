@@ -32,17 +32,14 @@ fn heaptype_eq() -> HeapType {
     HeapType::Ht(AbsHeapType::Eq)
 }
 
-fn rectypes(funcs: Vec<FuncType>) -> Vec<RecType> {
-    funcs
+fn rectypes(comptypes: Vec<CompType>) -> Vec<RecType> {
+    comptypes
         .into_iter()
-        .map(|ft| {
+        .map(|ct| {
             RecType(vec![SubType {
                 is_final: true,
                 supertypes: Vec::new(),
-                comptype: CompType::Func {
-                    parameters: ft.parameters,
-                    results: ft.results,
-                },
+                comptype: ct,
             }])
         })
         .collect()
@@ -121,7 +118,7 @@ fn it_accepts_add_sample() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
     }]);
@@ -211,7 +208,7 @@ fn it_decodes_tag_section() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![],
         results: vec![],
     }]);
@@ -333,7 +330,7 @@ fn it_accepts_two_funcs_exporting_second() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
     }]);
@@ -487,7 +484,7 @@ fn it_accepts_module_without_exports() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
     }]);
@@ -543,7 +540,7 @@ fn it_decodes_start_section() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: Vec::new(),
         results: Vec::new(),
     }]);
@@ -607,11 +604,11 @@ fn it_decodes_control_instructions() {
     ];
 
     let types = rectypes(vec![
-        FuncType {
+        CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         },
-        FuncType {
+        CompType::Func {
             parameters: Vec::new(),
             results: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         },
@@ -813,7 +810,7 @@ fn it_decodes_element_section_all_alts() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![],
         results: vec![],
     }]);
@@ -996,7 +993,7 @@ fn it_decodes_reference_instructions() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: Vec::new(),
         results: Vec::new(),
     }]);
@@ -1108,7 +1105,7 @@ fn it_decodes_variable_instructions() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: Vec::new(),
     }]);
@@ -1182,7 +1179,7 @@ fn it_decodes_parametric_instructions() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![
             ValType::Num(NumType::Int32),
             ValType::Num(NumType::Int32),
@@ -1267,11 +1264,11 @@ fn it_decodes_table_instructions() {
     ];
 
     let types = rectypes(vec![
-        FuncType {
+        CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         },
-        FuncType {
+        CompType::Func {
             parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
             results: Vec::new(),
         },
@@ -1414,7 +1411,7 @@ fn it_decodes_memory_instructions() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: Vec::new(),
         results: Vec::new(),
     }]);
@@ -1664,6 +1661,173 @@ fn it_decodes_memory_instructions() {
 }
 
 #[test]
+fn it_decodes_memarg_with_memidx_for_loads_and_stores() {
+    let f = File::open("tests/fixtures/memory_instructions_memidx.wasm").unwrap();
+
+    use std::mem::discriminant;
+
+    let module = decode_module(f).unwrap();
+    assert_eq!(module.mems.len(), 2);
+
+    let func = &module.funcs[0];
+    let mut seen = HashSet::new();
+
+    for instr in &func.body {
+        match instr {
+            Instruction::I32Load(m)
+            | Instruction::I64Load(m)
+            | Instruction::F32Load(m)
+            | Instruction::F64Load(m)
+            | Instruction::I32Load8s(m)
+            | Instruction::I32Load8u(m)
+            | Instruction::I32Load16s(m)
+            | Instruction::I32Load16u(m)
+            | Instruction::I64Load8s(m)
+            | Instruction::I64Load8u(m)
+            | Instruction::I64Load16s(m)
+            | Instruction::I64Load16u(m)
+            | Instruction::I64Load32s(m)
+            | Instruction::I64Load32u(m)
+            | Instruction::I32Store(m)
+            | Instruction::I64Store(m)
+            | Instruction::F32Store(m)
+            | Instruction::F64Store(m)
+            | Instruction::I32Store8(m)
+            | Instruction::I32Store16(m)
+            | Instruction::I64Store8(m)
+            | Instruction::I64Store16(m)
+            | Instruction::I64Store32(m) => {
+                assert_eq!(m.mem_idx, MemIdx(1));
+                seen.insert(discriminant(instr));
+            }
+            _ => {}
+        }
+    }
+
+    let expected: HashSet<_> = [
+        discriminant(&Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F64Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load8s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load8u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load16s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load16u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load8s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load8u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load16s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load16u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load32s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load32u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F32Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F64Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Store8(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Store16(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store8(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store16(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store32(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+    ]
+    .into_iter()
+    .collect();
+
+    assert_eq!(seen, expected);
+}
+
+#[test]
 fn it_decodes_multi_memory_immediates() {
     let f = File::open("tests/fixtures/memory_instructions_multi_memidx.wasm").unwrap();
 
@@ -1873,7 +2037,7 @@ fn it_accepts_export_with_locals() {
         },
     ];
 
-    let types = rectypes(vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
     }]);
@@ -1980,11 +2144,11 @@ fn it_accepts_kitchensink() {
     ];
 
     let types = rectypes(vec![
-        FuncType {
+        CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         },
-        FuncType {
+        CompType::Func {
             parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
             results: vec![ValType::Num(NumType::Int32)],
         },
@@ -2502,7 +2666,7 @@ fn it_decodes_vector_instructions() {
 
     assert_eq!(
         module.types,
-        rectypes(vec![FuncType {
+        rectypes(vec![CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         }])
@@ -2615,6 +2779,191 @@ fn it_decodes_vector_instructions() {
         }
         other => panic!("unexpected data mode: {:?}", other),
     }
+}
+
+#[test]
+fn it_decodes_simd_memarg_with_memidx() {
+    let f = File::open("tests/fixtures/vector_memory_instructions_memidx.wasm").unwrap();
+
+    use std::mem::discriminant;
+
+    let module = decode_module(f).unwrap();
+    assert_eq!(module.mems.len(), 2);
+
+    let func = &module.funcs[0];
+    let mut seen = HashSet::new();
+
+    for instr in &func.body {
+        match instr {
+            Instruction::V128Load(m)
+            | Instruction::V128Load8x8S(m)
+            | Instruction::V128Load8x8U(m)
+            | Instruction::V128Load16x4S(m)
+            | Instruction::V128Load16x4U(m)
+            | Instruction::V128Load32x2S(m)
+            | Instruction::V128Load32x2U(m)
+            | Instruction::V128Load8Splat(m)
+            | Instruction::V128Load16Splat(m)
+            | Instruction::V128Load32Splat(m)
+            | Instruction::V128Load64Splat(m)
+            | Instruction::V128Load32Zero(m)
+            | Instruction::V128Load64Zero(m)
+            | Instruction::V128Store(m)
+            | Instruction::V128Load8Lane(m, _)
+            | Instruction::V128Load16Lane(m, _)
+            | Instruction::V128Load32Lane(m, _)
+            | Instruction::V128Load64Lane(m, _)
+            | Instruction::V128Store8Lane(m, _)
+            | Instruction::V128Store16Lane(m, _)
+            | Instruction::V128Store32Lane(m, _)
+            | Instruction::V128Store64Lane(m, _) => {
+                assert_eq!(m.mem_idx, MemIdx(1));
+                seen.insert(discriminant(instr));
+            }
+            _ => {}
+        }
+    }
+
+    let expected: HashSet<_> = [
+        discriminant(&Instruction::V128Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8x8S(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8x8U(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load16x4S(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load16x4U(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32x2S(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32x2U(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load16Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load64Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32Zero(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load64Zero(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Load16Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Load32Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Load64Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store8Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store16Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store32Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store64Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+    ]
+    .into_iter()
+    .collect();
+
+    assert_eq!(seen, expected);
 }
 
 #[test]
@@ -2737,7 +3086,7 @@ fn it_rejects_overlong_type_index_encoding() {
         0x01, 0x00, 0x00, 0x00, // version
         0x01, 0x04, // type section id + size
         0x01, // type vector length
-        0x60, // functype tag
+        0x60, // func type tag
         0x00, // param count
         0x00, // result count
         0x03, 0x06, // function section id + size

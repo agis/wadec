@@ -1,9 +1,6 @@
 //! Type definitions for core WebAssembly types.
 //!
 //! <https://www.w3.org/TR/wasm-core-2/#types>
-pub mod functype;
-pub use functype::FuncType;
-
 pub mod globaltype;
 pub use globaltype::{GlobalType, Mut};
 

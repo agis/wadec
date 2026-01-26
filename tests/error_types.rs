@@ -1506,7 +1506,7 @@ fn decode_rec_type_error_read_marker_byte() {
     // Fixture: type section recursive type marker byte is missing.
     // Spec 5.5.4 (Type Section): rectype entry marker byte is missing.
     let wasm =
-        File::open("tests/fixtures/malformed/type_section_functype_marker_missing.wasm").unwrap();
+        File::open("tests/fixtures/malformed/type_section_comptype_marker_missing.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("missing rectype marker should fail");
 
@@ -1531,7 +1531,7 @@ fn decode_rec_type_error_invalid_marker_byte() {
     // Spec 5.5.4 (Type Section) and 5.3.7 (Composite Types): composite type entries must start
     // with 0x5E/0x5F/0x60; this marker is invalid.
     let wasm =
-        File::open("tests/fixtures/malformed/type_section_functype_invalid_marker.wasm").unwrap();
+        File::open("tests/fixtures/malformed/type_section_comptype_invalid_marker.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("invalid composite type marker should fail");
 

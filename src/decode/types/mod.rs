@@ -1,6 +1,3 @@
-pub mod functype;
-pub use functype::DecodeFuncTypeError;
-
 pub mod globaltype;
 pub use globaltype::{DecodeGlobalTypeError, InvalidMutabilityByteError};
 
