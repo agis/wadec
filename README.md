@@ -72,7 +72,7 @@ ERROR: failed decoding Type section
 
 Caused by:
     0: failed parsing vector element at position 0
-    1: failed decoding Parameters
+    1: failed decoding Function type parameters
     2: failed parsing vector element at position 0
     3: invalid ValType marker byte - expected one of 0x7F (Num(Int32)), 0x7E (Num(Int64)), 0x7D (Num(Float32)), 0x7C (Num(Float64)), 0x7B (Vec(V128)), 0x70 (Ref(Func)), 0x6F (Ref(Extern)); got 0xAA
 
@@ -81,7 +81,7 @@ DecodeTypeSection(
     DecodeVector(
         ParseElement {
             position: 0,
-            source: DecodeFuncTypeError::DecodeParameterTypes(
+            source: DecodeCompTypeError::DecodeFuncParameters(
                 DecodeVector(
                     ParseElement {
                         position: 0,
