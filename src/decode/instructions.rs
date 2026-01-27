@@ -27,6 +27,9 @@ pub enum ParseError {
     #[error("failed decoding reference instruction")]
     Reference(#[from] ReferenceError),
 
+    #[error("failed decoding aggregate instruction")]
+    Aggregate(#[from] AggregateError),
+
     #[error("failed decoding parametric instruction")]
     Parametric(#[from] ParametricError),
 
@@ -107,6 +110,24 @@ pub enum ReferenceError {
 
     #[error("failed decoding sub-opcode")]
     InvalidSubOpcode(u32),
+}
+
+#[derive(Debug, Error)]
+pub enum AggregateError {
+    #[error("failed decoding type index")]
+    TypeIdx(DecodeTypeIdxError),
+
+    #[error("failed decoding field index")]
+    FieldIndex(DecodeU32Error),
+
+    #[error("failed decoding data index")]
+    DataIdx(DecodeDataIdxError),
+
+    #[error("failed decoding element index")]
+    ElemIdx(DecodeElemIdxError),
+
+    #[error("failed decoding array fixed length")]
+    ArrayFixedLength(DecodeU32Error),
 }
 
 #[derive(Debug, Error)]
@@ -290,7 +311,7 @@ impl Instruction {
             // NOTE: 0xFB is grouped further below, since it's common among Control and Reference
             // instructions
 
-            // --- Reference instructions (5decode) ---
+            // --- Reference instructions (5.4.6) ---
             0xD0 => {
                 Instruction::RefNull(HeapType::decode(reader).map_err(ReferenceError::HeapType)?)
             }
@@ -299,10 +320,108 @@ impl Instruction {
             0xD3 => Instruction::RefEq,
             0xD4 => Instruction::RefAsNonNull,
 
-            // 0xFB prefix is shared among Control and Reference instructions
+            // 0xFB prefix is shared among Control, Reference and Aggregate instructions
             0xFB => {
                 let op = decode_u32(reader).map_err(ReferenceError::ReadSubOpcode)?;
                 match op {
+                    // Aggregate
+                    0 => Instruction::StructNew(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    1 => Instruction::StructNewDefault(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    2 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructGet(t, f)
+                    }
+                    3 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructGetS(t, f)
+                    }
+                    4 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructGetU(t, f)
+                    }
+                    5 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructSet(t, f)
+                    }
+                    6 => Instruction::ArrayNew(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    7 => Instruction::ArrayNewDefault(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    8 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let n = decode_u32(reader).map_err(AggregateError::ArrayFixedLength)?;
+                        Instruction::ArrayNewFixed(t, n)
+                    }
+                    9 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let d = DataIdx::decode(reader).map_err(AggregateError::DataIdx)?;
+                        Instruction::ArrayNewData(t, d)
+                    }
+                    10 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let e = ElemIdx::decode(reader).map_err(AggregateError::ElemIdx)?;
+                        Instruction::ArrayNewElem(t, e)
+                    }
+                    11 => Instruction::ArrayGet(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    12 => Instruction::ArrayGetS(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    13 => Instruction::ArrayGetU(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    14 => Instruction::ArraySet(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    15 => Instruction::ArrayLen,
+                    16 => Instruction::ArrayFill(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    17 => {
+                        let dst = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let src = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        Instruction::ArrayCopy(dst, src)
+                    }
+                    18 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let d = DataIdx::decode(reader).map_err(AggregateError::DataIdx)?;
+                        Instruction::ArrayInitData(t, d)
+                    }
+                    19 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let e = ElemIdx::decode(reader).map_err(AggregateError::ElemIdx)?;
+                        Instruction::ArrayInitElem(t, e)
+                    }
+
+                    // Reference
+                    20..=23 => {
+                        let ht = HeapType::decode(reader).map_err(ReferenceError::HeapType)?;
+                        match op {
+                            20 => Instruction::RefTest(RefType {
+                                nullable: false,
+                                ht,
+                            }),
+                            21 => Instruction::RefTest(RefType { nullable: true, ht }),
+                            22 => Instruction::RefCast(RefType {
+                                nullable: false,
+                                ht,
+                            }),
+                            23 => Instruction::RefCast(RefType { nullable: true, ht }),
+                            _ => unreachable!(),
+                        }
+                    }
+
                     // Control
                     24 | 25 => {
                         let (nullable1, nullable2) = decode_castop(reader)?;
@@ -324,23 +443,12 @@ impl Instruction {
                             Instruction::BrOnCastFail(l, rt1, rt2)
                         }
                     }
-                    // Reference
-                    20..=23 => {
-                        let ht = HeapType::decode(reader).map_err(ReferenceError::HeapType)?;
-                        match op {
-                            20 => Instruction::RefTest(RefType {
-                                nullable: false,
-                                ht,
-                            }),
-                            21 => Instruction::RefTest(RefType { nullable: true, ht }),
-                            22 => Instruction::RefCast(RefType {
-                                nullable: false,
-                                ht,
-                            }),
-                            23 => Instruction::RefCast(RefType { nullable: true, ht }),
-                            _ => unreachable!(),
-                        }
-                    }
+
+                    26 => Instruction::AnyConvertExtern,
+                    27 => Instruction::ExternConvertAny,
+                    28 => Instruction::RefI31,
+                    29 => Instruction::I31GetS,
+                    30 => Instruction::I31GetU,
                     n => return Err(ParseError::InvalidMarkerByteAfterFB(n)),
                 }
             }

@@ -6,8 +6,9 @@ pub use crate::decode::indices::{
     DecodeTypeIdxError,
 };
 pub use crate::decode::instructions::{
-    BlockTypeError, ControlError, LaneIdxError, MemargError, MemoryError, NumericError,
-    ParametricError, ParseError, ReferenceError, TableError, VariableError, VectorError,
+    AggregateError, BlockTypeError, ControlError, LaneIdxError, MemargError, MemoryError,
+    NumericError, ParametricError, ParseError, ReferenceError, TableError, VariableError,
+    VectorError,
 };
 pub use crate::decode::integer::{
     DecodeI32Error, DecodeI64Error, DecodeS33Error, DecodeU32Error, DecodeU64Error,

@@ -316,9 +316,8 @@ fn parse_error_reference() {
 fn parse_error_reference_invalid_subopcode() {
     // Sections: Type, Function, Code.
     // Fixture: single function with 0xFB-prefixed instruction using an invalid sub-opcode.
-    // Spec 5.4.6 (Reference Instructions) and 5.4.1 (Control Instructions): sub-opcodes 20..=25
-    // are defined; 26 is invalid.
-    // 0xFB followed by sub-opcode 26.
+    // Spec binary instruction table: sub-opcodes 0..=30 (0x00..=0x1E) are defined; 31 is invalid.
+    // 0xFB followed by sub-opcode 31.
     let wasm = File::open("tests/fixtures/malformed/ref_test_invalid_subopcode.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("invalid sub-opcode should fail");
@@ -334,7 +333,7 @@ fn parse_error_reference_invalid_subopcode() {
             },
         )) => {
             assert_eq!(position, 0);
-            assert_eq!(op, 26);
+            assert_eq!(op, 31);
         }
         other => panic!("unexpected error: {other:?}"),
     }
