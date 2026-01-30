@@ -80,17 +80,17 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         1 => {
-            let et = parse_elemkind(reader)?;
+            let rt = parse_elemkind(reader)?;
             let y = decode_list(reader, FuncIdx::decode)?;
-            (et, funcidx_into_reffunc(y), ElemMode::Passive)
+            (rt, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
             let x = TableIdx::decode(reader)?;
             let e = decode_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
-            let et = parse_elemkind(reader)?;
+            let rt = parse_elemkind(reader)?;
             let y = decode_list(reader, FuncIdx::decode)?;
             (
-                et,
+                rt,
                 funcidx_into_reffunc(y),
                 ElemMode::Active {
                     table: x,
@@ -99,9 +99,9 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         3 => {
-            let et = parse_elemkind(reader)?;
+            let rt = parse_elemkind(reader)?;
             let y = decode_list(reader, FuncIdx::decode)?;
-            (et, funcidx_into_reffunc(y), ElemMode::Declare)
+            (rt, funcidx_into_reffunc(y), ElemMode::Declare)
         }
         4 => {
             let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
@@ -119,18 +119,18 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         5 => {
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
-            (et, el, ElemMode::Passive)
+            (rt, el, ElemMode::Passive)
         }
         6 => {
             let x = TableIdx::decode(reader)?;
             let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
 
             (
-                et,
+                rt,
                 el,
                 ElemMode::Active {
                     table: x,
@@ -139,10 +139,10 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         7 => {
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
 
-            (et, el, ElemMode::Declare)
+            (rt, el, ElemMode::Declare)
         }
         n => return Err(DecodeElementError::InvalidBitfield(n)),
     };
