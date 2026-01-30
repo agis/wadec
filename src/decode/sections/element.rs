@@ -126,11 +126,13 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         6 => {
             let x = TableIdx::decode(reader)?;
             let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
             let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
 
             (
-                et,
+                RefType {
+                    nullable: true,
+                    ht: HeapType::Ht(AbsHeapType::Func),
+                },
                 el,
                 ElemMode::Active {
                     table: x,
