@@ -176,6 +176,7 @@ pub enum SectionKind {
     Function,
     Table,
     Memory,
+    Tag,
     Global,
     Export,
     Start,
@@ -183,5 +184,4 @@ pub enum SectionKind {
     DataCount,
     Code,
     Data,
-    Tag,
 }
