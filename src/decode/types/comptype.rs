@@ -30,12 +30,6 @@ pub enum DecodeCompTypeError {
 
     #[error(transparent)]
     DecodeFieldType(#[from] DecodeFieldTypeError),
-
-    #[error(transparent)]
-    DecodeStorageType(#[from] DecodeStorageTypeError),
-
-    #[error(transparent)]
-    DecodePackType(#[from] InvalidPackTypeMarkerError),
 }
 
 impl CompType {
