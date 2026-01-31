@@ -107,9 +107,6 @@ pub enum ReferenceError {
 
     #[error("failed reading sub-opcode")]
     ReadSubOpcode(DecodeU32Error),
-
-    #[error("failed decoding sub-opcode")]
-    InvalidSubOpcode(u32),
 }
 
 #[derive(Debug, Error)]
@@ -403,6 +400,11 @@ impl Instruction {
                         let e = ElemIdx::decode(reader).map_err(AggregateError::ElemIdx)?;
                         Instruction::ArrayInitElem(t, e)
                     }
+                    26 => Instruction::AnyConvertExtern,
+                    27 => Instruction::ExternConvertAny,
+                    28 => Instruction::RefI31,
+                    29 => Instruction::I31GetS,
+                    30 => Instruction::I31GetU,
 
                     // Reference
                     20..=23 => {
@@ -444,11 +446,6 @@ impl Instruction {
                         }
                     }
 
-                    26 => Instruction::AnyConvertExtern,
-                    27 => Instruction::ExternConvertAny,
-                    28 => Instruction::RefI31,
-                    29 => Instruction::I31GetS,
-                    30 => Instruction::I31GetU,
                     n => return Err(ParseError::InvalidMarkerByteAfterFB(n)),
                 }
             }

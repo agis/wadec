@@ -12,9 +12,6 @@ pub enum DecodeHeapTypeError {
     #[error("failed reading Heap type marker byte")]
     ReadMarkerByte(#[from] io::Error),
 
-    #[error(transparent)]
-    InvalidMarkerByte(#[from] InvalidAbsHeapTypeMarkerError),
-
     #[error("failed decoding type index")]
     DecodeTypeIndex(#[from] DecodeS33Error),
 

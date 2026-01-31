@@ -1,14 +1,10 @@
-use crate::core::Import;
 use crate::core::types::ExternType;
-use crate::decode::helpers::{DecodeListError, DecodeNameError, decode_list, decode_name};
-use crate::decode::indices::DecodeTypeIdxError;
-use crate::decode::types::{
-    DecodeExternTypeError, DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeTableTypeError,
-    DecodeTagTypeError,
-};
-use std::io;
+use crate::core::Import;
+use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
+use crate::decode::types::DecodeExternTypeError;
 use std::io::Read;
 use thiserror::Error;
+
 #[derive(Debug, Error)]
 pub enum DecodeImportSectionError {
     #[error("failed decoding Import section")]
@@ -21,6 +17,10 @@ pub(crate) fn decode_import_section<R: Read + ?Sized>(
     Ok(decode_list(reader, parse_import)?)
 }
 
+/*************************/
+/*        Import         */
+/*************************/
+
 #[derive(Debug, Error)]
 pub enum DecodeImportError {
     #[error("failed decoding module name")]
@@ -28,29 +28,6 @@ pub enum DecodeImportError {
 
     #[error("failed decoding item name")]
     DecodeItemName(DecodeNameError),
-
-    #[error("failed reading Import descriptor marker byte")]
-    ReadMarkerByte(io::Error),
-
-    #[error(
-        "invalid marker byte: expected 0x00 (type), 0x01 (table), 0x02 (mem), 0x03 (global), or 0x04 (tag); got {0:#04X}"
-    )]
-    InvalidMarkerByte(u8),
-
-    #[error(transparent)]
-    DecodeTypeIdx(#[from] DecodeTypeIdxError),
-
-    #[error(transparent)]
-    DecodeTable(#[from] DecodeTableTypeError),
-
-    #[error(transparent)]
-    DecodeMemType(#[from] DecodeMemoryTypeError),
-
-    #[error(transparent)]
-    DecodeGlobalType(#[from] DecodeGlobalTypeError),
-
-    #[error(transparent)]
-    DecodeTagType(#[from] DecodeTagTypeError),
 
     #[error(transparent)]
     DecodeExternType(#[from] DecodeExternTypeError),
