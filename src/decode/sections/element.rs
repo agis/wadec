@@ -9,7 +9,7 @@ use crate::decode::indices::{DecodeFuncIdxError, DecodeTableIdxError};
 use crate::decode::integer::{decode_u32, DecodeU32Error};
 use crate::decode::types::DecodeRefTypeError;
 use crate::Expr;
-use std::io::Read;
+use std::io::{self, Read};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,6 +23,10 @@ pub(crate) fn decode_element_section<R: Read + ?Sized>(
 ) -> Result<Vec<Elem>, DecodeElementSectionError> {
     Ok(decode_list(reader, parse_elem)?)
 }
+
+/*************************/
+/*       Element         */
+/*************************/
 
 #[derive(Debug, Error)]
 pub enum DecodeElementError {
@@ -150,10 +154,14 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     Ok(Elem { r#type, init, mode })
 }
 
+/*************************/
+/*       ElemKind        */
+/*************************/
+
 #[derive(Debug, Error)]
 pub enum DecodeElementKindError {
     #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 
     #[error("expected byte 0x00; got {0:#04X}")]
     InvalidElemKind(u8),

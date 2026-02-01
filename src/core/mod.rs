@@ -15,7 +15,7 @@ pub use instruction::Instruction;
 
 pub mod types;
 use types::ExternType;
-use types::{GlobalType, RefType, ValType};
+use types::{GlobalType, RefType, TableType, ValType};
 
 pub(crate) type Expr = Vec<Instruction>;
 
@@ -149,3 +149,15 @@ pub enum ElemMode {
     Active { table: TableIdx, offset: Expr },
     Declare,
 }
+
+/// A table is an array of opaque values of a particular reference type that is specified by the
+/// table type. Each table slot is initialized with a value given by a constant initializer
+/// expression. Tables can further be initialized through element segments.
+///
+/// The minimum size in the limits of the table type specifies the initial size of that table,
+/// while its maximum restricts the size to which it can grow later.
+///
+/// Tables are referenced through table indices, starting with the smallest index not referencing a
+/// table import. Most constructs implicitly reference table index 0.
+#[derive(Debug, PartialEq)]
+pub struct Table(pub TableType, pub Expr);
