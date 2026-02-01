@@ -1,6 +1,6 @@
 //! Type definitions for WebAssembly modules.
-use super::types::{MemType, RecType, TableType, TagType};
-use super::{Data, Elem, Export, Func, Global, Import};
+use super::types::{MemType, RecType, TagType};
+use super::{Data, Elem, Export, Func, Global, Import, Table};
 use crate::core::custom_section::CustomSection;
 use crate::core::indices::FuncIdx;
 
@@ -60,7 +60,7 @@ pub struct Module {
     ///
     /// <https://www.w3.org/TR/wasm-core-2/#tables>
     /// <https://www.w3.org/TR/wasm-core-2/#table-section>
-    pub tables: Vec<TableType>,
+    pub tables: Vec<Table>,
 
     /// The mems component of a module defines a vector of linear memories (or memories for
     /// short) as described by their memory type: A memory is a vector of raw uninterpreted

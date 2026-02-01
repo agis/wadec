@@ -694,14 +694,17 @@ fn it_decodes_control_instructions() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits {
-            address_type: AddrType::I32,
-            min: 1,
-            max: None,
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
         },
-        reftype: ref_null_func(),
-    }];
+        vec![],
+    )];
 
     let exports = vec![Export {
         name: "control".to_owned(),
@@ -849,22 +852,28 @@ fn it_decodes_element_section_all_alts() {
     ];
 
     let tables = vec![
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 12,
-                max: None,
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 12,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 12,
-                max: None,
+            vec![],
+        ),
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 12,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
+            vec![],
+        ),
     ];
 
     let elems = vec![
@@ -1036,14 +1045,17 @@ fn it_decodes_reference_instructions() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits {
-            address_type: AddrType::I32,
-            min: 1,
-            max: None,
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
         },
-        reftype: ref_null_func(),
-    }];
+        vec![],
+    )];
 
     let exports = vec![Export {
         name: "refs".to_owned(),
@@ -1225,6 +1237,72 @@ fn it_decodes_parametric_instructions() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_table_entry_init_expr() {
+    let f = File::open("tests/fixtures/table_entry_init_expr.wasm").unwrap();
+
+    let parsed_section_kinds = vec![
+        SectionKind::Type,
+        SectionKind::Function,
+        SectionKind::Table,
+        SectionKind::Code,
+    ];
+    let section_headers = vec![
+        SectionHeader {
+            kind: SectionKind::Type,
+            size: 4,
+        },
+        SectionHeader {
+            kind: SectionKind::Function,
+            size: 2,
+        },
+        SectionHeader {
+            kind: SectionKind::Table,
+            size: 9,
+        },
+        SectionHeader {
+            kind: SectionKind::Code,
+            size: 4,
+        },
+    ];
+
+    let types = rectypes(vec![CompType::Func {
+        parameters: Vec::new(),
+        results: Vec::new(),
+    }]);
+
+    let funcs = vec![Func {
+        r#type: TypeIdx(0),
+        locals: Vec::new(),
+        body: Vec::new(),
+    }];
+
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![Instruction::RefFunc(FuncIdx(0))],
+    )];
+
+    assert_eq!(
+        decode_module(f).unwrap(),
+        Module {
+            parsed_section_kinds,
+            section_headers,
+            types,
+            funcs,
+            tables,
+            ..Default::default()
+        }
+    )
+}
+
+#[test]
 fn it_decodes_table_instructions() {
     let f = File::open("tests/fixtures/table_instructions.wasm").unwrap();
 
@@ -1316,22 +1394,28 @@ fn it_decodes_table_instructions() {
     ];
 
     let tables = vec![
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 4,
-                max: None,
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 4,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 4,
-                max: None,
+            vec![],
+        ),
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 4,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
+            vec![],
+        ),
     ];
 
     let elems = vec![
@@ -2171,14 +2255,17 @@ fn it_accepts_kitchensink() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits {
-            address_type: AddrType::I32,
-            min: 1,
-            max: None,
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
         },
-        reftype: ref_null_func(),
-    }];
+        vec![],
+    )];
 
     let mems = vec![MemType {
         limits: Limits {
