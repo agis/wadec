@@ -2973,6 +2973,23 @@ fn it_decodes_memory64_limits_flags() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_memory64_limits_large_values() {
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_large.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1u64 << 32,
+                max: Some((1u64 << 32) + 5),
+            },
+        }]
+    );
+}
+
+#[test]
 fn it_fails_on_code_size_mismatch() {
     let f = File::open("tests/fixtures/code_section_size_underreported.wasm").unwrap();
     let err = decode_module(f).expect_err("underreported code section should fail");
