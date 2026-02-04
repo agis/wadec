@@ -661,7 +661,7 @@ fn it_decodes_control_instructions() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let exports = vec![Export {
@@ -710,7 +710,7 @@ fn it_decodes_return_call_instructions() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let funcs = vec![
@@ -820,7 +820,7 @@ fn it_decodes_element_section_all_alts() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
         Table(
             TableType {
@@ -831,7 +831,7 @@ fn it_decodes_element_section_all_alts() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
     ];
 
@@ -1013,7 +1013,7 @@ fn it_decodes_reference_instructions() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let exports = vec![Export {
@@ -1296,7 +1296,7 @@ fn it_decodes_table_instructions() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
         Table(
             TableType {
@@ -1307,7 +1307,7 @@ fn it_decodes_table_instructions() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
     ];
 
@@ -2157,7 +2157,7 @@ fn it_accepts_kitchensink() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let mems = vec![MemType {
