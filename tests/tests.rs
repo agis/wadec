@@ -387,6 +387,40 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_imports_with_tag_and_func() {
+    let f = File::open("tests/fixtures/imports_with_tag_func.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    let types = rectypes(vec![
+        CompType::Func {
+            parameters: vec![ValType::Num(NumType::Int32)],
+            results: vec![ValType::Num(NumType::Int32)],
+        },
+        CompType::Func {
+            parameters: vec![ValType::Num(NumType::Int32)],
+            results: vec![],
+        },
+    ]);
+
+    let imports = vec![
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "func0".to_owned(),
+            extern_type: ExternType::Func(TypeIdx(0)),
+        },
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "tag0".to_owned(),
+            extern_type: ExternType::Tag(TagType(TypeIdx(1))),
+        },
+    ];
+
+    assert_eq!(module.types, types);
+    assert_eq!(module.imports, imports);
+}
+
+#[test]
 fn it_accepts_module_without_exports() {
     // single func (i32,i32)->i32; no Export section
     // Body: local.get 0, local.get 1, i32.add
