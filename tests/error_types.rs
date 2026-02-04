@@ -3,6 +3,7 @@ use wadec::core::SectionKind;
 use wadec::decode::sections::DecodeTagSectionError;
 use wadec::decode::sections::table::DecodeTableError;
 use wadec::decode::types::{DecodeExternTypeError, DecodeTagTypeError};
+use wadec::decode::instructions::CatchError;
 use wadec::decode_errors::*;
 use wadec::decode_module;
 
@@ -629,6 +630,40 @@ fn control_error_decode_label_idx_vector() {
         )) => {
             assert_eq!(position, 0);
             assert_eq!(vec_pos, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+// # spec version: 3
+fn control_error_decode_catch_invalid_marker() {
+    // Sections: Type, Function, Code.
+    // Fixture: try_table with a catch entry using an invalid marker byte.
+    // Spec 5.4.1 (Control Instructions): catch marker must be 0x00, 0x01, 0x02, or 0x03.
+    let wasm =
+        File::open("tests/fixtures/malformed/try_table_invalid_catch_marker.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid catch marker should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::DecodeCatchListError(
+                            DecodeListError::ParseElement {
+                                position: catch_pos,
+                                source: CatchError::InvalidMarkerByte(marker),
+                            },
+                        )),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(catch_pos, 0);
+            assert_eq!(marker, 0x04);
         }
         other => panic!("unexpected error: {other:?}"),
     }

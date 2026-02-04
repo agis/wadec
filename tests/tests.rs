@@ -703,7 +703,7 @@ fn it_decodes_control_instructions() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let exports = vec![Export {
@@ -727,6 +727,7 @@ fn it_decodes_control_instructions() {
 }
 
 #[test]
+// # spec version: 3
 fn it_decodes_return_call_instructions() {
     let f = File::open("tests/fixtures/return_call_instructions.wasm").unwrap();
     let module = decode_module(f).unwrap();
@@ -751,7 +752,7 @@ fn it_decodes_return_call_instructions() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let funcs = vec![
@@ -861,7 +862,7 @@ fn it_decodes_element_section_all_alts() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
         Table(
             TableType {
@@ -872,7 +873,7 @@ fn it_decodes_element_section_all_alts() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
     ];
 
@@ -1054,7 +1055,7 @@ fn it_decodes_reference_instructions() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let exports = vec![Export {
@@ -1403,7 +1404,7 @@ fn it_decodes_table_instructions() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
         Table(
             TableType {
@@ -1414,7 +1415,7 @@ fn it_decodes_table_instructions() {
                 },
                 reftype: ref_null_func(),
             },
-            vec![],
+            vec![Instruction::RefNull(heaptype_func())],
         ),
     ];
 
@@ -2264,7 +2265,7 @@ fn it_accepts_kitchensink() {
             },
             reftype: ref_null_func(),
         },
-        vec![],
+        vec![Instruction::RefNull(heaptype_func())],
     )];
 
     let mems = vec![MemType {
@@ -2866,6 +2867,81 @@ fn it_decodes_vector_instructions() {
         }
         other => panic!("unexpected data mode: {:?}", other),
     }
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_relaxed_simd_instructions() {
+    let f = File::open("tests/fixtures/relaxed_simd_instructions.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(func.locals, vec![ValType::Vec(VecType::V128); 3]);
+
+    let relaxed: Vec<Instruction> = func
+        .body
+        .iter()
+        .filter_map(|instr| match instr {
+            Instruction::I8x16RelaxedSwizzle => Some(Instruction::I8x16RelaxedSwizzle),
+            Instruction::I8x16RelaxedLaneSelect => Some(Instruction::I8x16RelaxedLaneSelect),
+            Instruction::I16x8RelaxedLaneSelect => Some(Instruction::I16x8RelaxedLaneSelect),
+            Instruction::I32x4RelaxedLaneSelect => Some(Instruction::I32x4RelaxedLaneSelect),
+            Instruction::I64x2RelaxedLaneSelect => Some(Instruction::I64x2RelaxedLaneSelect),
+            Instruction::I16x8RelaxedQ15MulrS => Some(Instruction::I16x8RelaxedQ15MulrS),
+            Instruction::I16x8RelaxedDotSI8x16 => Some(Instruction::I16x8RelaxedDotSI8x16),
+            Instruction::I32x4RelaxedDotAddSI16x8 => {
+                Some(Instruction::I32x4RelaxedDotAddSI16x8)
+            }
+            Instruction::F32x4RelaxedMin => Some(Instruction::F32x4RelaxedMin),
+            Instruction::F32x4RelaxedMax => Some(Instruction::F32x4RelaxedMax),
+            Instruction::F32x4RelaxedMAdd => Some(Instruction::F32x4RelaxedMAdd),
+            Instruction::F32x4RelaxedNMAdd => Some(Instruction::F32x4RelaxedNMAdd),
+            Instruction::F64x2RelaxedMin => Some(Instruction::F64x2RelaxedMin),
+            Instruction::F64x2RelaxedMax => Some(Instruction::F64x2RelaxedMax),
+            Instruction::F64x2RelaxedMAdd => Some(Instruction::F64x2RelaxedMAdd),
+            Instruction::F64x2RelaxedNMAdd => Some(Instruction::F64x2RelaxedNMAdd),
+            Instruction::I32x4RelaxedTruncF32x4S => {
+                Some(Instruction::I32x4RelaxedTruncF32x4S)
+            }
+            Instruction::I32x4RelaxedTruncF32x4U => {
+                Some(Instruction::I32x4RelaxedTruncF32x4U)
+            }
+            Instruction::I32x4RelaxedTruncF64x2SZero => {
+                Some(Instruction::I32x4RelaxedTruncF64x2SZero)
+            }
+            Instruction::I32x4RelaxedTruncF64x2UZero => {
+                Some(Instruction::I32x4RelaxedTruncF64x2UZero)
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(
+        relaxed,
+        vec![
+            Instruction::I8x16RelaxedSwizzle,
+            Instruction::I8x16RelaxedLaneSelect,
+            Instruction::I16x8RelaxedLaneSelect,
+            Instruction::I32x4RelaxedLaneSelect,
+            Instruction::I64x2RelaxedLaneSelect,
+            Instruction::I16x8RelaxedQ15MulrS,
+            Instruction::I16x8RelaxedDotSI8x16,
+            Instruction::I32x4RelaxedDotAddSI16x8,
+            Instruction::F32x4RelaxedMin,
+            Instruction::F32x4RelaxedMax,
+            Instruction::F32x4RelaxedMAdd,
+            Instruction::F32x4RelaxedNMAdd,
+            Instruction::F64x2RelaxedMin,
+            Instruction::F64x2RelaxedMax,
+            Instruction::F64x2RelaxedMAdd,
+            Instruction::F64x2RelaxedNMAdd,
+            Instruction::I32x4RelaxedTruncF32x4S,
+            Instruction::I32x4RelaxedTruncF32x4U,
+            Instruction::I32x4RelaxedTruncF64x2SZero,
+            Instruction::I32x4RelaxedTruncF64x2UZero,
+        ]
+    );
 }
 
 #[test]
