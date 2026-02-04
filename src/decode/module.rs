@@ -285,6 +285,8 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
             SectionKind::Data => {
                 let datas = decode_data_section(section_reader)?;
 
+                // TODO: can this ever evaluate to true, given that data count always comes after
+                // the data section?
                 if let Some(data_count) = module.data_count
                     && datas.len() != usize::try_from(data_count).unwrap()
                 {

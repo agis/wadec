@@ -133,8 +133,8 @@ impl From<u8> for InvalidPackTypeMarkerError {
 
 #[expect(non_upper_case_globals)]
 static PackType_MARKERS: phf::OrderedMap<u8, PackType> = phf_ordered_map! {
-            0x77u8 => PackType::I8,
-            0x78u8 => PackType::I16,
+            0x77u8 => PackType::I16,
+            0x78u8 => PackType::I8,
 };
 
 impl FromMarkerByte for PackType {
