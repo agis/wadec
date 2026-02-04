@@ -231,6 +231,33 @@ fn it_decodes_tag_section_multiple_entries() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_tag_export() {
+    let f = File::open("tests/fixtures/tag_export.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(
+        module.parsed_section_kinds,
+        vec![SectionKind::Type, SectionKind::Tag, SectionKind::Export]
+    );
+    assert_eq!(
+        module.types,
+        rectypes(vec![CompType::Func {
+            parameters: vec![],
+            results: vec![],
+        }])
+    );
+    assert_eq!(module.tags, vec![TagType(TypeIdx(0))]);
+    assert_eq!(
+        module.exports,
+        vec![Export {
+            name: "tag0".to_owned(),
+            externidx: ExternIdx::Tag(TagIdx(0)),
+        }]
+    );
+}
+
+#[test]
 fn it_accepts_two_funcs_exporting_second() {
     // two funcs (i32,i32)->i32; exports func 1 as "add2"
     // Body: local.get 0, local.get 1, i32.add, end.
