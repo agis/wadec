@@ -1,6 +1,7 @@
 use std::fs::File;
 use wadec::core::SectionKind;
 use wadec::decode::sections::DecodeTagSectionError;
+use wadec::decode::sections::table::DecodeTableError;
 use wadec::decode::types::{DecodeExternTypeError, DecodeTagTypeError};
 use wadec::decode_errors::*;
 use wadec::decode_module;
@@ -1605,10 +1606,11 @@ fn decode_table_error_invalid_reftype_marker() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
+                source: DecodeTableError::DecodeTableType(
                     DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(
                         DecodeAbsHeapTypeError::InvalidMarkerByte(err),
                     )),
+                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1631,7 +1633,7 @@ fn decode_table_error_reftype_truncated() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::Io(io_err)),
+                source: DecodeTableError::Io(io_err),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1655,8 +1657,9 @@ fn decode_table_error_limits_invalid_flag() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source:
-                    DecodeTableTypeError::DecodeLimits(ParseLimitsError::UnexpectedFlagByte(0x02)),
+                source: DecodeTableError::DecodeTableType(DecodeTableTypeError::DecodeLimits(
+                    ParseLimitsError::UnexpectedFlagByte(0x02),
+                )),
             },
         )) => assert_eq!(position, 0),
         other => panic!("unexpected error: {other:?}"),

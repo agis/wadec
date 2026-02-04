@@ -546,14 +546,17 @@ fn it_decodes_control_instructions() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits {
-            address_type: AddrType::I32,
-            min: 1,
-            max: None,
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
         },
-        reftype: ref_null_func(),
-    }];
+        vec![],
+    )];
 
     let exports = vec![Export {
         name: "control".to_owned(),
@@ -647,22 +650,28 @@ fn it_decodes_element_section_all_alts() {
     ];
 
     let tables = vec![
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 12,
-                max: None,
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 12,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 12,
-                max: None,
+            vec![],
+        ),
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 12,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
+            vec![],
+        ),
     ];
 
     let elems = vec![
@@ -834,14 +843,17 @@ fn it_decodes_reference_instructions() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits {
-            address_type: AddrType::I32,
-            min: 1,
-            max: None,
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
         },
-        reftype: ref_null_func(),
-    }];
+        vec![],
+    )];
 
     let exports = vec![Export {
         name: "refs".to_owned(),
@@ -1114,22 +1126,28 @@ fn it_decodes_table_instructions() {
     ];
 
     let tables = vec![
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 4,
-                max: None,
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 4,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
-        TableType {
-            limits: Limits {
-                address_type: AddrType::I32,
-                min: 4,
-                max: None,
+            vec![],
+        ),
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 4,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             },
-            reftype: ref_null_func(),
-        },
+            vec![],
+        ),
     ];
 
     let elems = vec![
@@ -1851,14 +1869,17 @@ fn it_accepts_kitchensink() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits {
-            address_type: AddrType::I32,
-            min: 1,
-            max: None,
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
         },
-        reftype: ref_null_func(),
-    }];
+        vec![],
+    )];
 
     let mems = vec![MemType {
         limits: Limits {
