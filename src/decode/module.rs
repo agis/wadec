@@ -262,6 +262,8 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                     });
                 }
 
+                // Section 5.5.17: Furthermore, it [the data count section] must be present if any
+                // data index occurs in the code section.
                 for (i, code) in codes.into_iter().enumerate() {
                     for local in code.locals {
                         for _ in 0..local.count {
@@ -285,8 +287,8 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
             SectionKind::Data => {
                 let datas = decode_data_section(section_reader)?;
 
-                // TODO: can this ever evaluate to true, given that data count always comes after
-                // the data section?
+                // Section 5.5.17: Similarly, the optional data count must match the length of the
+                // data segment list.
                 if let Some(data_count) = module.data_count
                     && datas.len() != usize::try_from(data_count).unwrap()
                 {
@@ -317,7 +319,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         }
     }
 
-    // Section 5.5.16: The lengths of vectors produced by the (possibly empty)
+    // Section 5.5.17: The lengths of vectors produced by the (possibly empty)
     // function and code section must match up
     if !module.funcs.is_empty() && !encountered_code_section {
         // if we encountered a Code section, it means we already checked that
@@ -329,7 +331,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         });
     }
 
-    // Section 5.5.16: Similarly, the optional data count must match the length
+    // Section 5.5.17: Similarly, the optional data count must match the length
     // of the data segment vector
     if let Some(n) = module.data_count
         && usize::try_from(n).map_err(DecodeModuleError::DecodeDataCount)? != module.datas.len()
@@ -340,7 +342,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         });
     }
 
-    // Section 5.5.16: Furthermore, it must be present if any data index
+    // Section 5.5.17: Furthermore, it [the data count section] must be present if any data index
     // occurs in the code section
     if encountered_data_idx_in_code_section && module.data_count.is_none() {
         return Err(DecodeModuleError::DataIndexWithoutDataCount);
