@@ -1,9 +1,9 @@
-use crate::core::types::tabletype::TableType;
 use crate::core::Instruction;
 use crate::core::Table;
-use crate::decode::helpers::{decode_expr, decode_list, read_byte, DecodeListError};
-use crate::decode::types::DecodeTableTypeError;
+use crate::core::types::tabletype::TableType;
 use crate::decode::ParseExpressionError;
+use crate::decode::helpers::{DecodeListError, decode_expr, decode_list, read_byte};
+use crate::decode::types::DecodeTableTypeError;
 use std::io::{self, Read};
 use thiserror::Error;
 
@@ -51,7 +51,7 @@ fn decode_table<R: Read + ?Sized>(reader: &mut R) -> Result<Table, DecodeTableEr
             return Err(DecodeTableError::UnexpectedMarkerByte(b));
         }
         let tt = TableType::decode(reader)?;
-        let e = decode_expr(reader)?;
+        let (e, _) = decode_expr(reader)?;
         return Ok(Table(tt, e));
     }
 

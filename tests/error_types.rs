@@ -1,9 +1,9 @@
 use std::fs::File;
 use wadec::core::SectionKind;
+use wadec::decode::instructions::CatchError;
 use wadec::decode::sections::DecodeTagSectionError;
 use wadec::decode::sections::table::DecodeTableError;
 use wadec::decode::types::{DecodeExternTypeError, DecodeTagTypeError};
-use wadec::decode::instructions::CatchError;
 use wadec::decode_errors::*;
 use wadec::decode_module;
 
@@ -347,8 +347,7 @@ fn parse_error_control_invalid_cast_nullability_marker() {
     // Fixture: single function with br_on_cast using an invalid cast nullability marker.
     // Spec 5.4.1 (Control Instructions): cast nullability marker must be 0x00..=0x03.
     // br_on_cast followed by invalid marker byte 0x04.
-    let wasm =
-        File::open("tests/fixtures/malformed/br_on_cast_invalid_nullability.wasm").unwrap();
+    let wasm = File::open("tests/fixtures/malformed/br_on_cast_invalid_nullability.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("invalid cast nullability marker should fail");
 
@@ -641,8 +640,7 @@ fn control_error_decode_catch_invalid_marker() {
     // Sections: Type, Function, Code.
     // Fixture: try_table with a catch entry using an invalid marker byte.
     // Spec 5.4.1 (Control Instructions): catch marker must be 0x00, 0x01, 0x02, or 0x03.
-    let wasm =
-        File::open("tests/fixtures/malformed/try_table_invalid_catch_marker.wasm").unwrap();
+    let wasm = File::open("tests/fixtures/malformed/try_table_invalid_catch_marker.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("invalid catch marker should fail");
 
@@ -1412,9 +1410,9 @@ fn memarg_error_invalid_flags_bit() {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::DecodeMemarg(MemargError::InvalidFlagsBit(
-                            flags,
-                        ))),
+                        ParseError::Memory(MemoryError::DecodeMemarg(
+                            MemargError::InvalidFlagsBit(flags),
+                        )),
                     )),
             },
         )) => {
@@ -1574,9 +1572,10 @@ fn decode_rec_type_error_invalid_marker_byte() {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
-                    DecodeCompTypeError::InvalidMarkerByte(b),
-                )),
+                source:
+                    DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                        DecodeCompTypeError::InvalidMarkerByte(b),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1601,19 +1600,20 @@ fn decode_rec_type_error_parameter_types_invalid_valtype() {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
-                    DecodeCompTypeError::DecodeFuncParameters(DecodeResultTypeError::DecodeVector(
-                        DecodeListError::ParseElement {
-                            position: inner_pos,
-                            source:
-                                DecodeValTypeError::DecodeRefType(
-                                    DecodeRefTypeError::InvalidMarkerByte(
-                                        DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                source:
+                    DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                        DecodeCompTypeError::DecodeFuncParameters(
+                            DecodeResultTypeError::DecodeVector(DecodeListError::ParseElement {
+                                position: inner_pos,
+                                source:
+                                    DecodeValTypeError::DecodeRefType(
+                                        DecodeRefTypeError::InvalidMarkerByte(
+                                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                                        ),
                                     ),
-                                ),
-                        },
+                            }),
+                        ),
                     )),
-                )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1639,14 +1639,15 @@ fn decode_rec_type_error_result_types_truncated() {
         DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
-                    DecodeCompTypeError::DecodeFuncResults(DecodeResultTypeError::DecodeVector(
-                        DecodeListError::ParseElement {
-                            position: inner_pos,
-                            source: DecodeValTypeError::Io(io_err),
-                        },
+                source:
+                    DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                        DecodeCompTypeError::DecodeFuncResults(
+                            DecodeResultTypeError::DecodeVector(DecodeListError::ParseElement {
+                                position: inner_pos,
+                                source: DecodeValTypeError::Io(io_err),
+                            }),
+                        ),
                     )),
-                )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1670,11 +1671,12 @@ fn decode_table_error_invalid_reftype_marker() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeTableType(
-                    DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(
-                        DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                source:
+                    DecodeTableError::DecodeTableType(DecodeTableTypeError::DecodeRefType(
+                        DecodeRefTypeError::InvalidMarkerByte(
+                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                        ),
                     )),
-                ),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1721,9 +1723,10 @@ fn decode_table_error_limits_invalid_flag() {
         DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
             DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeTableType(DecodeTableTypeError::DecodeLimits(
-                    ParseLimitsError::UnexpectedFlagByte(0x02),
-                )),
+                source:
+                    DecodeTableError::DecodeTableType(DecodeTableTypeError::DecodeLimits(
+                        ParseLimitsError::UnexpectedFlagByte(0x02),
+                    )),
             },
         )) => assert_eq!(position, 0),
         other => panic!("unexpected error: {other:?}"),
@@ -2079,6 +2082,26 @@ fn decode_module_data_index_without_data_count() {
     let wasm = File::open("tests/fixtures/malformed/data_index_without_data_count.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("data index without data count should fail");
+
+    match err {
+        DecodeModuleError::DataIndexWithoutDataCount => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn decode_module_data_index_without_data_count_nested_controls() {
+    // Sections: Type, Function, Code.
+    // Fixture: dataidx-carrying instructions occur only at 4 nested control levels:
+    // block -> loop -> if -> try_table (in both if branches).
+    // There are no dataidx-carrying instructions at shallower nesting levels.
+    // The function includes memory.init, data.drop, array.new_data and array.init_data.
+    // Spec 5.5.17 (Modules): a data count section is required if any data index occurs in code.
+    let wasm =
+        File::open("tests/fixtures/malformed/data_index_without_data_count_nested_controls.wasm")
+            .unwrap();
+
+    let err = decode_module(wasm).expect_err("nested data indices without data count should fail");
 
     match err {
         DecodeModuleError::DataIndexWithoutDataCount => {}

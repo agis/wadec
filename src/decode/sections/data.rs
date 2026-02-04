@@ -45,7 +45,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
 
     (init, mode) = match decode_u32(reader).map_err(DecodeDataSegmentError::DecodeBitfield)? {
         0 => {
-            let e = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
             (
                 decode_byte_vector(reader)?,
                 DataMode::Active {
@@ -57,7 +57,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
         1 => (decode_byte_vector(reader)?, DataMode::Passive),
         2 => {
             let x = MemIdx::decode(reader)?;
-            let e = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
 
             (
                 decode_byte_vector(reader)?,

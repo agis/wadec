@@ -1,7 +1,7 @@
 use crate::core::types::valtype::ValType;
-use crate::decode::helpers::{DecodeListError, ParseExpressionError};
 use crate::decode::helpers::{decode_expr, decode_list};
-use crate::decode::integer::{DecodeU32Error, decode_u32};
+use crate::decode::helpers::{DecodeListError, ParseExpressionError};
+use crate::decode::integer::{decode_u32, DecodeU32Error};
 use crate::decode::types::DecodeValTypeError;
 use std::io::Read;
 use thiserror::Error;
@@ -23,6 +23,7 @@ pub(crate) struct Code {
     size: u32,
     pub(crate) locals: Vec<Local>,
     pub(crate) expr: crate::Expr,
+    pub(crate) encountered_data_index: bool,
 }
 
 #[derive(Debug, Error)]
@@ -57,7 +58,7 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
         parse_code_local(r, &mut expanded_locals, max_locals)
     })?;
 
-    let expr = decode_expr(&mut reader)?;
+    let (expr, encountered_data_index) = decode_expr(&mut reader)?;
 
     if reader.limit() != 0 {
         return Err(DecodeCodeError::EntrySizeMismatch {
@@ -67,7 +68,12 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
         });
     }
 
-    Ok(Code { size, locals, expr })
+    Ok(Code {
+        size,
+        locals,
+        expr,
+        encountered_data_index,
+    })
 }
 
 #[derive(Debug, PartialEq)]

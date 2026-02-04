@@ -27,8 +27,8 @@ pub enum DecodeGlobalError {
 }
 
 fn parse_global<R: Read + ?Sized>(reader: &mut R) -> Result<Global, DecodeGlobalError> {
-    Ok(Global {
-        r#type: GlobalType::decode(reader)?,
-        init: decode_expr(reader)?,
-    })
+    let r#type = GlobalType::decode(reader)?;
+    let (init, _) = decode_expr(reader)?;
+
+    Ok(Global { r#type, init })
 }

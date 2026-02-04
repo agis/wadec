@@ -1,14 +1,14 @@
+use crate::Expr;
 use crate::core::indices::{FuncIdx, TableIdx};
 use crate::core::instruction::Instruction;
 use crate::core::types::heaptype::{AbsHeapType, HeapType};
 use crate::core::types::reftype::RefType;
 use crate::core::{Elem, ElemMode};
-use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::helpers::{DecodeListError, ParseExpressionError};
+use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::indices::{DecodeFuncIdxError, DecodeTableIdxError};
-use crate::decode::integer::{decode_u32, DecodeU32Error};
+use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeRefTypeError;
-use crate::Expr;
 use std::io::{self, Read};
 use thiserror::Error;
 
@@ -69,7 +69,7 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
 
     let (r#type, init, mode) = match bitfield {
         0 => {
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
             let y = decode_list(reader, FuncIdx::decode)?;
             (
                 RefType {
@@ -90,7 +90,8 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         2 => {
             let x = TableIdx::decode(reader)?;
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
+            let (e, _) =
+                decode_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
             let rt = parse_elemkind(reader)?;
             let y = decode_list(reader, FuncIdx::decode)?;
             (
@@ -108,8 +109,9 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             (rt, funcidx_into_reffunc(y), ElemMode::Declare)
         }
         4 => {
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
             (
                 RefType {
                     nullable: true,
@@ -124,14 +126,16 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         5 => {
             let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
             (rt, el, ElemMode::Passive)
         }
         6 => {
             let x = TableIdx::decode(reader)?;
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
             let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
 
             (
                 rt,
@@ -144,7 +148,8 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
         }
         7 => {
             let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = decode_list(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
 
             (rt, el, ElemMode::Declare)
         }

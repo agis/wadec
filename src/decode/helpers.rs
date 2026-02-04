@@ -20,12 +20,20 @@ pub enum ParseExpressionError {
     UnexpectedElse,
 }
 
-pub(crate) fn decode_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, ParseExpressionError> {
+pub(crate) fn decode_expr<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<(Expr, bool), ParseExpressionError> {
     let mut body = Vec::new();
+    let mut encountered_data_index = false;
 
     loop {
         match Instruction::parse(reader)? {
-            instructions::ParseResult::Instruction(ins) => body.push(ins),
+            instructions::ParseResult::Instruction(ins) => {
+                if instruction_contains_data_index(&ins) {
+                    encountered_data_index = true;
+                }
+                body.push(ins);
+            }
             instructions::ParseResult::End => break,
 
             // `Else` is only expected to appear when parsing individual `Control` instructions
@@ -33,7 +41,28 @@ pub(crate) fn decode_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, Pars
         }
     }
 
-    Ok(body)
+    Ok((body, encountered_data_index))
+}
+
+fn instruction_contains_data_index(ins: &Instruction) -> bool {
+    match ins {
+        Instruction::MemoryInit(_, _)
+        | Instruction::DataDrop(_)
+        | Instruction::ArrayNewData(_, _)
+        | Instruction::ArrayInitData(_, _) => true,
+
+        Instruction::Block(_, body)
+        | Instruction::Loop(_, body)
+        | Instruction::TryTable(_, _, body) => body.iter().any(instruction_contains_data_index),
+
+        Instruction::If(_, then_body, else_body) => {
+            then_body.iter().any(instruction_contains_data_index)
+                || else_body
+                    .as_ref()
+                    .is_some_and(|body| body.iter().any(instruction_contains_data_index))
+        }
+        _ => false,
+    }
 }
 
 #[derive(Debug, Error)]
