@@ -1,9 +1,9 @@
 use crate::core::types::tabletype::TableType;
+use crate::core::Instruction;
 use crate::core::Table;
 use crate::decode::helpers::{decode_expr, decode_list, read_byte, DecodeListError};
 use crate::decode::types::DecodeTableTypeError;
 use crate::decode::ParseExpressionError;
-use crate::Expr;
 use std::io::{self, Read};
 use thiserror::Error;
 
@@ -59,6 +59,6 @@ fn decode_table<R: Read + ?Sized>(reader: &mut R) -> Result<Table, DecodeTableEr
     // reader to try and parse it as a TableType
     let mut reader = io::Cursor::new([byte]).chain(reader);
     let tt = TableType::decode(&mut reader)?;
-    let e = Expr::default();
+    let e = vec![Instruction::RefNull(tt.reftype.ht)];
     Ok(Table(tt, e))
 }
