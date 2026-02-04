@@ -1,7 +1,7 @@
 use crate::core::indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx, TagIdx};
 use crate::core::{Export, ExternIdx};
-use crate::decode::helpers::{DecodeListError, DecodeNameError, decode_list, decode_name};
-use crate::decode::integer::{DecodeU32Error, decode_u32};
+use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
+use crate::decode::integer::{decode_u32, DecodeU32Error};
 use crate::read_byte;
 use std::io;
 use std::io::Read;
@@ -49,7 +49,7 @@ fn parse_export<R: Read + ?Sized>(reader: &mut R) -> Result<Export, DecodeExport
 
 #[derive(Debug, Error)]
 #[error(
-    "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem) or 0x03 (global); got {0:#04X}"
+    "invalid ExportDesc marker byte: expected 0x00 (func), 0x01 (table), 0x02 (mem), 0x03 (global), 0x04 (tag); got {0:#04X}"
 )]
 pub struct InvalidExportDescMarkerByte(pub u8);
 
