@@ -1362,6 +1362,35 @@ fn memarg_error_align_missing() {
 }
 
 #[test]
+// # spec version: 3
+fn memarg_error_invalid_flags_bit() {
+    // Sections: Type, Function, Memory, Code.
+    // Fixture: single function with a memory instruction whose memarg flags use a reserved bit.
+    // Spec 5.4.6 (Memory Instructions): memarg flags must fit within 7 bits; bit 7 is invalid.
+    let wasm = File::open("tests/fixtures/malformed/memarg_invalid_flags_bit.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid memarg flags should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Memory(MemoryError::DecodeMemarg(MemargError::InvalidFlagsBit(
+                            flags,
+                        ))),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(flags, 128);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn lane_idx_error_missing_byte() {
     // Sections: Type, Function, Code.
     // Fixture: single function with a vector instruction missing its lane index.

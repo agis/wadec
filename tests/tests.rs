@@ -1760,6 +1760,124 @@ fn it_decodes_multi_memory_immediates() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_multi_memory_kitchensink() {
+    let f = File::open("tests/fixtures/multi_memory_kitchensink.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.mems.len(), 2);
+    assert_eq!(
+        module.mems,
+        vec![
+            MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+            },
+            MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+            },
+        ]
+    );
+    assert_eq!(module.data_count, Some(3));
+
+    assert_eq!(module.datas.len(), 3);
+    assert_eq!(module.datas[0].init, b"A".to_vec());
+    assert_eq!(
+        module.datas[0].mode,
+        DataMode::Active {
+            memory: MemIdx(0),
+            offset: vec![Instruction::I32Const(0)],
+        }
+    );
+    assert_eq!(module.datas[1].init, b"BC".to_vec());
+    assert_eq!(module.datas[1].mode, DataMode::Passive);
+    assert_eq!(module.datas[2].init, b"DEF".to_vec());
+    assert_eq!(
+        module.datas[2].mode,
+        DataMode::Active {
+            memory: MemIdx(1),
+            offset: vec![Instruction::I32Const(4)],
+        }
+    );
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    let expected_body = vec![
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 2,
+            offset: 0,
+        }),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(1),
+            align: 2,
+            offset: 0,
+        }),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I64Const(1),
+        Instruction::I64Store(Memarg {
+            mem_idx: MemIdx(1),
+            align: 3,
+            offset: 0,
+        }),
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 16,
+        }),
+        Instruction::Drop,
+        Instruction::MemorySize(MemIdx(0)),
+        Instruction::Drop,
+        Instruction::MemorySize(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::MemoryGrow(MemIdx(0)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::MemoryGrow(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryInit(MemIdx(0), DataIdx(1)),
+        Instruction::DataDrop(DataIdx(1)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryInit(MemIdx(1), DataIdx(1)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryCopy(MemIdx(0), MemIdx(1)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryCopy(MemIdx(1), MemIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(255),
+        Instruction::I32Const(1),
+        Instruction::MemoryFill(MemIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(7),
+        Instruction::I32Const(1),
+        Instruction::MemoryFill(MemIdx(1)),
+    ];
+    assert_eq!(func.body, expected_body);
+}
+
+#[test]
 fn it_accepts_export_with_locals() {
     // single func with 2 i32 locals; exported "add_locals"
     // Body: local.get 0, local.get 1, i32.add, end.
