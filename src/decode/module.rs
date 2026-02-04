@@ -85,6 +85,9 @@ impl From<u8> for InvalidSectionIdError {
 }
 
 // Valid marker bytes for [SectionKind].
+//
+// NOTE: the order of entries in this map is not significant, since section
+// ordering is enforced separately via the order of SectionKind variants.
 #[expect(non_upper_case_globals)]
 static SectionId_MARKERS: phf::OrderedMap<u8, SectionKind> = phf_ordered_map! {
             0u8 => SectionKind::Custom,
@@ -273,7 +276,10 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
 
                     for instr in code.expr.iter() {
                         match instr {
-                            Instruction::MemoryInit(_, _) | Instruction::DataDrop(_) => {
+                            Instruction::MemoryInit(_, _) |
+                                Instruction::DataDrop(_) |
+                                Instruction::ArrayNewData(_,_) |
+                                Instruction::ArrayInitData(_,_) => {
                                 encountered_data_idx_in_code_section = true;
                                 break;
                             }
