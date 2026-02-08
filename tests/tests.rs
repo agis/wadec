@@ -1113,6 +1113,33 @@ fn it_decodes_ref_null_exn() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_ref_test_and_cast() {
+    let f = File::open("tests/fixtures/ref_test_cast.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(
+        func.body,
+        vec![
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefTest(ref_func()),
+            Instruction::Drop,
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefTest(ref_null_func()),
+            Instruction::Drop,
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefCast(ref_func()),
+            Instruction::Drop,
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefCast(ref_null_func()),
+            Instruction::Drop,
+        ]
+    );
+}
+
+#[test]
 fn it_decodes_variable_instructions() {
     let f = File::open("tests/fixtures/variable_instructions.wasm").unwrap();
 
