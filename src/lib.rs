@@ -1,11 +1,11 @@
 //! A decoder for WebAssembly modules in the binary format.
 //!
-//! This library implements the Binary format of the WebAssembly [specification],
-//! version 2.
+//! This library implements the Binary format of the WebAssembly specification,
+//! [version 3].
 //!
 //! The main entry point is the [`decode_module`] function.
 //!
-//! [specification]: https://www.w3.org/TR/wasm-core-2/
+//! [version 3]: https://www.w3.org/TR/wasm-core-2/
 #![forbid(unsafe_code)]
 
 pub mod core;

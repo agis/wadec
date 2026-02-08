@@ -26,7 +26,7 @@ decoder.
 ## Specification conformance
 
 wadec is 100% conforming to the official WebAssembly specification, [version
-2](https://www.w3.org/TR/wasm-core-2/). (Version 3 is on the roadmap.)
+3](https://www.w3.org/TR/wasm-core-2/).
 
 This is ensured by running the official specification [test
 suite](https://github.com/WebAssembly/spec/tree/wg-2.0/test/core) (`wg-2.0` tag)
@@ -40,7 +40,7 @@ against our decoder. Specifically, we go through all the test scripts (`.wast`) 
 
 ✔️ all modules marked with `assert_unlinkable` are *accepted*
 
-The relevant tests can be foundat [tests/z_spec.rs](tests/z_spec.rs).
+The relevant tests can be found at [tests/z_spec.rs](tests/z_spec.rs).
 
 ## Installation
 
@@ -102,7 +102,7 @@ DecodeTypeSection(
 ## Roadmap
 
 - [x] Implement the Decoding phase for specification [version 2](https://www.w3.org/TR/wasm-core-2/)
-- [ ] Implement the Decoding phase for specification [version 3](https://webassembly.github.io/spec/core/)
+- [x] Implement the Decoding phase for specification [version 3](https://webassembly.github.io/spec/core/)
 - [ ] Implement the [Validation phase](https://webassembly.github.io/spec/core/valid/index.html)
 - [ ] Optional support for WebAssembly extensions
 
