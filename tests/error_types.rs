@@ -779,6 +779,81 @@ fn control_error_unexpected_else() {
 }
 
 #[test]
+fn control_error_unexpected_else_in_block() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with a block containing an unexpected else opcode.
+    // Spec 5.4.1 (Control Instructions): else is only valid in if; block bodies are terminated by end.
+    let wasm = File::open("tests/fixtures/malformed/block_unexpected_else.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("unexpected else in block should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::UnexpectedElse),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn control_error_unexpected_else_in_loop() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with a loop containing an unexpected else opcode.
+    // Spec 5.4.1 (Control Instructions): else is only valid in if; loop bodies are terminated by end.
+    let wasm = File::open("tests/fixtures/malformed/loop_unexpected_else.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("unexpected else in loop should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::UnexpectedElse),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn control_error_unexpected_else_in_try_table() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with a try_table body containing an unexpected else opcode.
+    // Spec 5.4.1 (Control Instructions): try_table bodies are terminated by end; else is not part of try_table syntax.
+    let wasm = File::open("tests/fixtures/malformed/try_table_unexpected_else.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("unexpected else in try_table should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::UnexpectedElse),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn reference_error_func_idx() {
     // Sections: Type, Function, Code.
     // Fixture: single function with ref.func using an overlong function index.

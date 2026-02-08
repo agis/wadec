@@ -227,7 +227,14 @@ impl Instruction {
                     parsed = Self::parse(reader)?;
                     match parsed {
                         ParseResult::Instruction(i) => in1.push(i),
-                        ParseResult::End | ParseResult::Else => break,
+                        ParseResult::End => break,
+                        ParseResult::Else => {
+                            if op == 0x04 {
+                                break;
+                            } else {
+                                return Err(ControlError::UnexpectedElse.into());
+                            }
+                        }
                     }
                 }
 
@@ -243,7 +250,9 @@ impl Instruction {
                                 match parsed {
                                     ParseResult::Instruction(i) => in2.push(i),
                                     ParseResult::End => break,
-                                    _ => return Err(ControlError::UnexpectedElse.into()),
+                                    ParseResult::Else => {
+                                        return Err(ControlError::UnexpectedElse.into())
+                                    }
                                 }
                             }
                             Instruction::If(bt, in1, Some(in2))
@@ -293,7 +302,8 @@ impl Instruction {
                     parsed = Self::parse(reader)?;
                     match parsed {
                         ParseResult::Instruction(i) => ins.push(i),
-                        ParseResult::End | ParseResult::Else => break,
+                        ParseResult::End => break,
+                        ParseResult::Else => return Err(ControlError::UnexpectedElse.into()),
                     }
                 }
 
