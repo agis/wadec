@@ -32,6 +32,10 @@ fn heaptype_eq() -> HeapType {
     HeapType::Ht(AbsHeapType::Eq)
 }
 
+fn heaptype_exn() -> HeapType {
+    HeapType::Ht(AbsHeapType::Exn)
+}
+
 fn rectypes(comptypes: Vec<CompType>) -> Vec<RecType> {
     comptypes
         .into_iter()
@@ -1082,6 +1086,30 @@ fn it_decodes_reference_instructions() {
             ..Default::default()
         }
     )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_ref_null_exn() {
+    let f = File::open("tests/fixtures/ref_null_exn.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    let types = rectypes(vec![CompType::Func {
+        parameters: vec![],
+        results: vec![ValType::Ref(RefType {
+            nullable: true,
+            ht: heaptype_exn(),
+        })],
+    }]);
+
+    let funcs = vec![Func {
+        r#type: TypeIdx(0),
+        locals: vec![],
+        body: vec![Instruction::RefNull(heaptype_exn())],
+    }];
+
+    assert_eq!(module.types, types);
+    assert_eq!(module.funcs, funcs);
 }
 
 #[test]
