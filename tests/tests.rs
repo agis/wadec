@@ -32,8 +32,16 @@ fn heaptype_eq() -> HeapType {
     HeapType::Ht(AbsHeapType::Eq)
 }
 
+fn heaptype_any() -> HeapType {
+    HeapType::Ht(AbsHeapType::Any)
+}
+
 fn heaptype_exn() -> HeapType {
     HeapType::Ht(AbsHeapType::Exn)
+}
+
+fn heaptype_noexn() -> HeapType {
+    HeapType::Ht(AbsHeapType::NoExn)
 }
 
 fn rectypes(comptypes: Vec<CompType>) -> Vec<RecType> {
@@ -1136,6 +1144,109 @@ fn it_decodes_ref_test_and_cast() {
             Instruction::RefCast(ref_null_func()),
             Instruction::Drop,
         ]
+    );
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_reftype_heaptype_and_control_v3_forms() {
+    let f = File::open("tests/fixtures/reftype_heaptype_control_v3.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.funcs.len(), 5);
+    assert_eq!(
+        module.funcs[1].body,
+        vec![
+            Instruction::RefNull(heaptype_noexn()),
+            Instruction::Drop,
+            Instruction::RefNull(HeapType::TypeIdx(0)),
+            Instruction::Drop,
+            Instruction::RefNull(HeapType::TypeIdx(0)),
+            Instruction::RefTest(RefType {
+                nullable: false,
+                ht: HeapType::TypeIdx(0),
+            }),
+            Instruction::Drop,
+            Instruction::RefNull(HeapType::TypeIdx(0)),
+            Instruction::RefCast(RefType {
+                nullable: false,
+                ht: HeapType::TypeIdx(0),
+            }),
+            Instruction::Drop,
+        ]
+    );
+
+    assert_eq!(
+        module.funcs[2].body,
+        vec![
+            Instruction::RefFunc(FuncIdx(0)),
+            Instruction::CallRef(TypeIdx(0)),
+            Instruction::RefFunc(FuncIdx(0)),
+            Instruction::ReturnCallRef(TypeIdx(0)),
+        ]
+    );
+
+    assert_eq!(
+        module.funcs[3].body,
+        vec![
+            Instruction::Block(
+                BlockType::T(ValType::Ref(RefType {
+                    nullable: true,
+                    ht: heaptype_any(),
+                })),
+                vec![
+                    Instruction::LocalGet(LocalIdx(0)),
+                    Instruction::BrOnCast(
+                        LabelIdx(0),
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_any(),
+                        },
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_eq(),
+                        },
+                    ),
+                ],
+            ),
+            Instruction::Drop,
+        ]
+    );
+
+    assert_eq!(
+        module.funcs[4].body,
+        vec![
+            Instruction::Block(
+                BlockType::T(ValType::Ref(RefType {
+                    nullable: true,
+                    ht: heaptype_any(),
+                })),
+                vec![
+                    Instruction::LocalGet(LocalIdx(0)),
+                    Instruction::BrOnCastFail(
+                        LabelIdx(0),
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_any(),
+                        },
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_eq(),
+                        },
+                    ),
+                ],
+            ),
+            Instruction::Drop,
+        ]
+    );
+
+    assert_eq!(
+        module.elems,
+        vec![Elem {
+            r#type: ref_null_func(),
+            init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
+            mode: ElemMode::Declare,
+        }]
     );
 }
 
