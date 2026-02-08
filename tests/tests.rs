@@ -1140,6 +1140,47 @@ fn it_decodes_ref_test_and_cast() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_aggregate_instructions() {
+    let module =
+        decode_module(File::open("tests/fixtures/aggregate_instructions_gc.wasm").unwrap())
+            .unwrap();
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(
+        func.body,
+        vec![
+            Instruction::StructNew(TypeIdx(0)),
+            Instruction::StructNewDefault(TypeIdx(0)),
+            Instruction::StructGet(TypeIdx(0), 0),
+            Instruction::StructGetS(TypeIdx(0), 1),
+            Instruction::StructGetU(TypeIdx(0), 2),
+            Instruction::StructSet(TypeIdx(0), 0),
+            Instruction::ArrayNew(TypeIdx(1)),
+            Instruction::ArrayNewDefault(TypeIdx(1)),
+            Instruction::ArrayNewFixed(TypeIdx(1), 3),
+            Instruction::ArrayNewData(TypeIdx(1), DataIdx(0)),
+            Instruction::ArrayNewElem(TypeIdx(1), ElemIdx(0)),
+            Instruction::ArrayGet(TypeIdx(2)),
+            Instruction::ArrayGetS(TypeIdx(1)),
+            Instruction::ArrayGetU(TypeIdx(1)),
+            Instruction::ArraySet(TypeIdx(1)),
+            Instruction::ArrayLen,
+            Instruction::ArrayFill(TypeIdx(1)),
+            Instruction::ArrayCopy(TypeIdx(1), TypeIdx(2)),
+            Instruction::ArrayInitData(TypeIdx(1), DataIdx(0)),
+            Instruction::ArrayInitElem(TypeIdx(1), ElemIdx(0)),
+            Instruction::AnyConvertExtern,
+            Instruction::ExternConvertAny,
+            Instruction::RefI31,
+            Instruction::I31GetS,
+            Instruction::I31GetU,
+        ]
+    );
+}
+
+#[test]
 fn it_decodes_variable_instructions() {
     let f = File::open("tests/fixtures/variable_instructions.wasm").unwrap();
 
