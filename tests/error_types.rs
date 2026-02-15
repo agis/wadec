@@ -1716,12 +1716,12 @@ fn decode_rec_type_error_result_types_truncated() {
                 position,
                 source:
                     DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
-                        DecodeCompTypeError::DecodeFuncResults(
-                            DecodeResultTypeError::DecodeList(DecodeListError::ParseElement {
+                        DecodeCompTypeError::DecodeFuncResults(DecodeResultTypeError::DecodeList(
+                            DecodeListError::ParseElement {
                                 position: inner_pos,
                                 source: DecodeValTypeError::Io(io_err),
-                            }),
-                        ),
+                            },
+                        )),
                     )),
             },
         )) => {

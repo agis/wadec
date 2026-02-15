@@ -262,10 +262,7 @@ fn it_decodes_tag_section_multiple_entries() {
             results: vec![],
         },
         CompType::Func {
-            parameters: vec![
-                ValType::Num(NumType::Int32),
-                ValType::Num(NumType::Int64),
-            ],
+            parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int64)],
             results: vec![],
         },
     ]);
@@ -3097,9 +3094,7 @@ fn it_decodes_relaxed_simd_instructions() {
             Instruction::I64x2RelaxedLaneSelect => Some(Instruction::I64x2RelaxedLaneSelect),
             Instruction::I16x8RelaxedQ15MulrS => Some(Instruction::I16x8RelaxedQ15MulrS),
             Instruction::I16x8RelaxedDotSI8x16 => Some(Instruction::I16x8RelaxedDotSI8x16),
-            Instruction::I32x4RelaxedDotAddSI16x8 => {
-                Some(Instruction::I32x4RelaxedDotAddSI16x8)
-            }
+            Instruction::I32x4RelaxedDotAddSI16x8 => Some(Instruction::I32x4RelaxedDotAddSI16x8),
             Instruction::F32x4RelaxedMin => Some(Instruction::F32x4RelaxedMin),
             Instruction::F32x4RelaxedMax => Some(Instruction::F32x4RelaxedMax),
             Instruction::F32x4RelaxedMAdd => Some(Instruction::F32x4RelaxedMAdd),
@@ -3108,12 +3103,8 @@ fn it_decodes_relaxed_simd_instructions() {
             Instruction::F64x2RelaxedMax => Some(Instruction::F64x2RelaxedMax),
             Instruction::F64x2RelaxedMAdd => Some(Instruction::F64x2RelaxedMAdd),
             Instruction::F64x2RelaxedNMAdd => Some(Instruction::F64x2RelaxedNMAdd),
-            Instruction::I32x4RelaxedTruncF32x4S => {
-                Some(Instruction::I32x4RelaxedTruncF32x4S)
-            }
-            Instruction::I32x4RelaxedTruncF32x4U => {
-                Some(Instruction::I32x4RelaxedTruncF32x4U)
-            }
+            Instruction::I32x4RelaxedTruncF32x4S => Some(Instruction::I32x4RelaxedTruncF32x4S),
+            Instruction::I32x4RelaxedTruncF32x4U => Some(Instruction::I32x4RelaxedTruncF32x4U),
             Instruction::I32x4RelaxedTruncF64x2SZero => {
                 Some(Instruction::I32x4RelaxedTruncF64x2SZero)
             }

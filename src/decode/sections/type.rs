@@ -1,5 +1,5 @@
 use crate::core::types::rectype::RecType;
-use crate::decode::helpers::{decode_list, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list};
 use crate::decode::types::DecodeRecTypeError;
 use std::io::Read;
 use thiserror::Error;

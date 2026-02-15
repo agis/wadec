@@ -1,11 +1,11 @@
 use crate::core::types::comptype::*;
 use crate::core::types::globaltype::Mut;
 use crate::core::types::valtype::ValType;
-use crate::decode::helpers::{decode_list, DecodeListError};
-use crate::decode::types::globaltype::InvalidMutabilityByteError;
-use crate::decode::types::resulttype::{decode_result_type, DecodeResultTypeError};
-use crate::decode::types::valtype::DecodeValTypeError;
 use crate::decode::FromMarkerByte;
+use crate::decode::helpers::{DecodeListError, decode_list};
+use crate::decode::types::globaltype::InvalidMutabilityByteError;
+use crate::decode::types::resulttype::{DecodeResultTypeError, decode_result_type};
+use crate::decode::types::valtype::DecodeValTypeError;
 use crate::read_byte;
 use phf::phf_ordered_map;
 use std::io::{self, Read};

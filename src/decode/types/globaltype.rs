@@ -1,7 +1,7 @@
 use crate::core::types::globaltype::{GlobalType, Mut};
 use crate::core::types::valtype::ValType;
-use crate::decode::types::valtype::DecodeValTypeError;
 use crate::decode::FromMarkerByte;
+use crate::decode::types::valtype::DecodeValTypeError;
 use crate::read_byte;
 use phf::phf_ordered_map;
 use std::io::Read;

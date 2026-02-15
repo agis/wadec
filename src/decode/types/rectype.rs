@@ -1,7 +1,7 @@
 use crate::core::indices::TypeIdx;
 use crate::core::types::comptype::CompType;
 use crate::core::types::rectype::*;
-use crate::decode::helpers::{decode_list, read_byte, DecodeListError};
+use crate::decode::helpers::{DecodeListError, decode_list, read_byte};
 use crate::decode::indices::DecodeTypeIdxError;
 use crate::decode::types::comptype::DecodeCompTypeError;
 use std::io::{self, Read};

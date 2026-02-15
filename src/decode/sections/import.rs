@@ -1,6 +1,6 @@
-use crate::core::types::ExternType;
 use crate::core::Import;
-use crate::decode::helpers::{decode_list, decode_name, DecodeListError, DecodeNameError};
+use crate::core::types::ExternType;
+use crate::decode::helpers::{DecodeListError, DecodeNameError, decode_list, decode_name};
 use crate::decode::types::DecodeExternTypeError;
 use std::io::Read;
 use thiserror::Error;
