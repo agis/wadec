@@ -26,7 +26,7 @@ decoder.
 ## Specification conformance
 
 wadec is 100% conforming to the official WebAssembly specification, [version
-2](https://www.w3.org/TR/wasm-core-2/). (Version 3 is on the roadmap.)
+3](https://www.w3.org/TR/wasm-core-2/).
 
 This is ensured by running the official specification [test
 suite](https://github.com/WebAssembly/spec/tree/wg-2.0/test/core) (`wg-2.0` tag)
@@ -40,7 +40,7 @@ against our decoder. Specifically, we go through all the test scripts (`.wast`) 
 
 ✔️ all modules marked with `assert_unlinkable` are *accepted*
 
-The relevant tests can be foundat [tests/z_spec.rs](tests/z_spec.rs).
+The relevant tests can be found at [tests/z_spec.rs](tests/z_spec.rs).
 
 ## Installation
 
@@ -72,17 +72,17 @@ ERROR: failed decoding Type section
 
 Caused by:
     0: failed parsing vector element at position 0
-    1: failed decoding Parameters
+    1: failed decoding Function type parameters
     2: failed parsing vector element at position 0
     3: invalid ValType marker byte - expected one of 0x7F (Num(Int32)), 0x7E (Num(Int64)), 0x7D (Num(Float32)), 0x7C (Num(Float64)), 0x7B (Vec(V128)), 0x70 (Ref(Func)), 0x6F (Ref(Extern)); got 0xAA
 
 DEBUG OUTPUT:
 DecodeTypeSection(
-    DecodeVector(
+    DecodeList(
         ParseElement {
             position: 0,
-            source: DecodeFuncTypeError::DecodeParameterTypes(
-                DecodeVector(
+            source: DecodeCompTypeError::DecodeFuncParameters(
+                DecodeList(
                     ParseElement {
                         position: 0,
                         source: DecodeValTypeError::InvalidMarkerByte(
@@ -102,7 +102,7 @@ DecodeTypeSection(
 ## Roadmap
 
 - [x] Implement the Decoding phase for specification [version 2](https://www.w3.org/TR/wasm-core-2/)
-- [ ] Implement the Decoding phase for specification [version 3](https://webassembly.github.io/spec/core/)
+- [x] Implement the Decoding phase for specification [version 3](https://webassembly.github.io/spec/core/)
 - [ ] Implement the [Validation phase](https://webassembly.github.io/spec/core/valid/index.html)
 - [ ] Optional support for WebAssembly extensions
 

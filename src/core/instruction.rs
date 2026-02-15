@@ -2,7 +2,7 @@
 //!
 //! <https://www.w3.org/TR/wasm-core-2/#instructions>
 use super::indices;
-use super::types::{reftype::RefType, valtype::ValType};
+use super::types::{heaptype::HeapType, reftype::RefType, valtype::ValType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
@@ -15,14 +15,56 @@ pub enum Instruction {
     Br(indices::LabelIdx),
     BrIf(indices::LabelIdx),
     BrTable(Vec<indices::LabelIdx>, indices::LabelIdx),
-    Return,
+    BrOnNull(indices::LabelIdx),
+    BrOnNonNull(indices::LabelIdx),
+    BrOnCast(indices::LabelIdx, RefType, RefType),
+    BrOnCastFail(indices::LabelIdx, RefType, RefType),
     Call(indices::FuncIdx),
+    CallRef(indices::TypeIdx),
     CallIndirect(indices::TableIdx, indices::TypeIdx),
+    Return,
+    ReturnCall(indices::FuncIdx),
+    ReturnCallRef(indices::TypeIdx),
+    ReturnCallIndirect(indices::TableIdx, indices::TypeIdx),
+    Throw(indices::TagIdx),
+    ThrowRef,
+    TryTable(BlockType, Vec<Catch>, Vec<Instruction>),
 
     // --- Reference instructions (5.4.2) ---
-    RefNull(RefType),
-    RefIsNull,
     RefFunc(indices::FuncIdx),
+    RefNull(HeapType),
+    RefIsNull,
+    RefAsNonNull,
+    RefEq,
+    RefTest(RefType),
+    RefCast(RefType),
+
+    // --- Aggregate instructions (5.4.7) ---
+    StructNew(indices::TypeIdx),
+    StructNewDefault(indices::TypeIdx),
+    StructGet(indices::TypeIdx, u32),
+    StructGetS(indices::TypeIdx, u32),
+    StructGetU(indices::TypeIdx, u32),
+    StructSet(indices::TypeIdx, u32),
+    ArrayNew(indices::TypeIdx),
+    ArrayNewDefault(indices::TypeIdx),
+    ArrayNewFixed(indices::TypeIdx, u32),
+    ArrayNewData(indices::TypeIdx, indices::DataIdx),
+    ArrayNewElem(indices::TypeIdx, indices::ElemIdx),
+    ArrayGet(indices::TypeIdx),
+    ArrayGetS(indices::TypeIdx),
+    ArrayGetU(indices::TypeIdx),
+    ArraySet(indices::TypeIdx),
+    ArrayLen,
+    ArrayFill(indices::TypeIdx),
+    ArrayCopy(indices::TypeIdx, indices::TypeIdx),
+    ArrayInitData(indices::TypeIdx, indices::DataIdx),
+    ArrayInitElem(indices::TypeIdx, indices::ElemIdx),
+    AnyConvertExtern,
+    ExternConvertAny,
+    RefI31,
+    I31GetS,
+    I31GetU,
 
     // --- Parametric instructions (5.4.3) ---
     Drop,
@@ -69,12 +111,12 @@ pub enum Instruction {
     I64Store8(Memarg),
     I64Store16(Memarg),
     I64Store32(Memarg),
-    MemorySize,
-    MemoryGrow,
-    MemoryInit(indices::DataIdx),
+    MemorySize(indices::MemIdx),
+    MemoryGrow(indices::MemIdx),
+    MemoryInit(indices::MemIdx, indices::DataIdx),
     DataDrop(indices::DataIdx),
-    MemoryCopy,
-    MemoryFill,
+    MemoryCopy(indices::MemIdx, indices::MemIdx),
+    MemoryFill(indices::MemIdx),
 
     // --- Numeric constants (5.4.7) ---
     I32Const(i32),
@@ -258,6 +300,7 @@ pub enum Instruction {
     F64x2ExtractLane(LaneIdx),
     F64x2ReplaceLane(LaneIdx),
     I8x16Swizzle,
+    I8x16RelaxedSwizzle,
     I8x16Splat,
     I16x8Splat,
     I32x4Splat,
@@ -318,6 +361,10 @@ pub enum Instruction {
     V128Or,
     V128Xor,
     V128Bitselect,
+    I8x16RelaxedLaneSelect,
+    I16x8RelaxedLaneSelect,
+    I32x4RelaxedLaneSelect,
+    I64x2RelaxedLaneSelect,
     V128AnyTrue,
     I8x16Abs,
     I8x16Neg,
@@ -372,6 +419,9 @@ pub enum Instruction {
     I16x8ExtmulHighI8x16S,
     I16x8ExtmulLowI8x16U,
     I16x8ExtmulHighI8x16U,
+    I16x8RelaxedQ15MulrS,
+    I16x8RelaxedDotSI8x16,
+    I32x4RelaxedDotAddSI16x8,
     I32x4ExtaddPairwiseI16x8S,
     I32x4ExtaddPairwiseI16x8U,
     I32x4Abs,
@@ -430,6 +480,10 @@ pub enum Instruction {
     F32x4Max,
     F32x4PMin,
     F32x4PMax,
+    F32x4RelaxedMin,
+    F32x4RelaxedMax,
+    F32x4RelaxedMAdd,
+    F32x4RelaxedNMAdd,
     F64x2Ceil,
     F64x2Floor,
     F64x2Trunc,
@@ -445,12 +499,20 @@ pub enum Instruction {
     F64x2Max,
     F64x2PMin,
     F64x2PMax,
+    F64x2RelaxedMin,
+    F64x2RelaxedMax,
+    F64x2RelaxedMAdd,
+    F64x2RelaxedNMAdd,
     I32x4TruncSatF32x4S,
     I32x4TruncSatF32x4U,
     F32x4ConvertI32x4S,
     F32x4ConvertI32x4U,
     I32x4TruncSatF64x2SZero,
     I32x4TruncSatF64x2UZero,
+    I32x4RelaxedTruncF32x4S,
+    I32x4RelaxedTruncF32x4U,
+    I32x4RelaxedTruncF64x2SZero,
+    I32x4RelaxedTruncF64x2UZero,
     F64x2ConvertLowI32x4S,
     F64x2ConvertLowI32x4U,
     F32x4DemoteF64x2Zero,
@@ -462,8 +524,9 @@ pub enum Instruction {
 /// (expressed as the exponent of a power of 2).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Memarg {
+    pub mem_idx: indices::MemIdx,
     pub align: u32,
-    pub offset: u32,
+    pub offset: u64,
 }
 
 /// Vector loads can specify a shape that is half the bit width of v128. Each lane is half its
@@ -477,5 +540,13 @@ pub struct LaneIdx(pub u8);
 pub enum BlockType {
     Empty,
     T(ValType),
-    X(u32),
+    I(u32),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Catch {
+    Catch(indices::TagIdx, indices::LabelIdx),
+    CatchRef(indices::TagIdx, indices::LabelIdx),
+    CatchAll(indices::LabelIdx),
+    CatchAllRef(indices::LabelIdx),
 }

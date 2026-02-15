@@ -7,7 +7,7 @@ use std::io::Read;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DecodeTableError {
+pub enum DecodeTableTypeError {
     #[error(transparent)]
     DecodeRefType(#[from] DecodeRefTypeError),
 
@@ -16,7 +16,7 @@ pub enum DecodeTableError {
 }
 
 impl TableType {
-    pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeTableError> {
+    pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeTableTypeError> {
         let reftype = RefType::decode(reader)?;
         let limits = parse_limits(reader)?;
         Ok(TableType { reftype, limits })

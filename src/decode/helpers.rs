@@ -2,8 +2,7 @@ use crate::Expr;
 use crate::core::instruction::Instruction;
 use crate::decode::instructions;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
-use std::io;
-use std::io::Read;
+use std::io::{self, Read};
 use thiserror::Error;
 
 pub(crate) fn read_byte<R: Read + ?Sized>(reader: &mut R) -> Result<u8, io::Error> {
@@ -21,12 +20,20 @@ pub enum ParseExpressionError {
     UnexpectedElse,
 }
 
-pub(crate) fn decode_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, ParseExpressionError> {
+pub(crate) fn decode_expr<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<(Expr, bool), ParseExpressionError> {
     let mut body = Vec::new();
+    let mut encountered_data_index = false;
 
     loop {
         match Instruction::parse(reader)? {
-            instructions::ParseResult::Instruction(ins) => body.push(ins),
+            instructions::ParseResult::Instruction(ins) => {
+                if instruction_contains_data_index(&ins) {
+                    encountered_data_index = true;
+                }
+                body.push(ins);
+            }
             instructions::ParseResult::End => break,
 
             // `Else` is only expected to appear when parsing individual `Control` instructions
@@ -34,7 +41,28 @@ pub(crate) fn decode_expr<R: Read + ?Sized>(reader: &mut R) -> Result<Expr, Pars
         }
     }
 
-    Ok(body)
+    Ok((body, encountered_data_index))
+}
+
+fn instruction_contains_data_index(ins: &Instruction) -> bool {
+    match ins {
+        Instruction::MemoryInit(_, _)
+        | Instruction::DataDrop(_)
+        | Instruction::ArrayNewData(_, _)
+        | Instruction::ArrayInitData(_, _) => true,
+
+        Instruction::Block(_, body)
+        | Instruction::Loop(_, body)
+        | Instruction::TryTable(_, _, body) => body.iter().any(instruction_contains_data_index),
+
+        Instruction::If(_, then_body, else_body) => {
+            then_body.iter().any(instruction_contains_data_index)
+                || else_body
+                    .as_ref()
+                    .is_some_and(|body| body.iter().any(instruction_contains_data_index))
+        }
+        _ => false,
+    }
 }
 
 #[derive(Debug, Error)]
@@ -62,7 +90,7 @@ pub(crate) fn decode_f64<R: Read + ?Sized>(r: &mut R) -> Result<f64, DecodeFloat
 }
 
 #[derive(Error)]
-pub enum DecodeVectorError<E> {
+pub enum DecodeListError<E> {
     #[error("failed decoding vector length")]
     DecodeLength(#[from] DecodeU32Error),
 
@@ -70,10 +98,10 @@ pub enum DecodeVectorError<E> {
     ParseElement { position: u32, source: E },
 }
 
-pub(crate) fn decode_vector<R, F, T, E>(
+pub(crate) fn decode_list<R, F, T, E>(
     reader: &mut R,
     mut parse_fn: F,
-) -> Result<Vec<T>, DecodeVectorError<E>>
+) -> Result<Vec<T>, DecodeListError<E>>
 where
     R: Read + ?Sized,
     F: FnMut(&mut R) -> Result<T, E>,
@@ -82,7 +110,7 @@ where
 
     let mut items = Vec::with_capacity(len.try_into().unwrap());
     for i in 0..len {
-        let elem = parse_fn(reader).map_err(|err| DecodeVectorError::ParseElement {
+        let elem = parse_fn(reader).map_err(|err| DecodeListError::ParseElement {
             position: i,
             source: err,
         })?;
@@ -92,9 +120,9 @@ where
     Ok(items)
 }
 
-// we want any DecodeVectorError::ParseElement errors to also display the inner
+// we want any DecodeListError::ParseElement errors to also display the inner
 // error type pointed to by source.
-impl<E: std::fmt::Debug> std::fmt::Debug for DecodeVectorError<E> {
+impl<E: std::fmt::Debug> std::fmt::Debug for DecodeListError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DecodeLength(e) => f.debug_tuple("DecodeLength").field(e).finish(),

@@ -22,7 +22,7 @@ pub enum DecodeGlobalTypeError {
 impl GlobalType {
     pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, DecodeGlobalTypeError> {
         let valtype = ValType::decode(reader)?;
-        let r#mut: Mut =
+        let r#mut =
             Mut::from_marker(read_byte(reader).map_err(DecodeGlobalTypeError::DecodeMutability)?)?;
 
         Ok(GlobalType(r#mut, valtype))

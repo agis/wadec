@@ -50,6 +50,50 @@ pub(crate) fn decode_u32<R: io::Read + ?Sized>(reader: &mut R) -> Result<u32, De
 }
 
 #[derive(Error, Debug)]
+pub enum DecodeU64Error {
+    #[error("uint64 too large")]
+    TooLarge,
+
+    #[error("uint64 representation too long")]
+    RepresentationTooLong,
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+pub(crate) fn decode_u64<R: io::Read + ?Sized>(reader: &mut R) -> Result<u64, DecodeU64Error> {
+    let mut result: u64 = 0;
+    let mut shift: u8 = 0;
+
+    // 10 == ceil(64/7)
+    for i in 1..=10 {
+        let byte = read_byte(reader)?;
+
+        result |= u64::from(byte & 0b0111_1111 /* 0x7F */) << shift;
+
+        let continuation_bit = byte & 0b1000_0000 /* 0x80 */;
+        if continuation_bit == 0 {
+            if i == 10 && (byte & 0b0111_1110/* 0x7E */) != 0 {
+                // we're at byte 10, which means 9*7=63 bits have been
+                // consumed by the payload at this point. This leaves no more
+                // than 64-63=1 more bit available for the rest of the payload.
+                //
+                // Therefore, ensure that the rest of those bits do not carry
+                // any payload.
+                return Err(DecodeU64Error::TooLarge);
+            }
+            return Ok(result);
+        }
+
+        // payload is encoded in groups of 7 bits. We parsed a chunk, so move to
+        // the next one
+        shift += 7;
+    }
+
+    Err(DecodeU64Error::RepresentationTooLong)
+}
+
+#[derive(Error, Debug)]
 pub enum DecodeI32Error {
     #[error("int32 too large")]
     TooLarge,
@@ -143,12 +187,81 @@ pub(crate) fn decode_i64<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64, De
     Err(DecodeI64Error::RepresentationTooLong)
 }
 
+#[derive(Error, Debug)]
+pub enum DecodeS33Error {
+    #[error("s33 representation too long")]
+    RepresentationTooLong,
+
+    #[error("s33 incorrect sign extension")]
+    IncorrectSignExtension,
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+pub(crate) fn decode_s33<R: io::Read + ?Sized>(reader: &mut R) -> Result<i64, DecodeS33Error> {
+    let mut result: i64 = 0;
+    let mut shift: u8 = 0;
+
+    // 5 == ceil(33/7)
+    for _ in 1..=5 {
+        let byte = read_byte(reader)?;
+
+        result |= i64::from(byte & 0b0111_1111 /* 0x7F */) << shift;
+        shift += 7;
+
+        let continuation_bit = byte & 0b1000_0000 /* 0x80 */;
+        if continuation_bit == 0 {
+            let on_5th_byte = shift >= 33;
+            let is_negative = (byte & 0b0100_0000/* 0x40 */) != 0;
+
+            if on_5th_byte {
+                let padding = byte & 0b0111_0000 /* 0x70 */;
+                if is_negative && padding != 0b0111_0000 {
+                    // three high-order bits must be all 1s
+                    return Err(DecodeS33Error::IncorrectSignExtension);
+                }
+                if !is_negative && padding != 0b0000_0000 {
+                    // three high-order bits must be all 0s
+                    return Err(DecodeS33Error::IncorrectSignExtension);
+                }
+            }
+
+            if is_negative {
+                // fill remaining high bits with ones, to sign-extend the
+                // value
+                result |= !0 << shift;
+            }
+
+            return Ok(result);
+        }
+    }
+
+    Err(DecodeS33Error::RepresentationTooLong)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
 
     fn encode_u32(mut value: u32) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let mut byte = (value & 0x7F) as u8;
+            value >>= 7;
+            if value != 0 {
+                byte |= 0x80;
+                out.push(byte);
+            } else {
+                out.push(byte);
+                break;
+            }
+        }
+        out
+    }
+
+    fn encode_u64(mut value: u64) -> Vec<u8> {
         let mut out = Vec::new();
         loop {
             let mut byte = (value & 0x7F) as u8;
@@ -186,6 +299,11 @@ mod tests {
         decode_u32(&mut cursor)
     }
 
+    fn read_u64_from(bytes: Vec<u8>) -> Result<u64, DecodeU64Error> {
+        let mut cursor = Cursor::new(bytes);
+        decode_u64(&mut cursor)
+    }
+
     fn read_i32_from(bytes: Vec<u8>) -> Result<i32, DecodeI32Error> {
         let mut cursor = Cursor::new(bytes);
         decode_i32(&mut cursor)
@@ -194,6 +312,11 @@ mod tests {
     fn read_i64_from(bytes: Vec<u8>) -> Result<i64, DecodeI64Error> {
         let mut cursor = Cursor::new(bytes);
         decode_i64(&mut cursor)
+    }
+
+    fn read_s33_from(bytes: Vec<u8>) -> Result<i64, DecodeS33Error> {
+        let mut cursor = Cursor::new(bytes);
+        decode_s33(&mut cursor)
     }
 
     #[test]
@@ -219,6 +342,33 @@ mod tests {
     fn read_u32_rejects_representation_too_long() {
         let err = read_u32_from(vec![0x80, 0x80, 0x80, 0x80, 0x80]).unwrap_err();
         assert!(matches!(err, DecodeU32Error::RepresentationTooLong));
+    }
+
+    #[test]
+    fn read_u64_decodes_simple_values() {
+        assert_eq!(read_u64_from(encode_u64(0)).unwrap(), 0);
+        assert_eq!(read_u64_from(encode_u64(127)).unwrap(), 127);
+        assert_eq!(read_u64_from(encode_u64(128)).unwrap(), 128);
+        assert_eq!(read_u64_from(encode_u64(u64::MAX)).unwrap(), u64::MAX);
+    }
+
+    #[test]
+    fn read_u64_rejects_payload_bits_in_last_byte() {
+        let mut bytes = vec![0xFF; 9];
+        bytes.push(0x02);
+        let err = read_u64_from(bytes).unwrap_err();
+        assert!(matches!(err, DecodeU64Error::TooLarge));
+    }
+
+    #[test]
+    fn read_u64_accepts_extended_zero() {
+        assert_eq!(read_u64_from(vec![0x80, 0x00]).unwrap(), 0);
+    }
+
+    #[test]
+    fn read_u64_rejects_representation_too_long() {
+        let err = read_u64_from(vec![0x80; 10]).unwrap_err();
+        assert!(matches!(err, DecodeU64Error::RepresentationTooLong));
     }
 
     #[test]
@@ -316,5 +466,32 @@ mod tests {
         let mut bytes = vec![0xFF; 9];
         bytes.push(0x00);
         assert_eq!(read_i64_from(bytes).unwrap(), i64::MAX);
+    }
+
+    #[test]
+    fn read_s33_decodes_edge_values() {
+        let min = -(1i64 << 32);
+        let max = (1i64 << 32) - 1;
+        for value in [0, 1, -1, min, max] {
+            assert_eq!(read_s33_from(encode_sleb64(value)).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn read_s33_rejects_incorrect_positive_padding() {
+        let err = read_s33_from(vec![0x80, 0x80, 0x80, 0x80, 0x10]).unwrap_err();
+        assert!(matches!(err, DecodeS33Error::IncorrectSignExtension));
+    }
+
+    #[test]
+    fn read_s33_rejects_incorrect_negative_padding() {
+        let err = read_s33_from(vec![0xFF, 0xFF, 0xFF, 0xFF, 0x6F]).unwrap_err();
+        assert!(matches!(err, DecodeS33Error::IncorrectSignExtension));
+    }
+
+    #[test]
+    fn read_s33_rejects_representation_too_long() {
+        let err = read_s33_from(vec![0x80; 5]).unwrap_err();
+        assert!(matches!(err, DecodeS33Error::RepresentationTooLong));
     }
 }

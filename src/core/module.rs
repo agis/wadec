@@ -1,6 +1,6 @@
 //! Type definitions for WebAssembly modules.
-use super::types::{FuncType, MemType, TableType};
-use super::{Data, Elem, Export, Func, Global, Import};
+use super::types::{MemType, RecType, TagType};
+use super::{Data, Elem, Export, Func, Global, Import, Table};
 use crate::core::custom_section::CustomSection;
 use crate::core::indices::FuncIdx;
 
@@ -34,7 +34,7 @@ pub struct Module {
     ///
     /// <https://www.w3.org/TR/wasm-core-2/#types>
     /// <https://www.w3.org/TR/wasm-core-2/#binary-typesec>
-    pub types: Vec<FuncType>,
+    pub types: Vec<RecType>,
 
     /// The funcs component of a module defines a vector of functions with the following
     /// structure: The type of a function declares its signature by reference to a type defined
@@ -60,7 +60,7 @@ pub struct Module {
     ///
     /// <https://www.w3.org/TR/wasm-core-2/#tables>
     /// <https://www.w3.org/TR/wasm-core-2/#table-section>
-    pub tables: Vec<TableType>,
+    pub tables: Vec<Table>,
 
     /// The mems component of a module defines a vector of linear memories (or memories for
     /// short) as described by their memory type: A memory is a vector of raw uninterpreted
@@ -149,6 +149,13 @@ pub struct Module {
     /// <https://www.w3.org/TR/wasm-core-2/#exports>
     /// <https://www.w3.org/TR/wasm-core-2/#export-section>
     pub exports: Vec<Export>,
+
+    /// The tag section of a module defines a list of tags. The type index of a tag must refer to a
+    /// function type that declares its tag type.
+    ///
+    /// <https://webassembly.github.io/spec/core/syntax/modules.html#tags>
+    /// <https://webassembly.github.io/spec/core/binary/modules.html#tag-section>
+    pub tags: Vec<TagType>,
 }
 
 /// Each section constists of a one-byte section id, the u32 size of the contents
@@ -169,6 +176,7 @@ pub enum SectionKind {
     Function,
     Table,
     Memory,
+    Tag,
     Global,
     Export,
     Start,

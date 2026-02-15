@@ -1,8 +1,8 @@
 use crate::core::indices::MemIdx;
 use crate::core::{Data, DataMode};
 use crate::decode::helpers::{
-    DecodeByteVectorError, DecodeVectorError, ParseExpressionError, decode_byte_vector,
-    decode_expr, decode_vector,
+    DecodeByteVectorError, DecodeListError, ParseExpressionError, decode_byte_vector, decode_expr,
+    decode_list,
 };
 use crate::decode::indices::DecodeMemIdxError;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
@@ -12,13 +12,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeDataSectionError {
     #[error("failed decoding Data section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeDataSegmentError>),
+    DecodeList(#[from] DecodeListError<DecodeDataSegmentError>),
 }
 
 pub(crate) fn decode_data_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Data>, DecodeDataSectionError> {
-    Ok(decode_vector(reader, parse_data)?)
+    Ok(decode_list(reader, parse_data)?)
 }
 
 #[derive(Debug, Error)]
@@ -45,7 +45,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
 
     (init, mode) = match decode_u32(reader).map_err(DecodeDataSegmentError::DecodeBitfield)? {
         0 => {
-            let e = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
             (
                 decode_byte_vector(reader)?,
                 DataMode::Active {
@@ -57,7 +57,7 @@ fn parse_data<R: Read + ?Sized>(reader: &mut R) -> Result<Data, DecodeDataSegmen
         1 => (decode_byte_vector(reader)?, DataMode::Passive),
         2 => {
             let x = MemIdx::decode(reader)?;
-            let e = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeDataSegmentError::DecodeOffsetExpr)?;
 
             (
                 decode_byte_vector(reader)?,

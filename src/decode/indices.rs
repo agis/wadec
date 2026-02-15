@@ -2,9 +2,7 @@
 //!
 //! See <https://www.w3.org/TR/wasm-core-2/#indices>
 
-use crate::core::indices::{
-    DataIdx, ElemIdx, FuncIdx, GlobalIdx, LabelIdx, LocalIdx, MemIdx, TableIdx, TypeIdx,
-};
+use crate::core::indices::*;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use std::io::Read;
 use thiserror::Error;
@@ -16,6 +14,7 @@ macro_rules! define_index_decoder {
         pub struct $errorname(#[from] pub DecodeU32Error);
 
         impl $name {
+            #[allow(dead_code)]
             pub(crate) fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, $errorname> {
                 let idx = decode_u32(reader)?;
                 Ok(Self(idx))
@@ -33,3 +32,4 @@ define_index_decoder!(ElemIdx, DecodeElemIdxError);
 define_index_decoder!(DataIdx, DecodeDataIdxError);
 define_index_decoder!(LocalIdx, DecodeLocalIdxError);
 define_index_decoder!(LabelIdx, DecodeLabelIdxError);
+define_index_decoder!(TagIdx, DecodeTagIdxError);

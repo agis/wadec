@@ -1,7 +1,5 @@
 /target
 TODO
-WebAssembly-2.0.pdf
-WebAssembly-2.0.txt
 tests/fixtures/*.wat
 tests/fixtures/spec/*.json
 tests/fixtures/spec/*.wasm

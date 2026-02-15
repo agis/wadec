@@ -1,27 +1,32 @@
 use crate::Expr;
 use crate::core::indices::{FuncIdx, TableIdx};
 use crate::core::instruction::Instruction;
+use crate::core::types::heaptype::{AbsHeapType, HeapType};
 use crate::core::types::reftype::RefType;
 use crate::core::{Elem, ElemMode};
-use crate::decode::helpers::{DecodeVectorError, ParseExpressionError};
-use crate::decode::helpers::{decode_expr, decode_vector};
+use crate::decode::helpers::{DecodeListError, ParseExpressionError};
+use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::indices::{DecodeFuncIdxError, DecodeTableIdxError};
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeRefTypeError;
-use std::io::Read;
+use std::io::{self, Read};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DecodeElementSectionError {
     #[error("failed decoding Element section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeElementError>),
+    DecodeList(#[from] DecodeListError<DecodeElementError>),
 }
 
 pub(crate) fn decode_element_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Elem>, DecodeElementSectionError> {
-    Ok(decode_vector(reader, parse_elem)?)
+    Ok(decode_list(reader, parse_elem)?)
 }
+
+/*************************/
+/*       Element         */
+/*************************/
 
 #[derive(Debug, Error)]
 pub enum DecodeElementError {
@@ -47,10 +52,10 @@ pub enum DecodeElementError {
     DecodeReferenceType(#[from] DecodeRefTypeError),
 
     #[error("failed decoding table.init expressions")]
-    DecodeInit(DecodeVectorError<ParseExpressionError>),
+    DecodeInit(DecodeListError<ParseExpressionError>),
 
     #[error(transparent)]
-    DecodeFuncIdxVector(#[from] DecodeVectorError<DecodeFuncIdxError>),
+    DecodeFuncIdxVector(#[from] DecodeListError<DecodeFuncIdxError>),
 }
 
 fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementError> {
@@ -64,10 +69,13 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
 
     let (r#type, init, mode) = match bitfield {
         0 => {
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let y = decode_vector(reader, FuncIdx::decode)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let y = decode_list(reader, FuncIdx::decode)?;
             (
-                RefType::Func,
+                RefType {
+                    nullable: false,
+                    ht: HeapType::Ht(AbsHeapType::Func),
+                },
                 funcidx_into_reffunc(y),
                 ElemMode::Active {
                     table: TableIdx(0),
@@ -76,17 +84,18 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         1 => {
-            let et = parse_elemkind(reader)?;
-            let y = decode_vector(reader, FuncIdx::decode)?;
-            (et, funcidx_into_reffunc(y), ElemMode::Passive)
+            let rt = parse_elemkind(reader)?;
+            let y = decode_list(reader, FuncIdx::decode)?;
+            (rt, funcidx_into_reffunc(y), ElemMode::Passive)
         }
         2 => {
             let x = TableIdx::decode(reader)?;
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
-            let et = parse_elemkind(reader)?;
-            let y = decode_vector(reader, FuncIdx::decode)?;
+            let (e, _) =
+                decode_expr(reader).map_err(DecodeElementError::DecodeElementExpression)?;
+            let rt = parse_elemkind(reader)?;
+            let y = decode_list(reader, FuncIdx::decode)?;
             (
-                et,
+                rt,
                 funcidx_into_reffunc(y),
                 ElemMode::Active {
                     table: x,
@@ -95,15 +104,19 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         3 => {
-            let et = parse_elemkind(reader)?;
-            let y = decode_vector(reader, FuncIdx::decode)?;
-            (et, funcidx_into_reffunc(y), ElemMode::Declarative)
+            let rt = parse_elemkind(reader)?;
+            let y = decode_list(reader, FuncIdx::decode)?;
+            (rt, funcidx_into_reffunc(y), ElemMode::Declare)
         }
         4 => {
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let el = decode_vector(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
             (
-                RefType::Func,
+                RefType {
+                    nullable: true,
+                    ht: HeapType::Ht(AbsHeapType::Func),
+                },
                 el,
                 ElemMode::Active {
                     table: TableIdx(0),
@@ -112,18 +125,20 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         5 => {
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = decode_vector(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
-            (et, el, ElemMode::Passive)
+            let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
+            (rt, el, ElemMode::Passive)
         }
         6 => {
             let x = TableIdx::decode(reader)?;
-            let e = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = decode_vector(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let (e, _) = decode_expr(reader).map_err(DecodeElementError::DecodeOffsetExpression)?;
+            let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
 
             (
-                et,
+                rt,
                 el,
                 ElemMode::Active {
                     table: x,
@@ -132,10 +147,11 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
             )
         }
         7 => {
-            let et = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
-            let el = decode_vector(reader, decode_expr).map_err(DecodeElementError::DecodeInit)?;
+            let rt = RefType::decode(reader).map_err(DecodeElementError::DecodeReferenceType)?;
+            let el = decode_list(reader, |r| decode_expr(r).map(|(expr, _)| expr))
+                .map_err(DecodeElementError::DecodeInit)?;
 
-            (et, el, ElemMode::Declarative)
+            (rt, el, ElemMode::Declare)
         }
         n => return Err(DecodeElementError::InvalidBitfield(n)),
     };
@@ -143,10 +159,14 @@ fn parse_elem<R: Read + ?Sized>(reader: &mut R) -> Result<Elem, DecodeElementErr
     Ok(Elem { r#type, init, mode })
 }
 
+/*************************/
+/*       ElemKind        */
+/*************************/
+
 #[derive(Debug, Error)]
 pub enum DecodeElementKindError {
     #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 
     #[error("expected byte 0x00; got {0:#04X}")]
     InvalidElemKind(u8),
@@ -159,5 +179,9 @@ fn parse_elemkind<R: Read + ?Sized>(reader: &mut R) -> Result<RefType, DecodeEle
     if b != 0x00 {
         return Err(DecodeElementKindError::InvalidElemKind(b));
     }
-    Ok(RefType::Func)
+
+    Ok(RefType {
+        nullable: true,
+        ht: HeapType::Ht(AbsHeapType::Func),
+    })
 }

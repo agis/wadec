@@ -1,17 +1,35 @@
-pub mod functype;
 pub mod globaltype;
-pub mod limits;
-pub mod memtype;
-pub mod reftype;
-pub mod resulttype;
-pub mod tabletype;
-pub mod valtype;
-
-pub use functype::DecodeFuncTypeError;
 pub use globaltype::{DecodeGlobalTypeError, InvalidMutabilityByteError};
+
+pub mod limits;
 pub use limits::ParseLimitsError;
+
+pub mod memtype;
 pub use memtype::DecodeMemoryTypeError;
-pub use reftype::{DecodeRefTypeError, InvalidRefTypeMarkerError};
+
+pub mod reftype;
+pub use reftype::DecodeRefTypeError;
+
+pub mod resulttype;
 pub use resulttype::DecodeResultTypeError;
-pub use tabletype::DecodeTableError;
-pub use valtype::{DecodeValTypeError, InvalidValTypeMarkerError};
+
+pub mod tabletype;
+pub use tabletype::DecodeTableTypeError;
+
+pub mod valtype;
+pub use valtype::DecodeValTypeError;
+
+pub mod tagtype;
+pub use tagtype::DecodeTagTypeError;
+
+pub mod externtype;
+pub use externtype::DecodeExternTypeError;
+
+pub mod heaptype;
+pub use heaptype::{DecodeAbsHeapTypeError, DecodeHeapTypeError};
+
+pub mod comptype;
+pub use comptype::DecodeCompTypeError;
+
+pub mod rectype;
+pub use rectype::{DecodeRecTypeError, DecodeSubTypeError};

@@ -1,5 +1,4 @@
 use crate::core::Func;
-use crate::core::instruction::Instruction;
 use crate::core::{Module, SectionHeader, SectionKind};
 use crate::decode::FromMarkerByte;
 use crate::decode::integer::{DecodeU32Error, decode_u32};
@@ -69,6 +68,7 @@ impl Default for Module {
             start: None,
             imports: vec![],
             exports: vec![],
+            tags: vec![],
         }
     }
 }
@@ -84,6 +84,9 @@ impl From<u8> for InvalidSectionIdError {
 }
 
 // Valid marker bytes for [SectionKind].
+//
+// NOTE: the order of entries in this map is not significant, since section
+// ordering is enforced separately via the order of SectionKind variants.
 #[expect(non_upper_case_globals)]
 static SectionId_MARKERS: phf::OrderedMap<u8, SectionKind> = phf_ordered_map! {
             0u8 => SectionKind::Custom,
@@ -99,6 +102,7 @@ static SectionId_MARKERS: phf::OrderedMap<u8, SectionKind> = phf_ordered_map! {
             10u8 => SectionKind::Code,
             11u8 => SectionKind::Data,
             12u8 => SectionKind::DataCount,
+            13u8 => SectionKind::Tag,
 };
 
 impl FromMarkerByte for SectionKind {
@@ -194,6 +198,9 @@ pub enum DecodeModuleError {
 
     #[error(transparent)]
     DecodeDataSection(#[from] DecodeDataSectionError),
+
+    #[error(transparent)]
+    DecodeTagSection(#[from] DecodeTagSectionError),
 }
 
 /// Decode `input` into a WebAssembly [Module].
@@ -250,6 +257,9 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                 encountered_code_section = true;
 
                 let codes = decode_code_section(section_reader)?;
+
+                // Section 5.5.17: The lengths of vectors produced by the (possibly empty)
+                // function and code section must match up
                 if codes.len() != module.funcs.len() {
                     return Err(DecodeModuleError::CodeFuncEntriesLenMismatch {
                         codes_len: codes.len(),
@@ -257,6 +267,8 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                     });
                 }
 
+                // Section 5.5.17: Furthermore, it [the data count section] must be present if any
+                // data index occurs in the code section.
                 for (i, code) in codes.into_iter().enumerate() {
                     for local in code.locals {
                         for _ in 0..local.count {
@@ -264,14 +276,8 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                         }
                     }
 
-                    for instr in code.expr.iter() {
-                        match instr {
-                            Instruction::MemoryInit(_) | Instruction::DataDrop(_) => {
-                                encountered_data_idx_in_code_section = true;
-                                break;
-                            }
-                            _ => {}
-                        }
+                    if code.encountered_data_index {
+                        encountered_data_idx_in_code_section = true;
                     }
 
                     module.funcs[i].body = code.expr;
@@ -280,6 +286,8 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
             SectionKind::Data => {
                 let datas = decode_data_section(section_reader)?;
 
+                // Section 5.5.17: Similarly, the optional data count must match the length of the
+                // data segment list.
                 if let Some(data_count) = module.data_count
                     && datas.len() != usize::try_from(data_count).unwrap()
                 {
@@ -290,6 +298,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
                 }
                 module.datas = datas;
             }
+            SectionKind::Tag => module.tags = decode_tag_section(section_reader)?,
         }
 
         if section_reader.limit() != 0 {
@@ -309,7 +318,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         }
     }
 
-    // Section 5.5.16: The lengths of vectors produced by the (possibly empty)
+    // Section 5.5.17: The lengths of vectors produced by the (possibly empty)
     // function and code section must match up
     if !module.funcs.is_empty() && !encountered_code_section {
         // if we encountered a Code section, it means we already checked that
@@ -321,7 +330,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         });
     }
 
-    // Section 5.5.16: Similarly, the optional data count must match the length
+    // Section 5.5.17: Similarly, the optional data count must match the length
     // of the data segment vector
     if let Some(n) = module.data_count
         && usize::try_from(n).map_err(DecodeModuleError::DecodeDataCount)? != module.datas.len()
@@ -332,7 +341,7 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         });
     }
 
-    // Section 5.5.16: Furthermore, it must be present if any data index
+    // Section 5.5.17: Furthermore, it [the data count section] must be present if any data index
     // occurs in the code section
     if encountered_data_idx_in_code_section && module.data_count.is_none() {
         return Err(DecodeModuleError::DataIndexWithoutDataCount);

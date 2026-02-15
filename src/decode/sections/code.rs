@@ -1,6 +1,6 @@
 use crate::core::types::valtype::ValType;
-use crate::decode::helpers::{DecodeVectorError, ParseExpressionError};
-use crate::decode::helpers::{decode_expr, decode_vector};
+use crate::decode::helpers::{DecodeListError, ParseExpressionError};
+use crate::decode::helpers::{decode_expr, decode_list};
 use crate::decode::integer::{DecodeU32Error, decode_u32};
 use crate::decode::types::DecodeValTypeError;
 use std::io::Read;
@@ -9,13 +9,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeCodeSectionError {
     #[error("failed decoding Code section")]
-    DecodeVector(#[from] DecodeVectorError<DecodeCodeError>),
+    DecodeList(#[from] DecodeListError<DecodeCodeError>),
 }
 
 pub(crate) fn decode_code_section<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<Code>, DecodeCodeSectionError> {
-    Ok(decode_vector(reader, parse_code)?)
+    Ok(decode_list(reader, parse_code)?)
 }
 
 #[derive(Debug, PartialEq)]
@@ -23,6 +23,7 @@ pub(crate) struct Code {
     size: u32,
     pub(crate) locals: Vec<Local>,
     pub(crate) expr: crate::Expr,
+    pub(crate) encountered_data_index: bool,
 }
 
 #[derive(Debug, Error)]
@@ -31,7 +32,7 @@ pub enum DecodeCodeError {
     DecodeFunctionSize(DecodeU32Error),
 
     #[error("failed decoding locals vector")]
-    DecodeLocalsVector(#[from] DecodeVectorError<DecodeCodeLocalsError>),
+    DecodeLocalsVector(#[from] DecodeListError<DecodeCodeLocalsError>),
 
     #[error("failed decoding function body expression")]
     DecodeFunctionBody(#[from] ParseExpressionError),
@@ -53,11 +54,11 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
     let mut expanded_locals: u64 = 0;
     let max_locals = u64::from(u32::MAX);
 
-    let locals = decode_vector(&mut reader, |r| {
+    let locals = decode_list(&mut reader, |r| {
         parse_code_local(r, &mut expanded_locals, max_locals)
     })?;
 
-    let expr = decode_expr(&mut reader)?;
+    let (expr, encountered_data_index) = decode_expr(&mut reader)?;
 
     if reader.limit() != 0 {
         return Err(DecodeCodeError::EntrySizeMismatch {
@@ -67,7 +68,12 @@ fn parse_code<R: Read + ?Sized>(reader: &mut R) -> Result<Code, DecodeCodeError>
         });
     }
 
-    Ok(Code { size, locals, expr })
+    Ok(Code {
+        size,
+        locals,
+        expr,
+        encountered_data_index,
+    })
 }
 
 #[derive(Debug, PartialEq)]

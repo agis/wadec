@@ -1,9 +1,6 @@
 //! Type definitions for core WebAssembly types.
 //!
 //! <https://www.w3.org/TR/wasm-core-2/#types>
-pub mod functype;
-pub use functype::FuncType;
-
 pub mod globaltype;
 pub use globaltype::{GlobalType, Mut};
 
@@ -30,3 +27,21 @@ pub use valtype::ValType;
 
 pub mod vectype;
 pub use vectype::VecType;
+
+pub mod addrtype;
+pub use addrtype::AddrType;
+
+pub mod tagtype;
+pub use tagtype::TagType;
+
+pub mod externtype;
+pub use externtype::ExternType;
+
+pub mod heaptype;
+pub use heaptype::HeapType;
+
+pub mod comptype;
+pub use comptype::CompType;
+
+pub mod rectype;
+pub use rectype::{RecType, SubType};

@@ -1,5 +1,9 @@
 use std::fs::File;
 use wadec::core::SectionKind;
+use wadec::decode::instructions::CatchError;
+use wadec::decode::sections::DecodeTagSectionError;
+use wadec::decode::sections::table::DecodeTableError;
+use wadec::decode::types::{DecodeExternTypeError, DecodeTagTypeError};
 use wadec::decode_errors::*;
 use wadec::decode_module;
 
@@ -16,8 +20,8 @@ fn type_idx_error_for_overlong_function_index() {
     let err = decode_module(wasm).expect_err("overlong type index should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
             },
@@ -62,8 +66,8 @@ fn decode_i32_error_too_large() {
     let err = decode_module(wasm).expect_err("too-large i32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -90,8 +94,8 @@ fn decode_i32_error_representation_too_long() {
     let err = decode_module(wasm).expect_err("overlong i32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -117,8 +121,8 @@ fn decode_i32_error_io() {
     let err = decode_module(wasm).expect_err("truncated i32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -150,8 +154,8 @@ fn decode_i64_error_representation_too_long() {
     let err = decode_module(wasm).expect_err("overlong i64 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -178,8 +182,8 @@ fn decode_i64_error_incorrect_sign_extension() {
     let err = decode_module(wasm).expect_err("bad i64 sign extension should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -205,8 +209,8 @@ fn decode_i64_error_io() {
     let err = decode_module(wasm).expect_err("truncated i64 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -237,8 +241,8 @@ fn parse_error_read_opcode() {
     let err = decode_module(wasm).expect_err("missing opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -264,8 +268,8 @@ fn parse_error_control() {
     let err = decode_module(wasm).expect_err("invalid label index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -284,27 +288,110 @@ fn parse_error_control() {
 #[test]
 fn parse_error_reference() {
     // Sections: Type, Function, Code.
-    // Fixture: single function with ref.null using an invalid reference type marker.
-    // Spec 5.4.2 (Reference Instructions) and 5.3.3 (Reference Types): ref.null reftype marker is invalid.
-    // ref.null followed by an invalid reference type marker byte.
+    // Fixture: single function with ref.null using an invalid heap type.
+    // Spec 5.4.6 (Reference Instructions) and 5.3.3 (Heap Types): ref.null heaptype must be non-negative.
+    // ref.null followed by a negative type index (s33 = -1).
     let wasm = File::open("tests/fixtures/malformed/ref_null_invalid_marker.wasm").unwrap();
 
-    let err = decode_module(wasm).expect_err("invalid ref type marker should fail");
+    let err = decode_module(wasm).expect_err("invalid heap type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Reference(ReferenceError::RefType(
-                            DecodeRefTypeError::InvalidMarkerByte(err),
+                        ParseError::Reference(ReferenceError::HeapType(
+                            DecodeHeapTypeError::NegativeTypeIndex(n),
                         )),
                     )),
             },
         )) => {
             assert_eq!(position, 0);
-            assert_eq!(err.0, 0x00);
+            assert_eq!(n, -1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_error_reference_invalid_subopcode() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with 0xFB-prefixed instruction using an invalid sub-opcode.
+    // Spec binary instruction table: sub-opcodes 0..=30 (0x00..=0x1E) are defined; 31 is invalid.
+    // 0xFB followed by sub-opcode 31.
+    let wasm = File::open("tests/fixtures/malformed/ref_test_invalid_subopcode.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid sub-opcode should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::InvalidMarkerByteAfterFB(op),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(op, 31);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_error_control_invalid_cast_nullability_marker() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with br_on_cast using an invalid cast nullability marker.
+    // Spec 5.4.1 (Control Instructions): cast nullability marker must be 0x00..=0x03.
+    // br_on_cast followed by invalid marker byte 0x04.
+    let wasm = File::open("tests/fixtures/malformed/br_on_cast_invalid_nullability.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid cast nullability marker should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::InvalidCastNullabilityMarker(marker)),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(marker, 0x04);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_error_reference_ref_test_negative_heaptype() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with ref.test using a negative heap type index.
+    // Spec 5.4.6 (Reference Instructions) and 5.3.3 (Heap Types): heaptype must be non-negative.
+    // ref.test followed by a negative type index (s33 = -1).
+    let wasm = File::open("tests/fixtures/malformed/ref_test_negative_heaptype.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid heap type should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Reference(ReferenceError::HeapType(
+                            DecodeHeapTypeError::NegativeTypeIndex(n),
+                        )),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(n, -1);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -321,15 +408,20 @@ fn parse_error_parametric() {
     let err = decode_module(wasm).expect_err("invalid valtype in select should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Parametric(ParametricError::DecodeVector(
-                            DecodeVectorError::ParseElement {
+                        ParseError::Parametric(ParametricError::DecodeList(
+                            DecodeListError::ParseElement {
                                 position: vec_pos,
-                                source: DecodeValTypeError::InvalidMarkerByte(err),
+                                source:
+                                    DecodeValTypeError::DecodeRefType(
+                                        DecodeRefTypeError::InvalidMarkerByte(
+                                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                                        ),
+                                    ),
                             },
                         )),
                     )),
@@ -354,8 +446,8 @@ fn parse_error_variable() {
     let err = decode_module(wasm).expect_err("missing global index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -383,8 +475,8 @@ fn parse_error_table() {
     let err = decode_module(wasm).expect_err("invalid table index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -401,33 +493,6 @@ fn parse_error_table() {
 }
 
 #[test]
-fn parse_error_memory() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.size using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.size reserved byte must be 0x00; non-zero is invalid.
-    // memory.size with reserved byte set to 0x01.
-    let wasm = File::open("tests/fixtures/malformed/memory_size_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemorySizeByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
 fn parse_error_numeric() {
     // Sections: Type, Function, Code.
     // Fixture: single function with f32.const missing its 4-byte payload.
@@ -438,8 +503,8 @@ fn parse_error_numeric() {
     let err = decode_module(wasm).expect_err("truncated f32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -467,8 +532,8 @@ fn parse_error_vector() {
     let err = decode_module(wasm).expect_err("invalid vector opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -494,8 +559,8 @@ fn parse_error_invalid_opcode() {
     let err = decode_module(wasm).expect_err("invalid opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -520,8 +585,8 @@ fn parse_error_invalid_marker_after_fc() {
     let err = decode_module(wasm).expect_err("invalid FC marker should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -548,13 +613,13 @@ fn control_error_decode_label_idx_vector() {
     let err = decode_module(wasm).expect_err("overlong label index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::DecodeLabelIdxVector(
-                            DecodeVectorError::ParseElement {
+                            DecodeListError::ParseElement {
                                 position: vec_pos,
                                 source: DecodeLabelIdxError(DecodeU32Error::RepresentationTooLong),
                             },
@@ -564,6 +629,39 @@ fn control_error_decode_label_idx_vector() {
         )) => {
             assert_eq!(position, 0);
             assert_eq!(vec_pos, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+// # spec version: 3
+fn control_error_decode_catch_invalid_marker() {
+    // Sections: Type, Function, Code.
+    // Fixture: try_table with a catch entry using an invalid marker byte.
+    // Spec 5.4.1 (Control Instructions): catch marker must be 0x00, 0x01, 0x02, or 0x03.
+    let wasm = File::open("tests/fixtures/malformed/try_table_invalid_catch_marker.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid catch marker should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::DecodeCatchListError(
+                            DecodeListError::ParseElement {
+                                position: catch_pos,
+                                source: CatchError::InvalidMarkerByte(marker),
+                            },
+                        )),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(catch_pos, 0);
+            assert_eq!(marker, 0x04);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -580,8 +678,8 @@ fn control_error_table_idx() {
     let err = decode_module(wasm).expect_err("overlong table index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -608,8 +706,8 @@ fn control_error_type_idx() {
     let err = decode_module(wasm).expect_err("overlong type index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -636,8 +734,8 @@ fn control_error_block_type() {
     let err = decode_module(wasm).expect_err("missing block type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -665,8 +763,83 @@ fn control_error_unexpected_else() {
     let err = decode_module(wasm).expect_err("double else should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::UnexpectedElse),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn control_error_unexpected_else_in_block() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with a block containing an unexpected else opcode.
+    // Spec 5.4.1 (Control Instructions): else is only valid in if; block bodies are terminated by end.
+    let wasm = File::open("tests/fixtures/malformed/block_unexpected_else.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("unexpected else in block should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::UnexpectedElse),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn control_error_unexpected_else_in_loop() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with a loop containing an unexpected else opcode.
+    // Spec 5.4.1 (Control Instructions): else is only valid in if; loop bodies are terminated by end.
+    let wasm = File::open("tests/fixtures/malformed/loop_unexpected_else.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("unexpected else in loop should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::UnexpectedElse),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn control_error_unexpected_else_in_try_table() {
+    // Sections: Type, Function, Code.
+    // Fixture: single function with a try_table body containing an unexpected else opcode.
+    // Spec 5.4.1 (Control Instructions): try_table bodies are terminated by end; else is not part of try_table syntax.
+    let wasm = File::open("tests/fixtures/malformed/try_table_unexpected_else.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("unexpected else in try_table should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -691,8 +864,8 @@ fn reference_error_func_idx() {
     let err = decode_module(wasm).expect_err("overlong ref.func index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -719,8 +892,8 @@ fn func_idx_error_for_overlong_call_instruction() {
     let err = decode_module(wasm).expect_err("overlong func idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -747,8 +920,8 @@ fn table_idx_error_for_overlong_table_get_instruction() {
     let err = decode_module(wasm).expect_err("overlong table idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -775,8 +948,8 @@ fn mem_idx_error_for_overlong_data_segment_memory_index() {
     let err = decode_module(wasm).expect_err("overlong mem idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeMemIdx(DecodeMemIdxError(
@@ -800,8 +973,8 @@ fn global_idx_error_for_overlong_global_get_instruction() {
     let err = decode_module(wasm).expect_err("overlong global idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -827,8 +1000,8 @@ fn elem_idx_error_for_overlong_elem_drop_instruction() {
     let err = decode_module(wasm).expect_err("overlong elem idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -854,8 +1027,8 @@ fn data_idx_error_for_overlong_data_drop_instruction() {
     let err = decode_module(wasm).expect_err("overlong data idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -881,8 +1054,8 @@ fn local_idx_error_for_overlong_local_get_instruction() {
     let err = decode_module(wasm).expect_err("overlong local idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -908,8 +1081,8 @@ fn label_idx_error_for_overlong_br_instruction() {
     let err = decode_module(wasm).expect_err("overlong label idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -935,8 +1108,8 @@ fn decode_u32_error_too_large_for_type_section_length() {
     let err = decode_module(wasm).expect_err("too-large vector length should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::DecodeLength(u32_err),
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
+            DecodeListError::DecodeLength(u32_err),
         )) => {
             assert!(
                 matches!(u32_err, DecodeU32Error::TooLarge),
@@ -980,15 +1153,20 @@ fn parametric_error_decode_vector_invalid_valtype() {
     let err = decode_module(wasm).expect_err("invalid type vector in select should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Parametric(ParametricError::DecodeVector(
-                            DecodeVectorError::ParseElement {
+                        ParseError::Parametric(ParametricError::DecodeList(
+                            DecodeListError::ParseElement {
                                 position: vec_pos,
-                                source: DecodeValTypeError::InvalidMarkerByte(err),
+                                source:
+                                    DecodeValTypeError::DecodeRefType(
+                                        DecodeRefTypeError::InvalidMarkerByte(
+                                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                                        ),
+                                    ),
                             },
                         )),
                     )),
@@ -1014,8 +1192,8 @@ fn memory_error_decode_memarg_missing_offset() {
     let err = decode_module(wasm).expect_err("missing memarg offset should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1025,197 +1203,11 @@ fn memory_error_decode_memarg_missing_offset() {
         )) => {
             assert_eq!(position, 0);
             match memarg_err {
-                MemargError::Offset(DecodeU32Error::Io(io_err)) => {
+                MemargError::Offset(DecodeU64Error::Io(io_err)) => {
                     assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
                 }
                 other => panic!("expected offset decoding failure, got {other:?}"),
             }
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_read_reserved_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.size missing its reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.size immediate includes a reserved byte; it is missing.
-    // memory.size without the required reserved byte.
-    let wasm =
-        File::open("tests/fixtures/malformed/memory_size_missing_reserved_byte.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("missing reserved byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::ReadReservedByte(io_err)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_read_reserved_bytes() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.copy missing its two reserved bytes.
-    // Spec 5.4.6 (Memory Instructions): memory.copy has two reserved zero bytes; both are missing.
-    // memory.copy with the two reserved bytes missing entirely.
-    let wasm =
-        File::open("tests/fixtures/malformed/memory_copy_missing_reserved_bytes.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("missing reserved bytes should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::ReadReservedBytes(io_err)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_size_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.size using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.size reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_size_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemorySizeByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_grow_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.grow using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.grow reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_grow_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved grow byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryGrowByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_init_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.init using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.init reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_init_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved init byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryInitByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_copy_bytes() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.copy using non-zero reserved bytes.
-    // Spec 5.4.6 (Memory Instructions): memory.copy reserved bytes must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_copy_reserved_wrong.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved bytes should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryCopyBytes(bytes)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(bytes, [0x00, 0x01]);
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn memory_error_invalid_memory_fill_byte() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with memory.fill using a non-zero reserved byte.
-    // Spec 5.4.6 (Memory Instructions): memory.fill reserved byte must be 0x00; non-zero is invalid.
-    let wasm = File::open("tests/fixtures/malformed/memory_fill_reserved_nonzero.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("non-zero reserved fill byte should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Memory(MemoryError::InvalidMemoryFillByte(b)),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert_eq!(b, 0x01);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -1231,8 +1223,8 @@ fn numeric_error_read_opcode_truncated_fc_prefix() {
     let err = decode_module(wasm).expect_err("truncated 0xFC opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1262,8 +1254,8 @@ fn numeric_error_decode_f32_truncated_payload() {
     let err = decode_module(wasm).expect_err("truncated f32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1292,8 +1284,8 @@ fn numeric_error_decode_f64_truncated_payload() {
     let err = decode_module(wasm).expect_err("truncated f64 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1322,8 +1314,8 @@ fn vector_error_read_opcode_truncated() {
     let err = decode_module(wasm).expect_err("truncated vector opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1353,13 +1345,13 @@ fn vector_error_memarg_offset_missing() {
     let err = decode_module(wasm).expect_err("missing memarg offset should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Vector(VectorError::Memarg(MemargError::Offset(
-                            DecodeU32Error::Io(io_err),
+                            DecodeU64Error::Io(io_err),
                         ))),
                     )),
             },
@@ -1381,8 +1373,8 @@ fn vector_error_laneidx_missing() {
     let err = decode_module(wasm).expect_err("missing lane idx should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1407,8 +1399,8 @@ fn vector_error_read_immediate_bytes() {
     let err = decode_module(wasm).expect_err("truncated vector immediate should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1433,8 +1425,8 @@ fn vector_error_invalid_opcode() {
     let err = decode_module(wasm).expect_err("invalid vector opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1459,8 +1451,8 @@ fn memarg_error_align_missing() {
     let err = decode_module(wasm).expect_err("missing memarg align should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1478,6 +1470,35 @@ fn memarg_error_align_missing() {
 }
 
 #[test]
+// # spec version: 3
+fn memarg_error_invalid_flags_bit() {
+    // Sections: Type, Function, Memory, Code.
+    // Fixture: single function with a memory instruction whose memarg flags use a reserved bit.
+    // Spec 5.4.6 (Memory Instructions): memarg flags must fit within 7 bits; bit 7 is invalid.
+    let wasm = File::open("tests/fixtures/malformed/memarg_invalid_flags_bit.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid memarg flags should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Memory(MemoryError::DecodeMemarg(
+                            MemargError::InvalidFlagsBit(flags),
+                        )),
+                    )),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(flags, 128);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn lane_idx_error_missing_byte() {
     // Sections: Type, Function, Code.
     // Fixture: single function with a vector instruction missing its lane index.
@@ -1487,8 +1508,8 @@ fn lane_idx_error_missing_byte() {
     let err = decode_module(wasm).expect_err("missing lane idx should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1513,8 +1534,8 @@ fn block_type_error_read_marker_byte() {
     let err = decode_module(wasm).expect_err("missing block type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1541,13 +1562,13 @@ fn block_type_error_decode_index_truncated() {
     let err = decode_module(wasm).expect_err("truncated block type index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
                         ParseError::Control(ControlError::BlockType(BlockTypeError::DecodeIndex(
-                            DecodeI64Error::Io(io_err),
+                            DecodeS33Error::Io(io_err),
                         ))),
                     )),
             },
@@ -1569,8 +1590,8 @@ fn block_type_error_negative_type_index() {
     let err = decode_module(wasm).expect_err("negative block type index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -1588,48 +1609,20 @@ fn block_type_error_negative_type_index() {
 }
 
 #[test]
-fn block_type_error_type_index_too_large() {
-    // Sections: Type, Function, Code.
-    // Fixture: single function with a block type index encoded too large for u32.
-    // Spec 5.4.1 (Control Instructions) and 5.5.1 (Indices): blocktype encodes a type index as s33; this value exceeds u32 range.
-    let wasm = File::open("tests/fixtures/malformed/blocktype_index_too_large.wasm").unwrap();
-
-    let err = decode_module(wasm).expect_err("too-large block type index should fail");
-
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
-                position,
-                source:
-                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Control(ControlError::BlockType(
-                            BlockTypeError::TypeIndexTooLarge(n),
-                        )),
-                    )),
-            },
-        )) => {
-            assert_eq!(position, 0);
-            assert!(n > i64::from(u32::MAX));
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
-}
-
-#[test]
-fn decode_func_type_error_read_marker_byte() {
+fn decode_rec_type_error_read_marker_byte() {
     // Sections: Type.
-    // Fixture: type section functype marker byte is missing.
-    // Spec 5.5.4 (Type Section): functype marker byte 0x60 is missing.
+    // Fixture: type section recursive type marker byte is missing.
+    // Spec 5.5.4 (Type Section): rectype entry marker byte is missing.
     let wasm =
-        File::open("tests/fixtures/malformed/type_section_functype_marker_missing.wasm").unwrap();
+        File::open("tests/fixtures/malformed/type_section_comptype_marker_missing.wasm").unwrap();
 
-    let err = decode_module(wasm).expect_err("missing functype marker should fail");
+    let err = decode_module(wasm).expect_err("missing rectype marker should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeFuncTypeError::ReadMarkerByte(io_err),
+                source: DecodeRecTypeError::Io(io_err),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1640,20 +1633,24 @@ fn decode_func_type_error_read_marker_byte() {
 }
 
 #[test]
-fn decode_func_type_error_invalid_marker_byte() {
+fn decode_rec_type_error_invalid_marker_byte() {
     // Sections: Type.
-    // Fixture: type section functype marker is invalid.
-    // Spec 5.5.4 (Type Section): functype entries must start with 0x60; this marker is invalid.
+    // Fixture: type section composite type marker is invalid.
+    // Spec 5.5.4 (Type Section) and 5.3.7 (Composite Types): composite type entries must start
+    // with 0x5E/0x5F/0x60; this marker is invalid.
     let wasm =
-        File::open("tests/fixtures/malformed/type_section_functype_invalid_marker.wasm").unwrap();
+        File::open("tests/fixtures/malformed/type_section_comptype_invalid_marker.wasm").unwrap();
 
-    let err = decode_module(wasm).expect_err("invalid functype marker should fail");
+    let err = decode_module(wasm).expect_err("invalid composite type marker should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeFuncTypeError::InvalidMarkerByte(b),
+                source:
+                    DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                        DecodeCompTypeError::InvalidMarkerByte(b),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1664,25 +1661,33 @@ fn decode_func_type_error_invalid_marker_byte() {
 }
 
 #[test]
-fn decode_func_type_error_parameter_types_invalid_valtype() {
+fn decode_rec_type_error_parameter_types_invalid_valtype() {
     // Sections: Type.
     // Fixture: type section parameter list contains an invalid value type.
-    // Spec 5.5.4 (Type Section) and 5.3.4 (Value Types): parameter valtype marker is invalid.
+    // Spec 5.5.4 (Type Section), 5.3.7 (Composite Types), and 5.3.5 (Value Types):
+    // parameter valtype marker is invalid.
     let wasm =
         File::open("tests/fixtures/malformed/type_section_param_invalid_valtype.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("invalid parameter valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeFuncTypeError::DecodeParameterTypes(DecodeResultTypeError::DecodeVector(
-                        DecodeVectorError::ParseElement {
-                            position: inner_pos,
-                            source: DecodeValTypeError::InvalidMarkerByte(err),
-                        },
+                    DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                        DecodeCompTypeError::DecodeFuncParameters(
+                            DecodeResultTypeError::DecodeList(DecodeListError::ParseElement {
+                                position: inner_pos,
+                                source:
+                                    DecodeValTypeError::DecodeRefType(
+                                        DecodeRefTypeError::InvalidMarkerByte(
+                                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                                        ),
+                                    ),
+                            }),
+                        ),
                     )),
             },
         )) => {
@@ -1695,25 +1700,28 @@ fn decode_func_type_error_parameter_types_invalid_valtype() {
 }
 
 #[test]
-fn decode_func_type_error_result_types_truncated() {
+fn decode_rec_type_error_result_types_truncated() {
     // Sections: Type.
     // Fixture: type section result type marker is truncated.
-    // Spec 5.5.4 (Type Section) and 5.3.4 (Value Types): result valtype marker is truncated.
+    // Spec 5.5.4 (Type Section), 5.3.7 (Composite Types), and 5.3.5 (Value Types):
+    // result valtype marker is truncated.
     let wasm =
         File::open("tests/fixtures/malformed/type_section_result_valtype_truncated.wasm").unwrap();
 
     let err = decode_module(wasm).expect_err("truncated result valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeFuncTypeError::DecodeResultTypes(DecodeResultTypeError::DecodeVector(
-                        DecodeVectorError::ParseElement {
-                            position: inner_pos,
-                            source: DecodeValTypeError::Io(io_err),
-                        },
+                    DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
+                        DecodeCompTypeError::DecodeFuncResults(DecodeResultTypeError::DecodeList(
+                            DecodeListError::ParseElement {
+                                position: inner_pos,
+                                source: DecodeValTypeError::Io(io_err),
+                            },
+                        )),
                     )),
             },
         )) => {
@@ -1735,10 +1743,15 @@ fn decode_table_error_invalid_reftype_marker() {
     let err = decode_module(wasm).expect_err("invalid table reftype should fail");
 
     match err {
-        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(err)),
+                source:
+                    DecodeTableError::DecodeTableType(DecodeTableTypeError::DecodeRefType(
+                        DecodeRefTypeError::InvalidMarkerByte(
+                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                        ),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1758,10 +1771,10 @@ fn decode_table_error_reftype_truncated() {
     let err = decode_module(wasm).expect_err("truncated table reftype should fail");
 
     match err {
-        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeTableError::DecodeRefType(DecodeRefTypeError::Io(io_err)),
+                source: DecodeTableError::Io(io_err),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1782,11 +1795,13 @@ fn decode_table_error_limits_invalid_flag() {
     let err = decode_module(wasm).expect_err("invalid table limits flag should fail");
 
     match err {
-        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeTableError::DecodeLimits(ParseLimitsError::UnexpectedMaxLimitByte(0x02)),
+                    DecodeTableError::DecodeTableType(DecodeTableTypeError::DecodeLimits(
+                        ParseLimitsError::UnexpectedFlagByte(0x02),
+                    )),
             },
         )) => assert_eq!(position, 0),
         other => panic!("unexpected error: {other:?}"),
@@ -1803,10 +1818,10 @@ fn decode_memory_type_error_missing_limits_byte() {
     let err = decode_module(wasm).expect_err("missing limits should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeMemoryTypeError(ParseLimitsError::DetermineMaxLimitPresence(io_err)),
+                source: DecodeMemoryTypeError(ParseLimitsError::ReadFlagByte(io_err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1827,10 +1842,10 @@ fn decode_memory_type_error_unexpected_max_limit_byte() {
     let err = decode_module(wasm).expect_err("unexpected limits flag should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeMemoryTypeError(ParseLimitsError::UnexpectedMaxLimitByte(0x02)),
+                source: DecodeMemoryTypeError(ParseLimitsError::UnexpectedFlagByte(0x02)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1849,11 +1864,11 @@ fn decode_memory_type_error_missing_min_limit() {
     let err = decode_module(wasm).expect_err("missing min limit should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeMemoryTypeError(ParseLimitsError::ReadMinLimit(DecodeU32Error::Io(io_err))),
+                    DecodeMemoryTypeError(ParseLimitsError::ReadMinLimit(DecodeU64Error::Io(io_err))),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1873,11 +1888,11 @@ fn decode_memory_type_error_missing_max_limit() {
     let err = decode_module(wasm).expect_err("missing max limit should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeMemoryTypeError(ParseLimitsError::ReadMaxLimit(DecodeU32Error::Io(io_err))),
+                    DecodeMemoryTypeError(ParseLimitsError::ReadMaxLimit(DecodeU64Error::Io(io_err))),
             },
         )) => {
             assert_eq!(position, 0);
@@ -1897,12 +1912,14 @@ fn decode_global_type_error_invalid_valtype() {
     let err = decode_module(wasm).expect_err("invalid global valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::DecodeValueType(
-                        DecodeValTypeError::InvalidMarkerByte(err),
+                        DecodeValTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(
+                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                        )),
                     )),
             },
         )) => {
@@ -1924,8 +1941,8 @@ fn decode_global_type_error_missing_mutability() {
     let err = decode_module(wasm).expect_err("missing mutability should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::DecodeMutability(io_err)),
@@ -1949,8 +1966,8 @@ fn decode_global_type_error_invalid_mutability() {
     let err = decode_module(wasm).expect_err("invalid mutability should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeGlobalType(DecodeGlobalTypeError::InvalidMutability(err)),
@@ -1999,7 +2016,7 @@ fn parse_preamble_error_unexpected() {
 
 #[test]
 fn decode_section_header_error_invalid_section_id() {
-    // Sections: invalid section id 0x0d.
+    // Sections: invalid section id 0x0e.
     // Fixture: module starts with an invalid section id.
     // Spec 5.5.2 (Sections): section id must be one of the defined values; this id is invalid.
     let wasm = File::open("tests/fixtures/malformed/invalid_section_id.wasm").unwrap();
@@ -2008,7 +2025,7 @@ fn decode_section_header_error_invalid_section_id() {
 
     match err {
         DecodeModuleError::DecodeSectionHeader(DecodeSectionHeaderError::InvalidSectionId(err)) => {
-            assert_eq!(err.0, 0x0D);
+            assert_eq!(err.0, 0x0E);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -2148,6 +2165,26 @@ fn decode_module_data_index_without_data_count() {
 }
 
 #[test]
+fn decode_module_data_index_without_data_count_nested_controls() {
+    // Sections: Type, Function, Code.
+    // Fixture: dataidx-carrying instructions occur only at 4 nested control levels:
+    // block -> loop -> if -> try_table (in both if branches).
+    // There are no dataidx-carrying instructions at shallower nesting levels.
+    // The function includes memory.init, data.drop, array.new_data and array.init_data.
+    // Spec 5.5.17 (Modules): a data count section is required if any data index occurs in code.
+    let wasm =
+        File::open("tests/fixtures/malformed/data_index_without_data_count_nested_controls.wasm")
+            .unwrap();
+
+    let err = decode_module(wasm).expect_err("nested data indices without data count should fail");
+
+    match err {
+        DecodeModuleError::DataIndexWithoutDataCount => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn decode_custom_section_error_decode_name_length() {
     // Sections: Custom.
     // Fixture: custom section name length encoded with overlong LEB128.
@@ -2214,8 +2251,8 @@ fn decode_import_section_error_module_name() {
     let err = decode_module(wasm).expect_err("invalid import module name should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeImportError::DecodeModuleName(DecodeNameError::DecodeByteVector(
@@ -2240,10 +2277,10 @@ fn decode_import_section_error_entity_name_utf8() {
     let err = decode_module(wasm).expect_err("invalid import entity name should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::DecodeName(DecodeNameError::Utf8(err)),
+                source: DecodeImportError::DecodeItemName(DecodeNameError::Utf8(err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2265,10 +2302,11 @@ fn decode_import_error_descriptor_missing_byte() {
     let err = decode_module(wasm).expect_err("missing import descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::ReadDescriptorMarkerByte(io_err),
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::ReadMarkerByte(io_err)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2288,10 +2326,11 @@ fn decode_import_error_invalid_descriptor() {
     let err = decode_module(wasm).expect_err("invalid import descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
-                source: DecodeImportError::InvalidDescriptorMarkerByte(b),
+                source:
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::InvalidMarkerByte(b)),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2311,11 +2350,13 @@ fn decode_import_error_typeidx_overlong() {
     let err = decode_module(wasm).expect_err("overlong import type idx should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeImportError::DecodeTypeIdx(DecodeTypeIdxError(DecodeU32Error::TooLarge)),
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeTypeIndex(
+                        DecodeTypeIdxError(DecodeU32Error::TooLarge),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2334,12 +2375,14 @@ fn decode_import_error_table_invalid_reftype() {
     let err = decode_module(wasm).expect_err("invalid import table reftype should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeImportError::DecodeTable(DecodeTableError::DecodeRefType(
-                        DecodeRefTypeError::InvalidMarkerByte(err),
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeTableType(
+                        DecodeTableTypeError::DecodeRefType(DecodeRefTypeError::InvalidMarkerByte(
+                            DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                        )),
                     )),
             },
         )) => {
@@ -2360,12 +2403,12 @@ fn decode_import_error_memory_invalid_limits() {
     let err = decode_module(wasm).expect_err("invalid import memory limits should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeImportError::DecodeMemType(DecodeMemoryTypeError(
-                        ParseLimitsError::UnexpectedMaxLimitByte(0x02),
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeMemoryType(
+                        DecodeMemoryTypeError(ParseLimitsError::UnexpectedFlagByte(0x02)),
                     )),
             },
         )) => {
@@ -2386,11 +2429,13 @@ fn decode_import_error_global_invalid_mutability() {
     let err = decode_module(wasm).expect_err("invalid import global mutability should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeImportError::DecodeGlobalType(DecodeGlobalTypeError::InvalidMutability(err)),
+                    DecodeImportError::DecodeExternType(DecodeExternTypeError::DecodeGlobalType(
+                        DecodeGlobalTypeError::InvalidMutability(err),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2410,8 +2455,8 @@ fn decode_export_section_error_name_decode() {
     let err = decode_module(wasm).expect_err("invalid export name should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeExportError::DecodeName(DecodeNameError::DecodeByteVector(
@@ -2435,8 +2480,8 @@ fn decode_export_error_descriptor_missing_byte() {
     let err = decode_module(wasm).expect_err("missing export descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::ReadDescriptorMarkerByte(io_err),
             },
@@ -2458,8 +2503,8 @@ fn decode_export_error_index_decode() {
     let err = decode_module(wasm).expect_err("overlong export index should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::DecodeIndex(u32_err),
             },
@@ -2484,8 +2529,8 @@ fn decode_export_error_invalid_descriptor() {
     let err = decode_module(wasm).expect_err("invalid export descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::InvalidDescriptorMarkerByte(err),
             },
@@ -2525,8 +2570,8 @@ fn decode_code_error_function_size_truncated() {
     let err = decode_module(wasm).expect_err("missing code size should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeCodeError::DecodeFunctionSize(u32_err),
             },
@@ -2555,11 +2600,11 @@ fn decode_code_error_locals_vector_length_overlong() {
     let err = decode_module(wasm).expect_err("overlong locals vector length should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::DecodeLength(
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::DecodeLength(
                         DecodeU32Error::RepresentationTooLong,
                     )),
             },
@@ -2579,11 +2624,11 @@ fn decode_code_locals_error_count_out_of_bounds() {
     let err = decode_module(wasm).expect_err("too many locals should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::ParseElement {
                         position: locals_position,
                         source:
                             DecodeCodeLocalsError::LocalsCountOutOfBound {
@@ -2613,11 +2658,11 @@ fn decode_code_locals_error_decode_count() {
     let err = decode_module(wasm).expect_err("truncated locals count should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::ParseElement {
                         position: locals_position,
                         source: DecodeCodeLocalsError::DecodeLocalsCount(DecodeU32Error::Io(io_err)),
                     }),
@@ -2642,15 +2687,19 @@ fn decode_code_error_local_valtype_invalid() {
     let err = decode_module(wasm).expect_err("invalid local valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeCodeError::DecodeLocalsVector(DecodeVectorError::ParseElement {
+                    DecodeCodeError::DecodeLocalsVector(DecodeListError::ParseElement {
                         position: locals_position,
                         source:
                             DecodeCodeLocalsError::DecodeLocalValType(
-                                DecodeValTypeError::InvalidMarkerByte(err),
+                                DecodeValTypeError::DecodeRefType(
+                                    DecodeRefTypeError::InvalidMarkerByte(
+                                        DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                                    ),
+                                ),
                             ),
                     }),
             },
@@ -2674,8 +2723,8 @@ fn decode_code_error_entry_size_mismatch() {
     let err = decode_module(wasm).expect_err("entry size mismatch should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::EntrySizeMismatch {
@@ -2704,8 +2753,8 @@ fn parse_expression_error_unexpected_else() {
     let err = decode_module(wasm).expect_err("unexpected else should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeCodeError::DecodeFunctionBody(ParseExpressionError::UnexpectedElse),
             },
@@ -2726,8 +2775,8 @@ fn decode_element_section_error_bitfield_decode() {
     let err = decode_module(wasm).expect_err("element bitfield decode should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::DecodeBitfield(DecodeU32Error::RepresentationTooLong),
             },
@@ -2746,8 +2795,8 @@ fn decode_element_error_invalid_bitfield() {
     let err = decode_module(wasm).expect_err("invalid element bitfield should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::InvalidBitfield(n),
             },
@@ -2769,8 +2818,8 @@ fn decode_element_error_offset_expression() {
     let err = decode_module(wasm).expect_err("missing offset expr should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeOffsetExpression(ParseExpressionError::ParseInstruction(
@@ -2795,8 +2844,8 @@ fn decode_element_error_elemkind_invalid() {
     let err = decode_module(wasm).expect_err("invalid element kind should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeElementKind(DecodeElementKindError::InvalidElemKind(0x01)),
@@ -2818,8 +2867,8 @@ fn decode_element_error_elemkind_io() {
     let err = decode_module(wasm).expect_err("missing elemkind byte should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::DecodeElementKind(DecodeElementKindError::Io(io_err)),
             },
@@ -2841,11 +2890,13 @@ fn decode_element_error_reference_type_invalid() {
     let err = decode_module(wasm).expect_err("invalid element ref type should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeElementError::DecodeReferenceType(DecodeRefTypeError::InvalidMarkerByte(err)),
+                    DecodeElementError::DecodeReferenceType(DecodeRefTypeError::InvalidMarkerByte(
+                        DecodeAbsHeapTypeError::InvalidMarkerByte(err),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);
@@ -2865,11 +2916,11 @@ fn decode_element_error_init_decode_length() {
     let err = decode_module(wasm).expect_err("invalid element init vector should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeElementError::DecodeInit(DecodeVectorError::DecodeLength(
+                    DecodeElementError::DecodeInit(DecodeListError::DecodeLength(
                         DecodeU32Error::RepresentationTooLong,
                     )),
             },
@@ -2890,11 +2941,11 @@ fn decode_element_error_funcidx_vector_overlong() {
     let err = decode_module(wasm).expect_err("overlong funcidx vector should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
-                    DecodeElementError::DecodeFuncIdxVector(DecodeVectorError::ParseElement {
+                    DecodeElementError::DecodeFuncIdxVector(DecodeListError::ParseElement {
                         position: func_pos,
                         source: DecodeFuncIdxError(DecodeU32Error::TooLarge),
                     }),
@@ -2917,8 +2968,8 @@ fn decode_element_error_table_idx_overlong() {
     let err = decode_module(wasm).expect_err("overlong table idx should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeTableIdx(DecodeTableIdxError(DecodeU32Error::TooLarge)),
@@ -2941,8 +2992,8 @@ fn decode_element_error_expression_missing_opcode() {
     let err = decode_module(wasm).expect_err("missing element expression should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeElementError::DecodeElementExpression(ParseExpressionError::ParseInstruction(
@@ -2967,8 +3018,8 @@ fn decode_data_section_error_bitfield_decode() {
     let err = decode_module(wasm).expect_err("data bitfield decode should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeBitfield(DecodeU32Error::RepresentationTooLong),
@@ -2990,8 +3041,8 @@ fn decode_data_section_error_invalid_bitfield() {
     let err = decode_module(wasm).expect_err("invalid data bitfield should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeDataSegmentError::InvalidBitfield(n),
             },
@@ -3013,8 +3064,8 @@ fn decode_data_section_error_offset_expr_missing() {
     let err = decode_module(wasm).expect_err("missing data offset expr should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeOffsetExpr(ParseExpressionError::ParseInstruction(
@@ -3039,8 +3090,8 @@ fn decode_data_section_error_init_vector_truncated() {
     let err = decode_module(wasm).expect_err("truncated data init vector should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeDataSegmentError::DecodeInitVector(DecodeByteVectorError::ReadElements(
@@ -3085,8 +3136,8 @@ fn decode_global_error_init_missing_expr() {
     let err = decode_module(wasm).expect_err("missing global init should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeGlobalError::DecodeInit(ParseExpressionError::ParseInstruction(
@@ -3096,6 +3147,29 @@ fn decode_global_error_init_missing_expr() {
         )) => {
             assert_eq!(position, 0);
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn decode_tag_section_error_invalid_marker() {
+    // Sections: Type, Tag.
+    // Fixture: tag section entry has an invalid tagtype marker byte.
+    // Spec 5.3.10 (Tag Types): tagtype must begin with 0x00.
+    let wasm = File::open("tests/fixtures/malformed/tag_section_invalid_marker.wasm").unwrap();
+
+    let err = decode_module(wasm).expect_err("invalid tagtype marker should fail");
+
+    match err {
+        DecodeModuleError::DecodeTagSection(DecodeTagSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source: DecodeTagTypeError::InvalidMarkerByte(byte),
+            },
+        )) => {
+            assert_eq!(position, 0);
+            assert_eq!(byte, 0x01);
         }
         other => panic!("unexpected error: {other:?}"),
     }

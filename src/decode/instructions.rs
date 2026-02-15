@@ -2,16 +2,16 @@
 //!
 //! Defined in <https://www.w3.org/TR/wasm-core-2/#instructions>
 use crate::core::indices::*;
-use crate::core::instruction::{BlockType, Instruction, LaneIdx, Memarg};
-use crate::core::types::{reftype::RefType, valtype::ValType};
-use crate::decode::FromMarkerByte;
-use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeVectorError};
-use crate::decode::helpers::{decode_f32, decode_f64, decode_vector};
+use crate::core::instruction::{BlockType, Catch, Instruction, LaneIdx, Memarg};
+use crate::core::types::{heaptype::HeapType, reftype::RefType, valtype::ValType};
+use crate::decode::helpers::{DecodeFloat32Error, DecodeFloat64Error, DecodeListError};
+use crate::decode::helpers::{decode_f32, decode_f64, decode_list};
 use crate::decode::indices::*;
 use crate::decode::integer::{
-    DecodeI32Error, DecodeI64Error, DecodeU32Error, decode_i32, decode_i64, decode_u32,
+    DecodeI32Error, DecodeI64Error, DecodeS33Error, DecodeU32Error, DecodeU64Error, decode_i32,
+    decode_i64, decode_s33, decode_u32, decode_u64,
 };
-use crate::decode::types::{DecodeRefTypeError, DecodeValTypeError};
+use crate::decode::types::{DecodeHeapTypeError, DecodeValTypeError};
 use crate::read_byte;
 use std::io::{self, Cursor, Read};
 use thiserror::Error;
@@ -26,6 +26,9 @@ pub enum ParseError {
 
     #[error("failed decoding reference instruction")]
     Reference(#[from] ReferenceError),
+
+    #[error("failed decoding aggregate instruction")]
+    Aggregate(#[from] AggregateError),
 
     #[error("failed decoding parametric instruction")]
     Parametric(#[from] ParametricError),
@@ -50,6 +53,9 @@ pub enum ParseError {
 
     #[error("unexpected opcode after 0xFC marker byte: {0:#04X}")]
     InvalidMarkerByteAfterFC(u32),
+
+    #[error("unexpected opcode after 0xFB marker byte: {0:#04X}")]
+    InvalidMarkerByteAfterFB(u32),
 }
 
 #[derive(Debug, Error)]
@@ -58,7 +64,7 @@ pub enum ControlError {
     LabelIdx(#[from] DecodeLabelIdxError),
 
     #[error("failed decoding label index")]
-    DecodeLabelIdxVector(#[from] DecodeVectorError<DecodeLabelIdxError>),
+    DecodeLabelIdxVector(#[from] DecodeListError<DecodeLabelIdxError>),
 
     #[error("failed decoding function index")]
     FuncIdx(DecodeFuncIdxError),
@@ -69,26 +75,62 @@ pub enum ControlError {
     #[error("failed decoding type index")]
     TypeIdx(DecodeTypeIdxError),
 
+    #[error("failed decoding tag index")]
+    TagIdx(DecodeTagIdxError),
+
+    #[error("failed decoding Catch list")]
+    DecodeCatchListError(#[from] DecodeListError<CatchError>),
+
     #[error("failed decoding block type")]
     BlockType(BlockTypeError),
 
     #[error("unexpected `Else` token")]
     UnexpectedElse,
+
+    #[error("failed decoding nullability for cast operation")]
+    ReadCastNullabilityMarker(io::Error),
+
+    #[error("invalid cast operation marker byte: expected 0x00, 0x01, 0x02 or 0x03; got {0:#04X}")]
+    InvalidCastNullabilityMarker(u8),
+
+    #[error("failed decoding heap type for cast operation")]
+    HeapType(#[from] DecodeHeapTypeError),
 }
 
 #[derive(Debug, Error)]
 pub enum ReferenceError {
-    #[error("failed decoding reference type")]
-    RefType(DecodeRefTypeError),
+    #[error("failed decoding heap type")]
+    HeapType(DecodeHeapTypeError),
 
     #[error("failed decoding function index")]
     FuncIdx(DecodeFuncIdxError),
+
+    #[error("failed reading sub-opcode")]
+    ReadSubOpcode(DecodeU32Error),
+}
+
+#[derive(Debug, Error)]
+pub enum AggregateError {
+    #[error("failed decoding type index")]
+    TypeIdx(DecodeTypeIdxError),
+
+    #[error("failed decoding field index")]
+    FieldIndex(DecodeU32Error),
+
+    #[error("failed decoding data index")]
+    DataIdx(DecodeDataIdxError),
+
+    #[error("failed decoding element index")]
+    ElemIdx(DecodeElemIdxError),
+
+    #[error("failed decoding array fixed length")]
+    ArrayFixedLength(DecodeU32Error),
 }
 
 #[derive(Debug, Error)]
 pub enum ParametricError {
     #[error("failed decoding value type vector")]
-    DecodeVector(#[from] DecodeVectorError<DecodeValTypeError>),
+    DecodeList(#[from] DecodeListError<DecodeValTypeError>),
 }
 
 #[derive(Debug, Error)]
@@ -117,26 +159,8 @@ pub enum MemoryError {
     #[error("failed decoding data index")]
     DecodeDataIdx(DecodeDataIdxError),
 
-    #[error("failed reading reserved byte")]
-    ReadReservedByte(io::Error),
-
-    #[error("failed reading reserved bytes")]
-    ReadReservedBytes(io::Error),
-
-    #[error("unexpected byte {0:#04X} for memory.size")]
-    InvalidMemorySizeByte(u8),
-
-    #[error("unexpected byte {0:#04X} for memory.grow")]
-    InvalidMemoryGrowByte(u8),
-
-    #[error("unexpected byte {0:#04X} for memory.init")]
-    InvalidMemoryInitByte(u8),
-
-    #[error("unexpected bytes {0:?} for memory.copy")]
-    InvalidMemoryCopyBytes([u8; 2]),
-
-    #[error("unexpected byte {0:#04X} for memory.fill")]
-    InvalidMemoryFillByte(u8),
+    #[error("failed decoding memory index")]
+    DecodeMemIdx(DecodeMemIdxError),
 }
 
 #[derive(Debug, Error)]
@@ -184,9 +208,16 @@ impl Instruction {
             0x0B => return Ok(ParseResult::End),
             0x05 => return Ok(ParseResult::Else),
 
-            // --- Control instructions (5.4.1) ---
+            // --- Parametric instructions ---
             0x00 => Instruction::Unreachable,
             0x01 => Instruction::Nop,
+            0x1A => Instruction::Drop,
+            0x1B => Instruction::Select(None),
+            0x1C => Instruction::Select(Some(
+                decode_list(reader, ValType::decode).map_err(ParametricError::DecodeList)?,
+            )),
+
+            // --- Control instructions ---
             op @ 0x02..=0x04 => {
                 let bt = BlockType::decode(reader).map_err(ControlError::BlockType)?;
                 let mut in1 = Vec::new();
@@ -196,7 +227,14 @@ impl Instruction {
                     parsed = Self::parse(reader)?;
                     match parsed {
                         ParseResult::Instruction(i) => in1.push(i),
-                        ParseResult::End | ParseResult::Else => break,
+                        ParseResult::End => break,
+                        ParseResult::Else => {
+                            if op == 0x04 {
+                                break;
+                            } else {
+                                return Err(ControlError::UnexpectedElse.into());
+                            }
+                        }
                     }
                 }
 
@@ -212,7 +250,9 @@ impl Instruction {
                                 match parsed {
                                     ParseResult::Instruction(i) => in2.push(i),
                                     ParseResult::End => break,
-                                    _ => return Err(ControlError::UnexpectedElse.into()),
+                                    ParseResult::Else => {
+                                        return Err(ControlError::UnexpectedElse.into());
+                                    }
                                 }
                             }
                             Instruction::If(bt, in1, Some(in2))
@@ -222,10 +262,12 @@ impl Instruction {
                     _ => unreachable!(),
                 }
             }
+            0x08 => Instruction::Throw(TagIdx::decode(reader).map_err(ControlError::TagIdx)?),
+            0x0A => Instruction::ThrowRef,
             0x0C => Instruction::Br(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0D => Instruction::BrIf(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?),
             0x0E => {
-                let l = decode_vector(reader, LabelIdx::decode)
+                let l = decode_list(reader, LabelIdx::decode)
                     .map_err(ControlError::DecodeLabelIdxVector)?;
                 let ln = LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?;
                 Instruction::BrTable(l, ln)
@@ -237,18 +279,186 @@ impl Instruction {
                 let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
                 Instruction::CallIndirect(x, y)
             }
+            0x12 => {
+                Instruction::ReturnCall(FuncIdx::decode(reader).map_err(ControlError::FuncIdx)?)
+            }
+            0x13 => {
+                let y = TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?;
+                let x = TableIdx::decode(reader).map_err(ControlError::TableIdx)?;
+                Instruction::ReturnCallIndirect(x, y)
+            }
+            0x14 => Instruction::CallRef(TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?),
+            0x15 => {
+                Instruction::ReturnCallRef(TypeIdx::decode(reader).map_err(ControlError::TypeIdx)?)
+            }
+            0x1F => {
+                let bt = BlockType::decode(reader).map_err(ControlError::BlockType)?;
+                let c = decode_list(reader, Catch::decode)
+                    .map_err(ControlError::DecodeCatchListError)?;
 
-            // --- Reference instructions (5decode) ---
-            0xD0 => Instruction::RefNull(RefType::decode(reader).map_err(ReferenceError::RefType)?),
+                let mut ins = Vec::new();
+                let mut parsed;
+                loop {
+                    parsed = Self::parse(reader)?;
+                    match parsed {
+                        ParseResult::Instruction(i) => ins.push(i),
+                        ParseResult::End => break,
+                        ParseResult::Else => return Err(ControlError::UnexpectedElse.into()),
+                    }
+                }
+
+                Instruction::TryTable(bt, c, ins)
+            }
+            0xD5 => {
+                Instruction::BrOnNull(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?)
+            }
+            0xD6 => {
+                Instruction::BrOnNonNull(LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?)
+            }
+            // NOTE: 0xFB is grouped further below, since it's common among Control and Reference
+            // instructions
+
+            // --- Reference instructions (5.4.6) ---
+            0xD0 => {
+                Instruction::RefNull(HeapType::decode(reader).map_err(ReferenceError::HeapType)?)
+            }
             0xD1 => Instruction::RefIsNull,
             0xD2 => Instruction::RefFunc(FuncIdx::decode(reader).map_err(ReferenceError::FuncIdx)?),
+            0xD3 => Instruction::RefEq,
+            0xD4 => Instruction::RefAsNonNull,
 
-            // --- Parametric instructions (5.4.3) ---
-            0x1A => Instruction::Drop,
-            0x1B => Instruction::Select(None),
-            0x1C => Instruction::Select(Some(
-                decode_vector(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
-            )),
+            // 0xFB prefix is shared among Control, Reference and Aggregate instructions
+            0xFB => {
+                let op = decode_u32(reader).map_err(ReferenceError::ReadSubOpcode)?;
+                match op {
+                    // Aggregate
+                    0 => Instruction::StructNew(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    1 => Instruction::StructNewDefault(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    2 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructGet(t, f)
+                    }
+                    3 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructGetS(t, f)
+                    }
+                    4 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructGetU(t, f)
+                    }
+                    5 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let f = decode_u32(reader).map_err(AggregateError::FieldIndex)?;
+                        Instruction::StructSet(t, f)
+                    }
+                    6 => Instruction::ArrayNew(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    7 => Instruction::ArrayNewDefault(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    8 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let n = decode_u32(reader).map_err(AggregateError::ArrayFixedLength)?;
+                        Instruction::ArrayNewFixed(t, n)
+                    }
+                    9 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let d = DataIdx::decode(reader).map_err(AggregateError::DataIdx)?;
+                        Instruction::ArrayNewData(t, d)
+                    }
+                    10 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let e = ElemIdx::decode(reader).map_err(AggregateError::ElemIdx)?;
+                        Instruction::ArrayNewElem(t, e)
+                    }
+                    11 => Instruction::ArrayGet(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    12 => Instruction::ArrayGetS(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    13 => Instruction::ArrayGetU(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    14 => Instruction::ArraySet(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    15 => Instruction::ArrayLen,
+                    16 => Instruction::ArrayFill(
+                        TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?,
+                    ),
+                    17 => {
+                        let dst = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let src = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        Instruction::ArrayCopy(dst, src)
+                    }
+                    18 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let d = DataIdx::decode(reader).map_err(AggregateError::DataIdx)?;
+                        Instruction::ArrayInitData(t, d)
+                    }
+                    19 => {
+                        let t = TypeIdx::decode(reader).map_err(AggregateError::TypeIdx)?;
+                        let e = ElemIdx::decode(reader).map_err(AggregateError::ElemIdx)?;
+                        Instruction::ArrayInitElem(t, e)
+                    }
+                    26 => Instruction::AnyConvertExtern,
+                    27 => Instruction::ExternConvertAny,
+                    28 => Instruction::RefI31,
+                    29 => Instruction::I31GetS,
+                    30 => Instruction::I31GetU,
+
+                    // Reference
+                    20..=23 => {
+                        let ht = HeapType::decode(reader).map_err(ReferenceError::HeapType)?;
+                        match op {
+                            20 => Instruction::RefTest(RefType {
+                                nullable: false,
+                                ht,
+                            }),
+                            21 => Instruction::RefTest(RefType { nullable: true, ht }),
+                            22 => Instruction::RefCast(RefType {
+                                nullable: false,
+                                ht,
+                            }),
+                            23 => Instruction::RefCast(RefType { nullable: true, ht }),
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    // Control
+                    24 | 25 => {
+                        let (nullable1, nullable2) = decode_castop(reader)?;
+                        let l = LabelIdx::decode(reader).map_err(ControlError::LabelIdx)?;
+                        let ht1 = HeapType::decode(reader).map_err(ControlError::HeapType)?;
+                        let ht2 = HeapType::decode(reader).map_err(ControlError::HeapType)?;
+                        let rt1 = RefType {
+                            nullable: nullable1,
+                            ht: ht1,
+                        };
+                        let rt2 = RefType {
+                            nullable: nullable2,
+                            ht: ht2,
+                        };
+
+                        if op == 24 {
+                            Instruction::BrOnCast(l, rt1, rt2)
+                        } else {
+                            Instruction::BrOnCastFail(l, rt1, rt2)
+                        }
+                    }
+
+                    n => return Err(ParseError::InvalidMarkerByteAfterFB(n)),
+                }
+            }
 
             // --- Variable instructions (5.4.4) ---
             0x20 => {
@@ -302,18 +512,11 @@ impl Instruction {
                 }
             }
             0x3F => {
-                let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                if b != 0x00 {
-                    return Err(MemoryError::InvalidMemorySizeByte(b))?;
-                }
-                Instruction::MemorySize
+                Instruction::MemorySize(MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?)
             }
+
             0x40 => {
-                let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                if b != 0x00 {
-                    return Err(MemoryError::InvalidMemoryGrowByte(b))?;
-                }
-                Instruction::MemoryGrow
+                Instruction::MemoryGrow(MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?)
             }
 
             // --- Numeric instructions (5.4.7) ---
@@ -464,32 +667,21 @@ impl Instruction {
 
                 // --- Memory ---
                 8 => {
-                    let x = DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?;
-                    let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                    if b != 0x00 {
-                        return Err(MemoryError::InvalidMemoryInitByte(b))?;
-                    }
-                    Instruction::MemoryInit(x)
+                    let y = DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?;
+                    let x = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    Instruction::MemoryInit(x, y)
                 }
                 9 => Instruction::DataDrop(
                     DataIdx::decode(reader).map_err(MemoryError::DecodeDataIdx)?,
                 ),
                 10 => {
-                    let mut buf = [0u8; 2];
-                    reader
-                        .read_exact(&mut buf)
-                        .map_err(MemoryError::ReadReservedBytes)?;
-                    if buf != [0u8, 0u8] {
-                        return Err(MemoryError::InvalidMemoryCopyBytes(buf))?;
-                    }
-                    Instruction::MemoryCopy
+                    let x1 = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    let x2 = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    Instruction::MemoryCopy(x1, x2)
                 }
                 11 => {
-                    let b = read_byte(reader).map_err(MemoryError::ReadReservedByte)?;
-                    if b != 0x00 {
-                        return Err(MemoryError::InvalidMemoryFillByte(b))?;
-                    }
-                    Instruction::MemoryFill
+                    let x = MemIdx::decode(reader).map_err(MemoryError::DecodeMemIdx)?;
+                    Instruction::MemoryFill(x)
                 }
 
                 // --- Table ---
@@ -589,6 +781,7 @@ impl Instruction {
                     }
                 }
                 14 => Instruction::I8x16Swizzle,
+                256 => Instruction::I8x16RelaxedSwizzle,
                 15 => Instruction::I8x16Splat,
                 16 => Instruction::I16x8Splat,
                 17 => Instruction::I32x4Splat,
@@ -643,6 +836,10 @@ impl Instruction {
                 80 => Instruction::V128Or,
                 81 => Instruction::V128Xor,
                 82 => Instruction::V128Bitselect,
+                265 => Instruction::I8x16RelaxedLaneSelect,
+                266 => Instruction::I16x8RelaxedLaneSelect,
+                267 => Instruction::I32x4RelaxedLaneSelect,
+                268 => Instruction::I64x2RelaxedLaneSelect,
                 83 => Instruction::V128AnyTrue,
                 96 => Instruction::I8x16Abs,
                 97 => Instruction::I8x16Neg,
@@ -697,10 +894,13 @@ impl Instruction {
                 152 => Instruction::I16x8MaxS,
                 153 => Instruction::I16x8MaxU,
                 155 => Instruction::I16x8AvgrU,
+                273 => Instruction::I16x8RelaxedQ15MulrS,
                 156 => Instruction::I16x8ExtmulLowI8x16S,
                 157 => Instruction::I16x8ExtmulHighI8x16S,
                 158 => Instruction::I16x8ExtmulLowI8x16U,
                 159 => Instruction::I16x8ExtmulHighI8x16U,
+                274 => Instruction::I16x8RelaxedDotSI8x16,
+                275 => Instruction::I32x4RelaxedDotAddSI16x8,
                 160 => Instruction::I32x4Abs,
                 161 => Instruction::I32x4Neg,
                 163 => Instruction::I32x4AllTrue,
@@ -764,6 +964,14 @@ impl Instruction {
                 233 => Instruction::F32x4Max,
                 234 => Instruction::F32x4PMin,
                 235 => Instruction::F32x4PMax,
+                269 => Instruction::F32x4RelaxedMin,
+                270 => Instruction::F32x4RelaxedMax,
+                271 => Instruction::F64x2RelaxedMin,
+                272 => Instruction::F64x2RelaxedMax,
+                261 => Instruction::F32x4RelaxedMAdd,
+                262 => Instruction::F32x4RelaxedNMAdd,
+                263 => Instruction::F64x2RelaxedMAdd,
+                264 => Instruction::F64x2RelaxedNMAdd,
 
                 116 => Instruction::F64x2Ceil,
                 117 => Instruction::F64x2Floor,
@@ -788,6 +996,10 @@ impl Instruction {
                 253 => Instruction::I32x4TruncSatF64x2UZero,
                 254 => Instruction::F64x2ConvertLowI32x4S,
                 255 => Instruction::F64x2ConvertLowI32x4U,
+                257 => Instruction::I32x4RelaxedTruncF32x4S,
+                258 => Instruction::I32x4RelaxedTruncF32x4U,
+                259 => Instruction::I32x4RelaxedTruncF64x2SZero,
+                260 => Instruction::I32x4RelaxedTruncF64x2UZero,
                 94 => Instruction::F32x4DemoteF64x2Zero,
                 95 => Instruction::F64x2PromoteLowF32x4,
 
@@ -808,19 +1020,38 @@ pub(crate) enum ParseResult {
 
 #[derive(Debug, Error)]
 pub enum MemargError {
+    #[error("Invalid alignment flag {0}; should be less than 2^7")]
+    InvalidFlagsBit(u32),
+
     #[error("failed decoding alignment")]
     Align(DecodeU32Error),
 
     #[error("failed decoding offset")]
-    Offset(DecodeU32Error),
+    Offset(DecodeU64Error),
+
+    #[error("failed decoding memory index")]
+    MemIdx(#[from] DecodeMemIdxError),
 }
 
 impl Memarg {
     fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Memarg, MemargError> {
-        let align = decode_u32(reader).map_err(MemargError::Align)?;
-        let offset = decode_u32(reader).map_err(MemargError::Offset)?;
+        let n = decode_u32(reader).map_err(MemargError::Align)?;
 
-        Ok(Self { align, offset })
+        let (mem_idx, align) = if n < 2u32.pow(6) {
+            (MemIdx(0), n)
+        } else if n < 2u32.pow(7) {
+            (MemIdx::decode(reader)?, n - 2u32.pow(6))
+        } else {
+            return Err(MemargError::InvalidFlagsBit(n));
+        };
+
+        let offset = decode_u64(reader).map_err(MemargError::Offset)?;
+
+        Ok(Self {
+            mem_idx,
+            align,
+            offset,
+        })
     }
 }
 
@@ -844,13 +1075,10 @@ pub enum BlockTypeError {
     ReadMarkerByte(io::Error),
 
     #[error("failed decoding block type index")]
-    DecodeIndex(#[from] DecodeI64Error),
+    DecodeIndex(#[from] DecodeS33Error),
 
     #[error("blocktype Type index negative: {0}")]
     NegativeTypeIndex(i64),
-
-    #[error("blocktype Type index too large (max={max}): {0}", max = u32::MAX)]
-    TypeIndexTooLarge(i64),
 }
 
 impl BlockType {
@@ -860,7 +1088,8 @@ impl BlockType {
             return Ok(Self::Empty);
         }
 
-        if let Ok(t) = ValType::from_marker(b) {
+        let mut reader = Cursor::new([b]).chain(reader);
+        if let Ok(t) = ValType::decode(&mut reader) {
             return Ok(Self::T(t));
         }
 
@@ -869,14 +1098,61 @@ impl BlockType {
         // of value types or the special code 0x40, which correspond to the LEB128 encoding of
         // negative integers. To avoid any loss in the range of allowed indices, it is treated as a
         // 33 bit signed integer.
-        let mut chain = Cursor::new([b]).chain(reader);
-        let x = decode_i64(&mut chain)?;
+        let mut reader = Cursor::new([b]).chain(reader);
+        let x = decode_s33(&mut reader)?;
         if x < 0 {
             return Err(BlockTypeError::NegativeTypeIndex(x));
         }
 
-        let x = u32::try_from(x).map_err(|_| BlockTypeError::TypeIndexTooLarge(x))?;
+        let x = u32::try_from(x).unwrap();
 
-        Ok(Self::X(x))
+        Ok(Self::I(x))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum CatchError {
+    #[error("failed reading catch block marker byte")]
+    ReadMarkerByte(#[from] io::Error),
+
+    #[error("invalid marker byte: expected 0x00, 0x01, 0x02 or 0x03; got {0:#04X}")]
+    InvalidMarkerByte(u8),
+
+    #[error(transparent)]
+    DecodeTagIdx(#[from] DecodeTagIdxError),
+
+    #[error(transparent)]
+    DecodeLabelIdx(#[from] DecodeLabelIdxError),
+}
+
+impl Catch {
+    fn decode<R: Read + ?Sized>(reader: &mut R) -> Result<Self, CatchError> {
+        let marker = read_byte(reader)?;
+
+        Ok(match marker {
+            0x00 => {
+                let x = TagIdx::decode(reader)?;
+                let l = LabelIdx::decode(reader)?;
+                Catch::Catch(x, l)
+            }
+            0x01 => {
+                let x = TagIdx::decode(reader)?;
+                let l = LabelIdx::decode(reader)?;
+                Catch::CatchRef(x, l)
+            }
+            0x02 => Catch::CatchAll(LabelIdx::decode(reader)?),
+            0x03 => Catch::CatchAllRef(LabelIdx::decode(reader)?),
+            n => return Err(CatchError::InvalidMarkerByte(n)),
+        })
+    }
+}
+
+fn decode_castop<R: Read + ?Sized>(r: &mut R) -> Result<(bool, bool), ControlError> {
+    match read_byte(r).map_err(ControlError::ReadCastNullabilityMarker)? {
+        0x00 => Ok((false, false)),
+        0x01 => Ok((true, false)),
+        0x02 => Ok((false, true)),
+        0x03 => Ok((true, true)),
+        n => Err(ControlError::InvalidCastNullabilityMarker(n)),
     }
 }

@@ -10,6 +10,7 @@ pub mod import;
 pub mod memory;
 pub mod start;
 pub mod table;
+pub mod tag;
 pub mod r#type;
 
 pub use code::DecodeCodeSectionError;
@@ -24,6 +25,7 @@ pub use import::DecodeImportSectionError;
 pub use memory::DecodeMemorySectionError;
 pub use start::DecodeStartSectionError;
 pub use table::DecodeTableSectionError;
+pub use tag::DecodeTagSectionError;
 pub use r#type::DecodeTypeSectionError;
 
 pub(crate) use code::decode_code_section;
@@ -38,4 +40,5 @@ pub(crate) use import::decode_import_section;
 pub(crate) use memory::decode_memory_section;
 pub(crate) use start::decode_start_section;
 pub(crate) use table::decode_table_section;
+pub(crate) use tag::decode_tag_section;
 pub(crate) use r#type::decode_type_section;

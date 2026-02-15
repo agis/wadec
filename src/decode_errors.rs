@@ -6,10 +6,13 @@ pub use crate::decode::indices::{
     DecodeTypeIdxError,
 };
 pub use crate::decode::instructions::{
-    BlockTypeError, ControlError, LaneIdxError, MemargError, MemoryError, NumericError,
-    ParametricError, ParseError, ReferenceError, TableError, VariableError, VectorError,
+    AggregateError, BlockTypeError, ControlError, LaneIdxError, MemargError, MemoryError,
+    NumericError, ParametricError, ParseError, ReferenceError, TableError, VariableError,
+    VectorError,
 };
-pub use crate::decode::integer::{DecodeI32Error, DecodeI64Error, DecodeU32Error};
+pub use crate::decode::integer::{
+    DecodeI32Error, DecodeI64Error, DecodeS33Error, DecodeU32Error, DecodeU64Error,
+};
 pub use crate::decode::sections::code::{DecodeCodeError, DecodeCodeLocalsError};
 pub use crate::decode::sections::data::DecodeDataSegmentError;
 pub use crate::decode::sections::element::{DecodeElementError, DecodeElementKindError};
@@ -24,12 +27,13 @@ pub use crate::decode::sections::{
     DecodeTypeSectionError,
 };
 pub use crate::decode::types::{
-    DecodeFuncTypeError, DecodeGlobalTypeError, DecodeMemoryTypeError, DecodeRefTypeError,
-    DecodeResultTypeError, DecodeTableError, DecodeValTypeError, InvalidMutabilityByteError,
-    InvalidRefTypeMarkerError, InvalidValTypeMarkerError, ParseLimitsError,
+    DecodeAbsHeapTypeError, DecodeCompTypeError, DecodeGlobalTypeError, DecodeHeapTypeError,
+    DecodeMemoryTypeError, DecodeRecTypeError, DecodeRefTypeError, DecodeResultTypeError,
+    DecodeSubTypeError, DecodeTableTypeError, DecodeValTypeError, InvalidMutabilityByteError,
+    ParseLimitsError,
 };
 pub use crate::decode::{
-    DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeModuleError,
-    DecodeNameError, DecodeSectionHeaderError, DecodeVectorError, InvalidSectionIdError,
+    DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeListError,
+    DecodeModuleError, DecodeNameError, DecodeSectionHeaderError, InvalidSectionIdError,
     ParseExpressionError, ParsePreambleError,
 };

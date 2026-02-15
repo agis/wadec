@@ -40,6 +40,15 @@ enum ModuleType {
 #[serde(rename_all(deserialize = "snake_case"))]
 #[derive(PartialEq)]
 enum Assertion {
+    // A valid module is one that both its Decoding and Validation phases
+    // succeed (we only care about the former).
+    #[serde(alias = "module")]
+    AssertValid {
+        line: u64,
+        filename: String,
+        module_type: ModuleType,
+    },
+
     // 'malformed' means the module is not well-formed according to the spec
     // (Binary format), so the Decoding phase itself must fail.
     AssertMalformed {
@@ -68,45 +77,27 @@ enum Assertion {
         module_type: ModuleType,
     },
 
-    // A valid module is one that both its Decoding and Validation phases
-    // succeed (we only care about the former).
-    #[serde(alias = "module")]
-    AssertValid { line: u64, filename: String },
-
     #[serde(other)]
     Other,
 }
 
 impl Assertion {
-    const EXCLUDED: [&str; 5] = [
-        // these tests are bogus in the upstream v2.0 branch
-        // (see https://github.com/WebAssembly/spec/issues/2012).
-        //
-        // TODO: re-enable them when we migrate to the v3.0, since those
-        // fixtures are fixed in that branch of WebAssembly/spec.
-        "align.109.wasm",
-        "align.110.wasm",
-        "align.111.wasm",
-        "align.112.wasm",
-        "align.113.wasm",
-    ];
-
     fn is_binary(&self) -> bool {
         matches!(
             self,
-            Assertion::AssertValid { .. }
-                | Assertion::AssertInvalid {
-                    module_type: ModuleType::Binary,
-                    ..
-                }
-                | Assertion::AssertMalformed {
-                    module_type: ModuleType::Binary,
-                    ..
-                }
-                | Assertion::AssertUnlinkable {
-                    module_type: ModuleType::Binary,
-                    ..
-                }
+            Assertion::AssertValid {
+                module_type: ModuleType::Binary,
+                ..
+            } | Assertion::AssertInvalid {
+                module_type: ModuleType::Binary,
+                ..
+            } | Assertion::AssertMalformed {
+                module_type: ModuleType::Binary,
+                ..
+            } | Assertion::AssertUnlinkable {
+                module_type: ModuleType::Binary,
+                ..
+            }
         )
     }
 
@@ -119,18 +110,12 @@ impl Assertion {
             Self::AssertValid { filename, .. }
             | Self::AssertInvalid { filename, .. }
             | Self::AssertUnlinkable { filename, .. } => {
-                if Self::EXCLUDED.contains(&filename.as_str()) {
-                    return Ok(());
-                }
                 match decode_module(File::open(resolve_fixture(filename)).expect(filename)) {
                     Ok(_) => Ok(()),
                     Err(e) => bail!("expected {filename} to be considered well-formed; got: {e}"),
                 }
             }
             Self::AssertMalformed { filename, .. } => {
-                if Self::EXCLUDED.contains(&filename.as_str()) {
-                    return Ok(());
-                }
                 if decode_module(File::open(resolve_fixture(filename)).expect(filename)).is_ok() {
                     bail!("expected {} to be malformed", filename);
                 }
@@ -146,11 +131,12 @@ fn resolve_fixture(filename: &str) -> String {
 }
 
 #[gtest]
-fn upstream_specification_testsuite() {
+fn upstream_spec_tests() {
     setup();
 
-    for fname in files_with_ext(FIXTURE_PATH, ".json") {
-        let f = File::open(fname).unwrap();
+    for path in files_with_ext(FIXTURE_PATH, ".json") {
+        println!("Executing {:?}", path.file_name().unwrap());
+        let f = File::open(path).unwrap();
         let test_script: TestScript = serde_json::from_reader(f).unwrap();
         for result in test_script.execute() {
             expect_that!(result, ok(anything()));
@@ -161,12 +147,26 @@ fn upstream_specification_testsuite() {
 fn setup() {
     const TEST_SCRIPTS_PATHS: [&str; 2] = ["spec/test/core/", "spec/test/core/simd/"];
 
+    // clean any leftovers from previous runs; we're going to re-generate them
+    // anyway
+    Command::new("git")
+        .current_dir(FIXTURE_PATH)
+        .arg("clean")
+        .arg("-fdx")
+        .output()
+        .unwrap();
+
     TEST_SCRIPTS_PATHS.iter().for_each(|path| {
-        for fname in files_with_ext(path, ".wast") {
+        for path in files_with_ext(path, ".wast") {
             let output = Command::new("wasm-tools")
                 .current_dir(FIXTURE_PATH)
                 .arg("json-from-wast")
-                .arg("../../../".to_owned() + fname.to_str().unwrap())
+                .arg("--output")
+                .arg(format!(
+                    "{}.json",
+                    path.file_name().unwrap().to_str().unwrap()
+                ))
+                .arg("../../../".to_owned() + path.to_str().unwrap())
                 .output()
                 .unwrap();
 

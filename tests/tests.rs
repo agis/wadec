@@ -3,10 +3,59 @@ use std::collections::HashSet;
 use std::fs::File;
 use wadec::core::indices::*;
 use wadec::core::instruction::*;
+use wadec::core::types::comptype::{FieldType, PackType, StorageType};
+use wadec::core::types::heaptype::AbsHeapType;
 use wadec::core::types::*;
 use wadec::core::*;
 use wadec::decode_errors::*;
 use wadec::*;
+
+fn ref_null_func() -> RefType {
+    RefType {
+        nullable: true,
+        ht: heaptype_func(),
+    }
+}
+
+fn ref_func() -> RefType {
+    RefType {
+        nullable: false,
+        ht: heaptype_func(),
+    }
+}
+
+fn heaptype_func() -> HeapType {
+    HeapType::Ht(AbsHeapType::Func)
+}
+
+fn heaptype_eq() -> HeapType {
+    HeapType::Ht(AbsHeapType::Eq)
+}
+
+fn heaptype_any() -> HeapType {
+    HeapType::Ht(AbsHeapType::Any)
+}
+
+fn heaptype_exn() -> HeapType {
+    HeapType::Ht(AbsHeapType::Exn)
+}
+
+fn heaptype_noexn() -> HeapType {
+    HeapType::Ht(AbsHeapType::NoExn)
+}
+
+fn rectypes(comptypes: Vec<CompType>) -> Vec<RecType> {
+    comptypes
+        .into_iter()
+        .map(|ct| {
+            RecType(vec![SubType {
+                is_final: true,
+                supertypes: Vec::new(),
+                comptype: ct,
+            }])
+        })
+        .collect()
+}
 
 #[allow(dead_code)]
 #[test]
@@ -81,10 +130,10 @@ fn it_accepts_add_sample() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -98,7 +147,7 @@ fn it_accepts_add_sample() {
 
     let exports = vec![Export {
         name: "add".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -112,6 +161,151 @@ fn it_accepts_add_sample() {
             ..Default::default()
         }
     )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_type_section_recgroup() {
+    let module =
+        decode_module(File::open("tests/fixtures/type_section_recgroup.wasm").unwrap()).unwrap();
+
+    let types = vec![
+        RecType(vec![
+            SubType {
+                is_final: true,
+                supertypes: vec![],
+                comptype: CompType::Struct(vec![
+                    FieldType(
+                        Mut::Const,
+                        StorageType::ValType(ValType::Num(NumType::Int32)),
+                    ),
+                    FieldType(Mut::Var, StorageType::PackType(PackType::I8)),
+                ]),
+            },
+            SubType {
+                is_final: false,
+                supertypes: vec![TypeIdx(0)],
+                comptype: CompType::Array(FieldType(
+                    Mut::Const,
+                    StorageType::PackType(PackType::I16),
+                )),
+            },
+        ]),
+        RecType(vec![SubType {
+            is_final: true,
+            supertypes: vec![],
+            comptype: CompType::Func {
+                parameters: vec![ValType::Num(NumType::Int32)],
+                results: vec![],
+            },
+        }]),
+    ];
+
+    assert_eq!(module.types, types);
+}
+
+#[test]
+fn it_decodes_tag_section() {
+    let f = File::open("tests/fixtures/tag_section.wasm").unwrap();
+
+    let parsed_section_kinds = vec![SectionKind::Type, SectionKind::Tag];
+    let section_headers = vec![
+        SectionHeader {
+            kind: SectionKind::Type,
+            size: 4,
+        },
+        SectionHeader {
+            kind: SectionKind::Tag,
+            size: 3,
+        },
+    ];
+
+    let types = rectypes(vec![CompType::Func {
+        parameters: vec![],
+        results: vec![],
+    }]);
+
+    let tags = vec![TagType(TypeIdx(0))];
+
+    assert_eq!(
+        decode_module(f).unwrap(),
+        Module {
+            parsed_section_kinds,
+            section_headers,
+            types,
+            tags,
+            ..Default::default()
+        }
+    )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_tag_section_multiple_entries() {
+    let f = File::open("tests/fixtures/tag_section_multi.wasm").unwrap();
+
+    let parsed_section_kinds = vec![SectionKind::Type, SectionKind::Tag];
+    let section_headers = vec![
+        SectionHeader {
+            kind: SectionKind::Type,
+            size: 9,
+        },
+        SectionHeader {
+            kind: SectionKind::Tag,
+            size: 5,
+        },
+    ];
+
+    let types = rectypes(vec![
+        CompType::Func {
+            parameters: vec![],
+            results: vec![],
+        },
+        CompType::Func {
+            parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int64)],
+            results: vec![],
+        },
+    ]);
+
+    let tags = vec![TagType(TypeIdx(0)), TagType(TypeIdx(1))];
+
+    assert_eq!(
+        decode_module(f).unwrap(),
+        Module {
+            parsed_section_kinds,
+            section_headers,
+            types,
+            tags,
+            ..Default::default()
+        }
+    )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_tag_export() {
+    let f = File::open("tests/fixtures/tag_export.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(
+        module.parsed_section_kinds,
+        vec![SectionKind::Type, SectionKind::Tag, SectionKind::Export]
+    );
+    assert_eq!(
+        module.types,
+        rectypes(vec![CompType::Func {
+            parameters: vec![],
+            results: vec![],
+        }])
+    );
+    assert_eq!(module.tags, vec![TagType(TypeIdx(0))]);
+    assert_eq!(
+        module.exports,
+        vec![Export {
+            name: "tag0".to_owned(),
+            externidx: ExternIdx::Tag(TagIdx(0)),
+        }]
+    );
 }
 
 #[test]
@@ -145,10 +339,10 @@ fn it_accepts_two_funcs_exporting_second() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let add_body = vec![
         Instruction::LocalGet(LocalIdx(0)),
@@ -171,7 +365,7 @@ fn it_accepts_two_funcs_exporting_second() {
 
     let exports = vec![Export {
         name: "add2".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     assert_eq!(
@@ -198,29 +392,37 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
 
     let imports = vec![
         Import {
-            module: "env".to_owned(),
-            name: "table".to_owned(),
-            desc: ImportDesc::Table(TableType {
-                limits: Limits { min: 1, max: None },
-                reftype: RefType::Func,
+            module_name: "env".to_owned(),
+            item_name: "table".to_owned(),
+            extern_type: ExternType::Table(TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+                reftype: ref_null_func(),
             }),
         },
         Import {
-            module: "env".to_owned(),
-            name: "memory".to_owned(),
-            desc: ImportDesc::Mem(MemType {
-                limits: Limits { min: 1, max: None },
+            module_name: "env".to_owned(),
+            item_name: "memory".to_owned(),
+            extern_type: ExternType::Mem(MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
             }),
         },
         Import {
-            module: "env".to_owned(),
-            name: "global_i".to_owned(),
-            desc: ImportDesc::Global(GlobalType(Mut::Const, ValType::Num(NumType::Int32))),
+            module_name: "env".to_owned(),
+            item_name: "global_i".to_owned(),
+            extern_type: ExternType::Global(GlobalType(Mut::Const, ValType::Num(NumType::Int32))),
         },
         Import {
-            module: "env".to_owned(),
-            name: "global_mut".to_owned(),
-            desc: ImportDesc::Global(GlobalType(Mut::Var, ValType::Num(NumType::Int64))),
+            module_name: "env".to_owned(),
+            item_name: "global_mut".to_owned(),
+            extern_type: ExternType::Global(GlobalType(Mut::Var, ValType::Num(NumType::Int64))),
         },
     ];
 
@@ -233,6 +435,40 @@ fn it_accepts_imports_of_tables_memories_and_globals() {
             ..Default::default()
         }
     )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_imports_with_tag_and_func() {
+    let f = File::open("tests/fixtures/imports_with_tag_func.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    let types = rectypes(vec![
+        CompType::Func {
+            parameters: vec![ValType::Num(NumType::Int32)],
+            results: vec![ValType::Num(NumType::Int32)],
+        },
+        CompType::Func {
+            parameters: vec![ValType::Num(NumType::Int32)],
+            results: vec![],
+        },
+    ]);
+
+    let imports = vec![
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "func0".to_owned(),
+            extern_type: ExternType::Func(TypeIdx(0)),
+        },
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "tag0".to_owned(),
+            extern_type: ExternType::Tag(TagType(TypeIdx(1))),
+        },
+    ];
+
+    assert_eq!(module.types, types);
+    assert_eq!(module.imports, imports);
 }
 
 #[test]
@@ -257,10 +493,10 @@ fn it_accepts_module_without_exports() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -313,10 +549,10 @@ fn it_decodes_start_section() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: Vec::new(),
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -343,6 +579,7 @@ fn it_decodes_control_instructions() {
 
     let parsed_section_kinds = vec![
         SectionKind::Type,
+        SectionKind::Import,
         SectionKind::Function,
         SectionKind::Table,
         SectionKind::Export,
@@ -352,6 +589,10 @@ fn it_decodes_control_instructions() {
         SectionHeader {
             kind: SectionKind::Type,
             size: 9,
+        },
+        SectionHeader {
+            kind: SectionKind::Import,
+            size: 25,
         },
         SectionHeader {
             kind: SectionKind::Function,
@@ -367,18 +608,31 @@ fn it_decodes_control_instructions() {
         },
         SectionHeader {
             kind: SectionKind::Code,
-            size: 64,
+            size: 82,
         },
     ];
 
-    let types = vec![
-        FuncType {
+    let types = rectypes(vec![
+        CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         },
-        FuncType {
+        CompType::Func {
             parameters: Vec::new(),
             results: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
+        },
+    ]);
+
+    let imports = vec![
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "tag0".to_owned(),
+            extern_type: ExternType::Tag(TagType(TypeIdx(0))),
+        },
+        Import {
+            module_name: "env".to_owned(),
+            item_name: "tag1".to_owned(),
+            extern_type: ExternType::Tag(TagType(TypeIdx(0))),
         },
     ];
 
@@ -424,7 +678,7 @@ fn it_decodes_control_instructions() {
                     ],
                 ),
                 Instruction::Block(
-                    BlockType::X(1),
+                    BlockType::I(1),
                     vec![Instruction::I32Const(42), Instruction::I32Const(7)],
                 ),
                 Instruction::Drop,
@@ -432,19 +686,38 @@ fn it_decodes_control_instructions() {
                 Instruction::Call(FuncIdx(0)),
                 Instruction::I32Const(0),
                 Instruction::CallIndirect(TableIdx(0), TypeIdx(0)),
+                Instruction::Throw(TagIdx(1)),
+                Instruction::ThrowRef,
+                Instruction::TryTable(
+                    BlockType::Empty,
+                    vec![
+                        Catch::Catch(TagIdx(1), LabelIdx(1)),
+                        Catch::CatchRef(TagIdx(1), LabelIdx(1)),
+                        Catch::CatchAll(LabelIdx(1)),
+                        Catch::CatchAllRef(LabelIdx(1)),
+                    ],
+                    vec![Instruction::Unreachable],
+                ),
                 Instruction::Return,
             ],
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
-        reftype: RefType::Func,
-    }];
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![Instruction::RefNull(heaptype_func())],
+    )];
 
     let exports = vec![Export {
         name: "control".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     assert_eq!(
@@ -453,12 +726,68 @@ fn it_decodes_control_instructions() {
             parsed_section_kinds,
             section_headers,
             types,
+            imports,
             funcs,
             tables,
             exports,
             ..Default::default()
         }
     )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_return_call_instructions() {
+    let f = File::open("tests/fixtures/return_call_instructions.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    let types = rectypes(vec![
+        CompType::Func {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        },
+        CompType::Func {
+            parameters: Vec::new(),
+            results: Vec::new(),
+        },
+    ]);
+
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![Instruction::RefNull(heaptype_func())],
+    )];
+
+    let funcs = vec![
+        Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![Instruction::Nop],
+        },
+        Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![Instruction::ReturnCall(FuncIdx(0))],
+        },
+        Func {
+            r#type: TypeIdx(0),
+            locals: Vec::new(),
+            body: vec![
+                Instruction::I32Const(0),
+                Instruction::ReturnCallIndirect(TableIdx(0), TypeIdx(1)),
+            ],
+        },
+    ];
+
+    assert_eq!(module.types, types);
+    assert_eq!(module.tables, tables);
+    assert_eq!(module.funcs, funcs);
 }
 #[test]
 fn it_decodes_element_section_all_alts() {
@@ -494,10 +823,10 @@ fn it_decodes_element_section_all_alts() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![],
         results: vec![],
-    }];
+    }]);
 
     let funcs = vec![
         Func {
@@ -533,19 +862,33 @@ fn it_decodes_element_section_all_alts() {
     ];
 
     let tables = vec![
-        TableType {
-            limits: Limits { min: 12, max: None },
-            reftype: RefType::Func,
-        },
-        TableType {
-            limits: Limits { min: 12, max: None },
-            reftype: RefType::Func,
-        },
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 12,
+                    max: None,
+                },
+                reftype: ref_null_func(),
+            },
+            vec![Instruction::RefNull(heaptype_func())],
+        ),
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 12,
+                    max: None,
+                },
+                reftype: ref_null_func(),
+            },
+            vec![Instruction::RefNull(heaptype_func())],
+        ),
     ];
 
     let elems = vec![
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(0))],
                 vec![Instruction::RefFunc(FuncIdx(1))],
@@ -556,7 +899,7 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(2))],
                 vec![Instruction::RefFunc(FuncIdx(3))],
@@ -564,7 +907,7 @@ fn it_decodes_element_section_all_alts() {
             mode: ElemMode::Passive,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(4))]],
             mode: ElemMode::Active {
                 table: TableIdx(1),
@@ -572,15 +915,15 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(5))]],
-            mode: ElemMode::Declarative,
+            mode: ElemMode::Declare,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(0))],
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(0),
@@ -588,18 +931,18 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(1))],
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
             ],
             mode: ElemMode::Passive,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
                 vec![Instruction::RefFunc(FuncIdx(2))],
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
             ],
             mode: ElemMode::Active {
                 table: TableIdx(1),
@@ -607,12 +950,12 @@ fn it_decodes_element_section_all_alts() {
             },
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![
-                vec![Instruction::RefNull(RefType::Func)],
+                vec![Instruction::RefNull(heaptype_func())],
                 vec![Instruction::RefFunc(FuncIdx(3))],
             ],
-            mode: ElemMode::Declarative,
+            mode: ElemMode::Declare,
         },
     ];
 
@@ -665,14 +1008,14 @@ fn it_decodes_reference_instructions() {
         },
         SectionHeader {
             kind: SectionKind::Code,
-            size: 14,
+            size: 48,
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: Vec::new(),
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![
         Func {
@@ -684,29 +1027,55 @@ fn it_decodes_reference_instructions() {
             r#type: TypeIdx(0),
             locals: Vec::new(),
             body: vec![
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::RefIsNull,
                 Instruction::Drop,
                 Instruction::RefFunc(FuncIdx(0)),
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_func()),
+                Instruction::RefAsNonNull,
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_eq()),
+                Instruction::RefNull(heaptype_eq()),
+                Instruction::RefEq,
+                Instruction::Drop,
+                Instruction::RefFunc(FuncIdx(0)),
+                Instruction::RefTest(ref_func()),
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_func()),
+                Instruction::RefTest(ref_null_func()),
+                Instruction::Drop,
+                Instruction::RefFunc(FuncIdx(0)),
+                Instruction::RefCast(ref_func()),
+                Instruction::Drop,
+                Instruction::RefNull(heaptype_func()),
+                Instruction::RefCast(ref_null_func()),
                 Instruction::Drop,
             ],
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
-        reftype: RefType::Func,
-    }];
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![Instruction::RefNull(heaptype_func())],
+    )];
 
     let exports = vec![Export {
         name: "refs".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     let elems = vec![Elem {
-        r#type: RefType::Func,
+        r#type: ref_null_func(),
         init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
-        mode: ElemMode::Declarative,
+        mode: ElemMode::Declare,
     }];
 
     assert_eq!(
@@ -722,6 +1091,201 @@ fn it_decodes_reference_instructions() {
             ..Default::default()
         }
     )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_ref_null_exn() {
+    let f = File::open("tests/fixtures/ref_null_exn.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    let types = rectypes(vec![CompType::Func {
+        parameters: vec![],
+        results: vec![ValType::Ref(RefType {
+            nullable: true,
+            ht: heaptype_exn(),
+        })],
+    }]);
+
+    let funcs = vec![Func {
+        r#type: TypeIdx(0),
+        locals: vec![],
+        body: vec![Instruction::RefNull(heaptype_exn())],
+    }];
+
+    assert_eq!(module.types, types);
+    assert_eq!(module.funcs, funcs);
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_ref_test_and_cast() {
+    let f = File::open("tests/fixtures/ref_test_cast.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(
+        func.body,
+        vec![
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefTest(ref_func()),
+            Instruction::Drop,
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefTest(ref_null_func()),
+            Instruction::Drop,
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefCast(ref_func()),
+            Instruction::Drop,
+            Instruction::RefNull(heaptype_func()),
+            Instruction::RefCast(ref_null_func()),
+            Instruction::Drop,
+        ]
+    );
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_reftype_heaptype_and_control_v3_forms() {
+    let f = File::open("tests/fixtures/reftype_heaptype_control_v3.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.funcs.len(), 5);
+    assert_eq!(
+        module.funcs[1].body,
+        vec![
+            Instruction::RefNull(heaptype_noexn()),
+            Instruction::Drop,
+            Instruction::RefNull(HeapType::TypeIdx(0)),
+            Instruction::Drop,
+            Instruction::RefNull(HeapType::TypeIdx(0)),
+            Instruction::RefTest(RefType {
+                nullable: false,
+                ht: HeapType::TypeIdx(0),
+            }),
+            Instruction::Drop,
+            Instruction::RefNull(HeapType::TypeIdx(0)),
+            Instruction::RefCast(RefType {
+                nullable: false,
+                ht: HeapType::TypeIdx(0),
+            }),
+            Instruction::Drop,
+        ]
+    );
+
+    assert_eq!(
+        module.funcs[2].body,
+        vec![
+            Instruction::RefFunc(FuncIdx(0)),
+            Instruction::CallRef(TypeIdx(0)),
+            Instruction::RefFunc(FuncIdx(0)),
+            Instruction::ReturnCallRef(TypeIdx(0)),
+        ]
+    );
+
+    assert_eq!(
+        module.funcs[3].body,
+        vec![
+            Instruction::Block(
+                BlockType::T(ValType::Ref(RefType {
+                    nullable: true,
+                    ht: heaptype_any(),
+                })),
+                vec![
+                    Instruction::LocalGet(LocalIdx(0)),
+                    Instruction::BrOnCast(
+                        LabelIdx(0),
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_any(),
+                        },
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_eq(),
+                        },
+                    ),
+                ],
+            ),
+            Instruction::Drop,
+        ]
+    );
+
+    assert_eq!(
+        module.funcs[4].body,
+        vec![
+            Instruction::Block(
+                BlockType::T(ValType::Ref(RefType {
+                    nullable: true,
+                    ht: heaptype_any(),
+                })),
+                vec![
+                    Instruction::LocalGet(LocalIdx(0)),
+                    Instruction::BrOnCastFail(
+                        LabelIdx(0),
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_any(),
+                        },
+                        RefType {
+                            nullable: true,
+                            ht: heaptype_eq(),
+                        },
+                    ),
+                ],
+            ),
+            Instruction::Drop,
+        ]
+    );
+
+    assert_eq!(
+        module.elems,
+        vec![Elem {
+            r#type: ref_null_func(),
+            init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
+            mode: ElemMode::Declare,
+        }]
+    );
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_aggregate_instructions() {
+    let module =
+        decode_module(File::open("tests/fixtures/aggregate_instructions_gc.wasm").unwrap())
+            .unwrap();
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(
+        func.body,
+        vec![
+            Instruction::StructNew(TypeIdx(0)),
+            Instruction::StructNewDefault(TypeIdx(0)),
+            Instruction::StructGet(TypeIdx(0), 0),
+            Instruction::StructGetS(TypeIdx(0), 1),
+            Instruction::StructGetU(TypeIdx(0), 2),
+            Instruction::StructSet(TypeIdx(0), 0),
+            Instruction::ArrayNew(TypeIdx(1)),
+            Instruction::ArrayNewDefault(TypeIdx(1)),
+            Instruction::ArrayNewFixed(TypeIdx(1), 3),
+            Instruction::ArrayNewData(TypeIdx(1), DataIdx(0)),
+            Instruction::ArrayNewElem(TypeIdx(1), ElemIdx(0)),
+            Instruction::ArrayGet(TypeIdx(2)),
+            Instruction::ArrayGetS(TypeIdx(1)),
+            Instruction::ArrayGetU(TypeIdx(1)),
+            Instruction::ArraySet(TypeIdx(1)),
+            Instruction::ArrayLen,
+            Instruction::ArrayFill(TypeIdx(1)),
+            Instruction::ArrayCopy(TypeIdx(1), TypeIdx(2)),
+            Instruction::ArrayInitData(TypeIdx(1), DataIdx(0)),
+            Instruction::ArrayInitElem(TypeIdx(1), ElemIdx(0)),
+            Instruction::AnyConvertExtern,
+            Instruction::ExternConvertAny,
+            Instruction::RefI31,
+            Instruction::I31GetS,
+            Instruction::I31GetU,
+        ]
+    );
 }
 
 #[test]
@@ -758,10 +1322,10 @@ fn it_decodes_variable_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -786,7 +1350,7 @@ fn it_decodes_variable_instructions() {
 
     let exports = vec![Export {
         name: "var".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -832,14 +1396,14 @@ fn it_decodes_parametric_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![
             ValType::Num(NumType::Int32),
             ValType::Num(NumType::Int32),
             ValType::Num(NumType::Int32),
         ],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -861,7 +1425,7 @@ fn it_decodes_parametric_instructions() {
 
     let exports = vec![Export {
         name: "param".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -872,6 +1436,72 @@ fn it_decodes_parametric_instructions() {
             types,
             funcs,
             exports,
+            ..Default::default()
+        }
+    )
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_table_entry_init_expr() {
+    let f = File::open("tests/fixtures/table_entry_init_expr.wasm").unwrap();
+
+    let parsed_section_kinds = vec![
+        SectionKind::Type,
+        SectionKind::Function,
+        SectionKind::Table,
+        SectionKind::Code,
+    ];
+    let section_headers = vec![
+        SectionHeader {
+            kind: SectionKind::Type,
+            size: 4,
+        },
+        SectionHeader {
+            kind: SectionKind::Function,
+            size: 2,
+        },
+        SectionHeader {
+            kind: SectionKind::Table,
+            size: 9,
+        },
+        SectionHeader {
+            kind: SectionKind::Code,
+            size: 4,
+        },
+    ];
+
+    let types = rectypes(vec![CompType::Func {
+        parameters: Vec::new(),
+        results: Vec::new(),
+    }]);
+
+    let funcs = vec![Func {
+        r#type: TypeIdx(0),
+        locals: Vec::new(),
+        body: Vec::new(),
+    }];
+
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![Instruction::RefFunc(FuncIdx(0))],
+    )];
+
+    assert_eq!(
+        decode_module(f).unwrap(),
+        Module {
+            parsed_section_kinds,
+            section_headers,
+            types,
+            funcs,
+            tables,
             ..Default::default()
         }
     )
@@ -916,16 +1546,16 @@ fn it_decodes_table_instructions() {
         },
     ];
 
-    let types = vec![
-        FuncType {
+    let types = rectypes(vec![
+        CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         },
-        FuncType {
+        CompType::Func {
             parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
             results: Vec::new(),
         },
-    ];
+    ]);
 
     let funcs = vec![
         Func {
@@ -941,7 +1571,7 @@ fn it_decodes_table_instructions() {
                 Instruction::TableGet(TableIdx(0)),
                 Instruction::Drop,
                 Instruction::LocalGet(LocalIdx(0)),
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::TableSet(TableIdx(0)),
                 Instruction::I32Const(0),
                 Instruction::I32Const(0),
@@ -949,12 +1579,12 @@ fn it_decodes_table_instructions() {
                 Instruction::TableInit(TableIdx(0), ElemIdx(1)),
                 Instruction::ElemDrop(ElemIdx(1)),
                 Instruction::I32Const(0),
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::I32Const(1),
                 Instruction::TableFill(TableIdx(0)),
                 Instruction::TableSize(TableIdx(0)),
                 Instruction::Drop,
-                Instruction::RefNull(RefType::Func),
+                Instruction::RefNull(heaptype_func()),
                 Instruction::LocalGet(LocalIdx(1)),
                 Instruction::TableGrow(TableIdx(0)),
                 Instruction::Drop,
@@ -969,24 +1599,38 @@ fn it_decodes_table_instructions() {
     ];
 
     let tables = vec![
-        TableType {
-            limits: Limits { min: 4, max: None },
-            reftype: RefType::Func,
-        },
-        TableType {
-            limits: Limits { min: 4, max: None },
-            reftype: RefType::Func,
-        },
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 4,
+                    max: None,
+                },
+                reftype: ref_null_func(),
+            },
+            vec![Instruction::RefNull(heaptype_func())],
+        ),
+        Table(
+            TableType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 4,
+                    max: None,
+                },
+                reftype: ref_null_func(),
+            },
+            vec![Instruction::RefNull(heaptype_func())],
+        ),
     ];
 
     let elems = vec![
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
             mode: ElemMode::Passive,
         },
         Elem {
-            r#type: RefType::Func,
+            r#type: ref_null_func(),
             init: vec![vec![Instruction::RefFunc(FuncIdx(0))]],
             mode: ElemMode::Passive,
         },
@@ -994,7 +1638,7 @@ fn it_decodes_table_instructions() {
 
     let exports = vec![Export {
         name: "table_ops".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(1)),
+        externidx: ExternIdx::Func(FuncIdx(1)),
     }];
 
     assert_eq!(
@@ -1056,10 +1700,10 @@ fn it_decodes_memory_instructions() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: Vec::new(),
         results: Vec::new(),
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -1070,18 +1714,21 @@ fn it_decodes_memory_instructions() {
         body: vec![
             Instruction::I32Const(0),
             Instruction::I32Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::F32Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
@@ -1089,6 +1736,7 @@ fn it_decodes_memory_instructions() {
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::F64Load(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
@@ -1096,60 +1744,70 @@ fn it_decodes_memory_instructions() {
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load8s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load8u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load16s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Load16u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load8s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load8u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load16s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load16u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load32s(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I64Load32u(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
@@ -1157,90 +1815,103 @@ fn it_decodes_memory_instructions() {
             Instruction::I32Const(4),
             Instruction::I32Const(1),
             Instruction::I32Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::I32Const(8),
             Instruction::I64Const(2),
             Instruction::I64Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
             Instruction::I32Const(16),
             Instruction::LocalGet(LocalIdx(0)),
             Instruction::F32Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
             Instruction::I32Const(24),
             Instruction::LocalGet(LocalIdx(1)),
             Instruction::F64Store(Memarg {
+                mem_idx: MemIdx(0),
                 align: 3,
                 offset: 0,
             }),
             Instruction::I32Const(32),
             Instruction::I32Const(5),
             Instruction::I32Store8(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::I32Const(34),
             Instruction::I32Const(6),
             Instruction::I32Store16(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::I32Const(36),
             Instruction::I64Const(7),
             Instruction::I64Store8(Memarg {
+                mem_idx: MemIdx(0),
                 align: 0,
                 offset: 0,
             }),
             Instruction::I32Const(38),
             Instruction::I64Const(8),
             Instruction::I64Store16(Memarg {
+                mem_idx: MemIdx(0),
                 align: 1,
                 offset: 0,
             }),
             Instruction::I32Const(40),
             Instruction::I64Const(9),
             Instruction::I64Store32(Memarg {
+                mem_idx: MemIdx(0),
                 align: 2,
                 offset: 0,
             }),
-            Instruction::MemorySize,
+            Instruction::MemorySize(MemIdx(0)),
             Instruction::Drop,
             Instruction::I32Const(0),
-            Instruction::MemoryGrow,
+            Instruction::MemoryGrow(MemIdx(0)),
             Instruction::Drop,
             Instruction::I32Const(0),
             Instruction::I32Const(0),
             Instruction::I32Const(4),
-            Instruction::MemoryInit(DataIdx(1)),
+            Instruction::MemoryInit(MemIdx(0), DataIdx(1)),
             Instruction::DataDrop(DataIdx(1)),
             Instruction::I32Const(8),
             Instruction::I32Const(0),
             Instruction::I32Const(4),
-            Instruction::MemoryCopy,
+            Instruction::MemoryCopy(MemIdx(0), MemIdx(0)),
             Instruction::I32Const(12),
             Instruction::I32Const(255),
             Instruction::I32Const(4),
-            Instruction::MemoryFill,
+            Instruction::MemoryFill(MemIdx(0)),
         ],
     }];
 
     let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
     }];
 
     let exports = vec![
         Export {
             name: "mem".to_owned(),
-            desc: ExportDesc::Mem(MemIdx(0)),
+            externidx: ExternIdx::Mem(MemIdx(0)),
         },
         Export {
             name: "use-memory".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(0)),
+            externidx: ExternIdx::Func(FuncIdx(0)),
         },
     ];
 
@@ -1279,6 +1950,352 @@ fn it_decodes_memory_instructions() {
 }
 
 #[test]
+fn it_decodes_memarg_with_memidx_for_loads_and_stores() {
+    let f = File::open("tests/fixtures/memory_instructions_memidx.wasm").unwrap();
+
+    use std::mem::discriminant;
+
+    let module = decode_module(f).unwrap();
+    assert_eq!(module.mems.len(), 2);
+
+    let func = &module.funcs[0];
+    let mut seen = HashSet::new();
+
+    for instr in &func.body {
+        match instr {
+            Instruction::I32Load(m)
+            | Instruction::I64Load(m)
+            | Instruction::F32Load(m)
+            | Instruction::F64Load(m)
+            | Instruction::I32Load8s(m)
+            | Instruction::I32Load8u(m)
+            | Instruction::I32Load16s(m)
+            | Instruction::I32Load16u(m)
+            | Instruction::I64Load8s(m)
+            | Instruction::I64Load8u(m)
+            | Instruction::I64Load16s(m)
+            | Instruction::I64Load16u(m)
+            | Instruction::I64Load32s(m)
+            | Instruction::I64Load32u(m)
+            | Instruction::I32Store(m)
+            | Instruction::I64Store(m)
+            | Instruction::F32Store(m)
+            | Instruction::F64Store(m)
+            | Instruction::I32Store8(m)
+            | Instruction::I32Store16(m)
+            | Instruction::I64Store8(m)
+            | Instruction::I64Store16(m)
+            | Instruction::I64Store32(m) => {
+                assert_eq!(m.mem_idx, MemIdx(1));
+                seen.insert(discriminant(instr));
+            }
+            _ => {}
+        }
+    }
+
+    let expected: HashSet<_> = [
+        discriminant(&Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F64Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load8s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load8u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load16s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Load16u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load8s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load8u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load16s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load16u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load32s(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Load32u(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F32Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::F64Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Store8(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I32Store16(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store8(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store16(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::I64Store32(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+    ]
+    .into_iter()
+    .collect();
+
+    assert_eq!(seen, expected);
+}
+
+#[test]
+fn it_decodes_multi_memory_immediates() {
+    let f = File::open("tests/fixtures/memory_instructions_multi_memidx.wasm").unwrap();
+
+    let module = decode_module(f).unwrap();
+    assert_eq!(module.mems.len(), 2);
+    assert_eq!(
+        module.mems,
+        vec![
+            MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+            },
+            MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+            },
+        ],
+    );
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    let expected_body = vec![
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(1),
+            align: 2,
+            offset: 0,
+        }),
+        Instruction::Drop,
+        Instruction::MemorySize(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(1),
+        Instruction::MemoryGrow(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(2),
+        Instruction::MemoryInit(MemIdx(1), DataIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(2),
+        Instruction::MemoryCopy(MemIdx(1), MemIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(7),
+        Instruction::I32Const(2),
+        Instruction::MemoryFill(MemIdx(1)),
+    ];
+    assert_eq!(func.body, expected_body);
+
+    assert_eq!(module.datas.len(), 1);
+    assert_eq!(module.datas[0].init, b"hi".to_vec());
+    assert_eq!(module.datas[0].mode, DataMode::Passive);
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_multi_memory_kitchensink() {
+    let f = File::open("tests/fixtures/multi_memory_kitchensink.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.mems.len(), 2);
+    assert_eq!(
+        module.mems,
+        vec![
+            MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+            },
+            MemType {
+                limits: Limits {
+                    address_type: AddrType::I32,
+                    min: 1,
+                    max: None,
+                },
+            },
+        ]
+    );
+    assert_eq!(module.data_count, Some(3));
+
+    assert_eq!(module.datas.len(), 3);
+    assert_eq!(module.datas[0].init, b"A".to_vec());
+    assert_eq!(
+        module.datas[0].mode,
+        DataMode::Active {
+            memory: MemIdx(0),
+            offset: vec![Instruction::I32Const(0)],
+        }
+    );
+    assert_eq!(module.datas[1].init, b"BC".to_vec());
+    assert_eq!(module.datas[1].mode, DataMode::Passive);
+    assert_eq!(module.datas[2].init, b"DEF".to_vec());
+    assert_eq!(
+        module.datas[2].mode,
+        DataMode::Active {
+            memory: MemIdx(1),
+            offset: vec![Instruction::I32Const(4)],
+        }
+    );
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    let expected_body = vec![
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 2,
+            offset: 0,
+        }),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(1),
+            align: 2,
+            offset: 0,
+        }),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I64Const(1),
+        Instruction::I64Store(Memarg {
+            mem_idx: MemIdx(1),
+            align: 3,
+            offset: 0,
+        }),
+        Instruction::I32Const(0),
+        Instruction::I32Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 16,
+        }),
+        Instruction::Drop,
+        Instruction::MemorySize(MemIdx(0)),
+        Instruction::Drop,
+        Instruction::MemorySize(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::MemoryGrow(MemIdx(0)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::MemoryGrow(MemIdx(1)),
+        Instruction::Drop,
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryInit(MemIdx(0), DataIdx(1)),
+        Instruction::DataDrop(DataIdx(1)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryInit(MemIdx(1), DataIdx(1)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryCopy(MemIdx(0), MemIdx(1)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(0),
+        Instruction::I32Const(1),
+        Instruction::MemoryCopy(MemIdx(1), MemIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(255),
+        Instruction::I32Const(1),
+        Instruction::MemoryFill(MemIdx(0)),
+        Instruction::I32Const(0),
+        Instruction::I32Const(7),
+        Instruction::I32Const(1),
+        Instruction::MemoryFill(MemIdx(1)),
+    ];
+    assert_eq!(func.body, expected_body);
+}
+
+#[test]
 fn it_accepts_export_with_locals() {
     // single func with 2 i32 locals; exported "add_locals"
     // Body: local.get 0, local.get 1, i32.add, end.
@@ -1309,10 +2326,10 @@ fn it_accepts_export_with_locals() {
         },
     ];
 
-    let types = vec![FuncType {
+    let types = rectypes(vec![CompType::Func {
         parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
         results: vec![ValType::Num(NumType::Int32)],
-    }];
+    }]);
 
     let funcs = vec![Func {
         r#type: TypeIdx(0),
@@ -1326,7 +2343,7 @@ fn it_accepts_export_with_locals() {
 
     let exports = vec![Export {
         name: "add_locals".to_owned(),
-        desc: ExportDesc::Func(FuncIdx(0)),
+        externidx: ExternIdx::Func(FuncIdx(0)),
     }];
 
     assert_eq!(
@@ -1337,157 +2354,6 @@ fn it_accepts_export_with_locals() {
             types,
             funcs,
             exports,
-            ..Default::default()
-        }
-    )
-}
-
-#[test]
-fn it_accepts_foo() {
-    let f = File::open("./tests/fixtures/foo.wasm").unwrap();
-
-    let parsed_section_kinds = vec![
-        SectionKind::Type,
-        SectionKind::Import,
-        SectionKind::Function,
-        SectionKind::Table,
-        SectionKind::Memory,
-        SectionKind::Global,
-        SectionKind::Export,
-        SectionKind::DataCount,
-        SectionKind::Code,
-        SectionKind::Data,
-    ];
-
-    let section_headers = vec![
-        SectionHeader {
-            kind: SectionKind::Custom,
-            size: 7,
-        },
-        SectionHeader {
-            kind: SectionKind::Type,
-            size: 7,
-        },
-        SectionHeader {
-            kind: SectionKind::Import,
-            size: 11,
-        },
-        SectionHeader {
-            kind: SectionKind::Function,
-            size: 2,
-        },
-        SectionHeader {
-            kind: SectionKind::Table,
-            size: 4,
-        },
-        SectionHeader {
-            kind: SectionKind::Memory,
-            size: 3,
-        },
-        SectionHeader {
-            kind: SectionKind::Global,
-            size: 6,
-        },
-        SectionHeader {
-            kind: SectionKind::Export,
-            size: 23,
-        },
-        SectionHeader {
-            kind: SectionKind::DataCount,
-            size: 1,
-        },
-        SectionHeader {
-            kind: SectionKind::Code,
-            size: 9,
-        },
-        SectionHeader {
-            kind: SectionKind::Data,
-            size: 7,
-        },
-    ];
-
-    let custom_sections = vec![CustomSection {
-        name: "note".to_owned(),
-        contents: vec![0x68, 0x69],
-    }];
-
-    let types = vec![FuncType {
-        parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
-        results: vec![ValType::Num(NumType::Int32)],
-    }];
-
-    let imports = vec![Import {
-        module: "env".to_owned(),
-        name: "imp".to_owned(),
-        desc: ImportDesc::Type(TypeIdx(0)),
-    }];
-
-    let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
-        reftype: RefType::Func,
-    }];
-
-    let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
-    }];
-
-    let globals = vec![Global {
-        r#type: GlobalType(Mut::Const, ValType::Num(NumType::Int32)),
-        init: vec![Instruction::I32Const(42)],
-    }];
-
-    let exports = vec![
-        Export {
-            name: "add".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(1)),
-        },
-        Export {
-            name: "mem".to_owned(),
-            desc: ExportDesc::Mem(MemIdx(0)),
-        },
-        Export {
-            name: "tab".to_owned(),
-            desc: ExportDesc::Table(TableIdx(0)),
-        },
-        Export {
-            name: "g".to_owned(),
-            desc: ExportDesc::Global(GlobalIdx(0)),
-        },
-    ];
-
-    let funcs = vec![Func {
-        r#type: TypeIdx(0),
-        locals: Vec::new(),
-        body: vec![
-            Instruction::LocalGet(LocalIdx(0)),
-            Instruction::LocalGet(LocalIdx(1)),
-            Instruction::I32Add,
-        ],
-    }];
-
-    let datas = vec![Data {
-        init: vec![0x58],
-        mode: DataMode::Active {
-            memory: MemIdx(0),
-            offset: vec![Instruction::I32Const(0)],
-        },
-    }];
-
-    assert_eq!(
-        decode_module(f).unwrap(),
-        Module {
-            parsed_section_kinds,
-            section_headers,
-            custom_sections,
-            types,
-            funcs,
-            tables,
-            mems,
-            globals,
-            datas,
-            imports,
-            exports,
-            data_count: Some(1),
             ..Default::default()
         }
     )
@@ -1566,16 +2432,16 @@ fn it_accepts_kitchensink() {
         },
     ];
 
-    let types = vec![
-        FuncType {
+    let types = rectypes(vec![
+        CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
         },
-        FuncType {
+        CompType::Func {
             parameters: vec![ValType::Num(NumType::Int32), ValType::Num(NumType::Int32)],
             results: vec![ValType::Num(NumType::Int32)],
         },
-    ];
+    ]);
 
     let funcs = vec![
         Func {
@@ -1594,13 +2460,24 @@ fn it_accepts_kitchensink() {
         },
     ];
 
-    let tables = vec![TableType {
-        limits: Limits { min: 1, max: None },
-        reftype: RefType::Func,
-    }];
+    let tables = vec![Table(
+        TableType {
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
+            reftype: ref_null_func(),
+        },
+        vec![Instruction::RefNull(heaptype_func())],
+    )];
 
     let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
     }];
 
     let globals = vec![Global {
@@ -1609,7 +2486,7 @@ fn it_accepts_kitchensink() {
     }];
 
     let elems = vec![Elem {
-        r#type: RefType::Func,
+        r#type: ref_func(),
         init: vec![vec![Instruction::RefFunc(FuncIdx(2))]],
         mode: ElemMode::Active {
             table: TableIdx(0),
@@ -1626,27 +2503,27 @@ fn it_accepts_kitchensink() {
     }];
 
     let imports = vec![Import {
-        module: "env".to_owned(),
-        name: "impstart".to_owned(),
-        desc: ImportDesc::Type(TypeIdx(0)),
+        module_name: "env".to_owned(),
+        item_name: "impstart".to_owned(),
+        extern_type: ExternType::Func(TypeIdx(0)),
     }];
 
     let exports = vec![
         Export {
             name: "add".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(2)),
+            externidx: ExternIdx::Func(FuncIdx(2)),
         },
         Export {
             name: "mem".to_owned(),
-            desc: ExportDesc::Mem(MemIdx(0)),
+            externidx: ExternIdx::Mem(MemIdx(0)),
         },
         Export {
             name: "tab".to_owned(),
-            desc: ExportDesc::Table(TableIdx(0)),
+            externidx: ExternIdx::Table(TableIdx(0)),
         },
         Export {
             name: "g0".to_owned(),
-            desc: ExportDesc::Global(GlobalIdx(0)),
+            externidx: ExternIdx::Global(GlobalIdx(0)),
         },
     ];
 
@@ -1688,7 +2565,11 @@ fn it_decodes_data_section_multiple_segments() {
     ];
 
     let mems = vec![MemType {
-        limits: Limits { min: 1, max: None },
+        limits: Limits {
+            address_type: AddrType::I32,
+            min: 1,
+            max: None,
+        },
     }];
 
     let datas = vec![
@@ -2077,16 +2958,20 @@ fn it_decodes_vector_instructions() {
 
     assert_eq!(
         module.types,
-        vec![FuncType {
+        rectypes(vec![CompType::Func {
             parameters: Vec::new(),
             results: Vec::new(),
-        }]
+        }])
     );
 
     assert_eq!(
         module.mems,
         vec![MemType {
-            limits: Limits { min: 1, max: None },
+            limits: Limits {
+                address_type: AddrType::I32,
+                min: 1,
+                max: None,
+            },
         }]
     );
 
@@ -2094,7 +2979,7 @@ fn it_decodes_vector_instructions() {
         module.exports,
         vec![Export {
             name: "use_vectors".to_owned(),
-            desc: ExportDesc::Func(FuncIdx(0)),
+            externidx: ExternIdx::Func(FuncIdx(0)),
         }]
     );
 
@@ -2106,11 +2991,13 @@ fn it_decodes_vector_instructions() {
     let expected_body = vec![
         Instruction::I32Const(0),
         Instruction::V128Load(Memarg {
+            mem_idx: MemIdx(0),
             align: 4,
             offset: 0,
         }),
         Instruction::I32Const(16),
         Instruction::V128Load(Memarg {
+            mem_idx: MemIdx(0),
             align: 4,
             offset: 0,
         }),
@@ -2167,6 +3054,7 @@ fn it_decodes_vector_instructions() {
             112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
         ]),
         Instruction::V128Store(Memarg {
+            mem_idx: MemIdx(0),
             align: 4,
             offset: 0,
         }),
@@ -2186,6 +3074,260 @@ fn it_decodes_vector_instructions() {
 }
 
 #[test]
+// # spec version: 3
+fn it_decodes_relaxed_simd_instructions() {
+    let f = File::open("tests/fixtures/relaxed_simd_instructions.wasm").unwrap();
+    let module = decode_module(f).unwrap();
+
+    assert_eq!(module.funcs.len(), 1);
+    let func = &module.funcs[0];
+    assert_eq!(func.locals, vec![ValType::Vec(VecType::V128); 3]);
+
+    let relaxed: Vec<Instruction> = func
+        .body
+        .iter()
+        .filter_map(|instr| match instr {
+            Instruction::I8x16RelaxedSwizzle => Some(Instruction::I8x16RelaxedSwizzle),
+            Instruction::I8x16RelaxedLaneSelect => Some(Instruction::I8x16RelaxedLaneSelect),
+            Instruction::I16x8RelaxedLaneSelect => Some(Instruction::I16x8RelaxedLaneSelect),
+            Instruction::I32x4RelaxedLaneSelect => Some(Instruction::I32x4RelaxedLaneSelect),
+            Instruction::I64x2RelaxedLaneSelect => Some(Instruction::I64x2RelaxedLaneSelect),
+            Instruction::I16x8RelaxedQ15MulrS => Some(Instruction::I16x8RelaxedQ15MulrS),
+            Instruction::I16x8RelaxedDotSI8x16 => Some(Instruction::I16x8RelaxedDotSI8x16),
+            Instruction::I32x4RelaxedDotAddSI16x8 => Some(Instruction::I32x4RelaxedDotAddSI16x8),
+            Instruction::F32x4RelaxedMin => Some(Instruction::F32x4RelaxedMin),
+            Instruction::F32x4RelaxedMax => Some(Instruction::F32x4RelaxedMax),
+            Instruction::F32x4RelaxedMAdd => Some(Instruction::F32x4RelaxedMAdd),
+            Instruction::F32x4RelaxedNMAdd => Some(Instruction::F32x4RelaxedNMAdd),
+            Instruction::F64x2RelaxedMin => Some(Instruction::F64x2RelaxedMin),
+            Instruction::F64x2RelaxedMax => Some(Instruction::F64x2RelaxedMax),
+            Instruction::F64x2RelaxedMAdd => Some(Instruction::F64x2RelaxedMAdd),
+            Instruction::F64x2RelaxedNMAdd => Some(Instruction::F64x2RelaxedNMAdd),
+            Instruction::I32x4RelaxedTruncF32x4S => Some(Instruction::I32x4RelaxedTruncF32x4S),
+            Instruction::I32x4RelaxedTruncF32x4U => Some(Instruction::I32x4RelaxedTruncF32x4U),
+            Instruction::I32x4RelaxedTruncF64x2SZero => {
+                Some(Instruction::I32x4RelaxedTruncF64x2SZero)
+            }
+            Instruction::I32x4RelaxedTruncF64x2UZero => {
+                Some(Instruction::I32x4RelaxedTruncF64x2UZero)
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(
+        relaxed,
+        vec![
+            Instruction::I8x16RelaxedSwizzle,
+            Instruction::I8x16RelaxedLaneSelect,
+            Instruction::I16x8RelaxedLaneSelect,
+            Instruction::I32x4RelaxedLaneSelect,
+            Instruction::I64x2RelaxedLaneSelect,
+            Instruction::I16x8RelaxedQ15MulrS,
+            Instruction::I16x8RelaxedDotSI8x16,
+            Instruction::I32x4RelaxedDotAddSI16x8,
+            Instruction::F32x4RelaxedMin,
+            Instruction::F32x4RelaxedMax,
+            Instruction::F32x4RelaxedMAdd,
+            Instruction::F32x4RelaxedNMAdd,
+            Instruction::F64x2RelaxedMin,
+            Instruction::F64x2RelaxedMax,
+            Instruction::F64x2RelaxedMAdd,
+            Instruction::F64x2RelaxedNMAdd,
+            Instruction::I32x4RelaxedTruncF32x4S,
+            Instruction::I32x4RelaxedTruncF32x4U,
+            Instruction::I32x4RelaxedTruncF64x2SZero,
+            Instruction::I32x4RelaxedTruncF64x2UZero,
+        ]
+    );
+}
+
+#[test]
+fn it_decodes_simd_memarg_with_memidx() {
+    let f = File::open("tests/fixtures/vector_memory_instructions_memidx.wasm").unwrap();
+
+    use std::mem::discriminant;
+
+    let module = decode_module(f).unwrap();
+    assert_eq!(module.mems.len(), 2);
+
+    let func = &module.funcs[0];
+    let mut seen = HashSet::new();
+
+    for instr in &func.body {
+        match instr {
+            Instruction::V128Load(m)
+            | Instruction::V128Load8x8S(m)
+            | Instruction::V128Load8x8U(m)
+            | Instruction::V128Load16x4S(m)
+            | Instruction::V128Load16x4U(m)
+            | Instruction::V128Load32x2S(m)
+            | Instruction::V128Load32x2U(m)
+            | Instruction::V128Load8Splat(m)
+            | Instruction::V128Load16Splat(m)
+            | Instruction::V128Load32Splat(m)
+            | Instruction::V128Load64Splat(m)
+            | Instruction::V128Load32Zero(m)
+            | Instruction::V128Load64Zero(m)
+            | Instruction::V128Store(m)
+            | Instruction::V128Load8Lane(m, _)
+            | Instruction::V128Load16Lane(m, _)
+            | Instruction::V128Load32Lane(m, _)
+            | Instruction::V128Load64Lane(m, _)
+            | Instruction::V128Store8Lane(m, _)
+            | Instruction::V128Store16Lane(m, _)
+            | Instruction::V128Store32Lane(m, _)
+            | Instruction::V128Store64Lane(m, _) => {
+                assert_eq!(m.mem_idx, MemIdx(1));
+                seen.insert(discriminant(instr));
+            }
+            _ => {}
+        }
+    }
+
+    let expected: HashSet<_> = [
+        discriminant(&Instruction::V128Load(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8x8S(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8x8U(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load16x4S(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load16x4U(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32x2S(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32x2U(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load16Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load64Splat(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load32Zero(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load64Zero(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Store(Memarg {
+            mem_idx: MemIdx(0),
+            align: 0,
+            offset: 0,
+        })),
+        discriminant(&Instruction::V128Load8Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Load16Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Load32Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Load64Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store8Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store16Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store32Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+        discriminant(&Instruction::V128Store64Lane(
+            Memarg {
+                mem_idx: MemIdx(0),
+                align: 0,
+                offset: 0,
+            },
+            LaneIdx(0),
+        )),
+    ]
+    .into_iter()
+    .collect();
+
+    assert_eq!(seen, expected);
+}
+
+#[test]
 fn it_respects_mem_limits() {
     let f = File::open("tests/fixtures/mem_limits_bug.wasm").unwrap();
 
@@ -2196,6 +3338,7 @@ fn it_respects_mem_limits() {
 
     let mems = vec![MemType {
         limits: Limits {
+            address_type: AddrType::I32,
             min: 1,
             max: Some(129),
         },
@@ -2213,12 +3356,58 @@ fn it_respects_mem_limits() {
 }
 
 #[test]
+fn it_decodes_memory64_limits_flags() {
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_min.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1,
+                max: None,
+            },
+        }]
+    );
+
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_min_max.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1,
+                max: Some(2),
+            },
+        }]
+    );
+}
+
+#[test]
+// # spec version: 3
+fn it_decodes_memory64_limits_large_values() {
+    let module =
+        decode_module(File::open("tests/fixtures/memory64_limits_large.wasm").unwrap()).unwrap();
+    assert_eq!(
+        module.mems,
+        vec![MemType {
+            limits: Limits {
+                address_type: AddrType::I64,
+                min: 1u64 << 32,
+                max: Some((1u64 << 32) + 5),
+            },
+        }]
+    );
+}
+
+#[test]
 fn it_fails_on_code_size_mismatch() {
     let f = File::open("tests/fixtures/code_section_size_underreported.wasm").unwrap();
     let err = decode_module(f).expect_err("underreported code section should fail");
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
@@ -2258,7 +3447,7 @@ fn it_rejects_overlong_type_index_encoding() {
         0x01, 0x00, 0x00, 0x00, // version
         0x01, 0x04, // type section id + size
         0x01, // type vector length
-        0x60, // functype tag
+        0x60, // func type tag
         0x00, // param count
         0x00, // result count
         0x03, 0x06, // function section id + size
@@ -2269,10 +3458,34 @@ fn it_rejects_overlong_type_index_encoding() {
     let err = decode_module(module).expect_err("module should fail while reading type index");
 
     match err {
-        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
-            DecodeVectorError::ParseElement {
+        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
+            DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
+            },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn it_rejects_overlong_blocktype_s33() {
+    let path = "tests/fixtures/overlong_blocktype_s33.wasm";
+    let err = decode_module(File::open(path).unwrap())
+        .expect_err("overlong s33 blocktype encoding should fail");
+
+    match err {
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+            DecodeListError::ParseElement {
+                position,
+                source:
+                    DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
+                        ParseError::Control(ControlError::BlockType(BlockTypeError::DecodeIndex(
+                            DecodeS33Error::RepresentationTooLong,
+                        ))),
+                    )),
             },
         )) => {
             assert_eq!(position, 0);

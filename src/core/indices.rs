@@ -18,3 +18,4 @@ define_index_type!(ElemIdx);
 define_index_type!(DataIdx);
 define_index_type!(LocalIdx);
 define_index_type!(LabelIdx);
+define_index_type!(TagIdx);
