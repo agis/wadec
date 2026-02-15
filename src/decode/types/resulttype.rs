@@ -8,7 +8,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeResultTypeError {
     #[error(transparent)]
-    DecodeVector(#[from] DecodeListError<DecodeValTypeError>),
+    DecodeList(#[from] DecodeListError<DecodeValTypeError>),
 }
 
 pub(super) fn decode_result_type<R: Read + ?Sized>(

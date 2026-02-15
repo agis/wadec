@@ -3415,7 +3415,7 @@ fn it_fails_on_code_size_mismatch() {
     let f = File::open("tests/fixtures/code_section_size_underreported.wasm").unwrap();
     let err = decode_module(f).expect_err("underreported code section should fail");
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3467,7 +3467,7 @@ fn it_rejects_overlong_type_index_encoding() {
     let err = decode_module(module).expect_err("module should fail while reading type index");
 
     match err {
-        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
+        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
@@ -3486,7 +3486,7 @@ fn it_rejects_overlong_blocktype_s33() {
         .expect_err("overlong s33 blocktype encoding should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:

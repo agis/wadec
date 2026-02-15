@@ -13,7 +13,7 @@ pub enum DecodeTableSectionError {
     Io(#[from] io::Error),
 
     #[error("failed decoding Table section")]
-    DecodeVector(#[from] DecodeListError<DecodeTableError>),
+    DecodeList(#[from] DecodeListError<DecodeTableError>),
 
     #[error("expected 0x00 after 0x40; got {0:#04X}")]
     UnexpectedByte(u8),

@@ -8,7 +8,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeGlobalSectionError {
     #[error("failed decoding Global section")]
-    DecodeVector(#[from] DecodeListError<DecodeGlobalError>),
+    DecodeList(#[from] DecodeListError<DecodeGlobalError>),
 }
 
 pub(crate) fn decode_global_section<R: Read + ?Sized>(

@@ -8,7 +8,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeImportSectionError {
     #[error("failed decoding Import section")]
-    DecodeVector(#[from] DecodeListError<DecodeImportError>),
+    DecodeList(#[from] DecodeListError<DecodeImportError>),
 }
 
 pub(crate) fn decode_import_section<R: Read + ?Sized>(

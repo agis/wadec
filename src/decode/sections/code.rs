@@ -9,7 +9,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeCodeSectionError {
     #[error("failed decoding Code section")]
-    DecodeVector(#[from] DecodeListError<DecodeCodeError>),
+    DecodeList(#[from] DecodeListError<DecodeCodeError>),
 }
 
 pub(crate) fn decode_code_section<R: Read + ?Sized>(

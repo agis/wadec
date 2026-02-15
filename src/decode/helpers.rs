@@ -120,7 +120,7 @@ where
     Ok(items)
 }
 
-// we want any DecodeVectorError::ParseElement errors to also display the inner
+// we want any DecodeListError::ParseElement errors to also display the inner
 // error type pointed to by source.
 impl<E: std::fmt::Debug> std::fmt::Debug for DecodeListError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

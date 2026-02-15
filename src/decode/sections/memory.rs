@@ -7,7 +7,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeMemorySectionError {
     #[error("failed decoding Memory section")]
-    DecodeVector(#[from] DecodeListError<DecodeMemoryTypeError>),
+    DecodeList(#[from] DecodeListError<DecodeMemoryTypeError>),
 }
 
 pub(crate) fn decode_memory_section<R: Read + ?Sized>(

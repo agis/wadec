@@ -7,7 +7,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DecodeTypeSectionError {
     #[error("failed decoding Type section")]
-    DecodeVector(#[from] DecodeListError<DecodeRecTypeError>),
+    DecodeList(#[from] DecodeListError<DecodeRecTypeError>),
 }
 
 pub(crate) fn decode_type_section<R: Read + ?Sized>(

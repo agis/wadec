@@ -78,11 +78,11 @@ Caused by:
 
 DEBUG OUTPUT:
 DecodeTypeSection(
-    DecodeVector(
+    DecodeList(
         ParseElement {
             position: 0,
             source: DecodeCompTypeError::DecodeFuncParameters(
-                DecodeVector(
+                DecodeList(
                     ParseElement {
                         position: 0,
                         source: DecodeValTypeError::InvalidMarkerByte(

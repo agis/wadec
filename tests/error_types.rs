@@ -20,7 +20,7 @@ fn type_idx_error_for_overlong_function_index() {
     let err = decode_module(wasm).expect_err("overlong type index should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeVector(
+        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
@@ -66,7 +66,7 @@ fn decode_i32_error_too_large() {
     let err = decode_module(wasm).expect_err("too-large i32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -94,7 +94,7 @@ fn decode_i32_error_representation_too_long() {
     let err = decode_module(wasm).expect_err("overlong i32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -121,7 +121,7 @@ fn decode_i32_error_io() {
     let err = decode_module(wasm).expect_err("truncated i32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -154,7 +154,7 @@ fn decode_i64_error_representation_too_long() {
     let err = decode_module(wasm).expect_err("overlong i64 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -182,7 +182,7 @@ fn decode_i64_error_incorrect_sign_extension() {
     let err = decode_module(wasm).expect_err("bad i64 sign extension should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -209,7 +209,7 @@ fn decode_i64_error_io() {
     let err = decode_module(wasm).expect_err("truncated i64 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -241,7 +241,7 @@ fn parse_error_read_opcode() {
     let err = decode_module(wasm).expect_err("missing opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -268,7 +268,7 @@ fn parse_error_control() {
     let err = decode_module(wasm).expect_err("invalid label index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -296,7 +296,7 @@ fn parse_error_reference() {
     let err = decode_module(wasm).expect_err("invalid heap type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -325,7 +325,7 @@ fn parse_error_reference_invalid_subopcode() {
     let err = decode_module(wasm).expect_err("invalid sub-opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -352,7 +352,7 @@ fn parse_error_control_invalid_cast_nullability_marker() {
     let err = decode_module(wasm).expect_err("invalid cast nullability marker should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -379,7 +379,7 @@ fn parse_error_reference_ref_test_negative_heaptype() {
     let err = decode_module(wasm).expect_err("invalid heap type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -408,12 +408,12 @@ fn parse_error_parametric() {
     let err = decode_module(wasm).expect_err("invalid valtype in select should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Parametric(ParametricError::DecodeVector(
+                        ParseError::Parametric(ParametricError::DecodeList(
                             DecodeListError::ParseElement {
                                 position: vec_pos,
                                 source:
@@ -446,7 +446,7 @@ fn parse_error_variable() {
     let err = decode_module(wasm).expect_err("missing global index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -475,7 +475,7 @@ fn parse_error_table() {
     let err = decode_module(wasm).expect_err("invalid table index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -503,7 +503,7 @@ fn parse_error_numeric() {
     let err = decode_module(wasm).expect_err("truncated f32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -532,7 +532,7 @@ fn parse_error_vector() {
     let err = decode_module(wasm).expect_err("invalid vector opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -559,7 +559,7 @@ fn parse_error_invalid_opcode() {
     let err = decode_module(wasm).expect_err("invalid opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -585,7 +585,7 @@ fn parse_error_invalid_marker_after_fc() {
     let err = decode_module(wasm).expect_err("invalid FC marker should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -613,7 +613,7 @@ fn control_error_decode_label_idx_vector() {
     let err = decode_module(wasm).expect_err("overlong label index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -645,7 +645,7 @@ fn control_error_decode_catch_invalid_marker() {
     let err = decode_module(wasm).expect_err("invalid catch marker should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -678,7 +678,7 @@ fn control_error_table_idx() {
     let err = decode_module(wasm).expect_err("overlong table index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -706,7 +706,7 @@ fn control_error_type_idx() {
     let err = decode_module(wasm).expect_err("overlong type index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -734,7 +734,7 @@ fn control_error_block_type() {
     let err = decode_module(wasm).expect_err("missing block type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -763,7 +763,7 @@ fn control_error_unexpected_else() {
     let err = decode_module(wasm).expect_err("double else should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -788,7 +788,7 @@ fn control_error_unexpected_else_in_block() {
     let err = decode_module(wasm).expect_err("unexpected else in block should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -813,7 +813,7 @@ fn control_error_unexpected_else_in_loop() {
     let err = decode_module(wasm).expect_err("unexpected else in loop should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -838,7 +838,7 @@ fn control_error_unexpected_else_in_try_table() {
     let err = decode_module(wasm).expect_err("unexpected else in try_table should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -864,7 +864,7 @@ fn reference_error_func_idx() {
     let err = decode_module(wasm).expect_err("overlong ref.func index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -892,7 +892,7 @@ fn func_idx_error_for_overlong_call_instruction() {
     let err = decode_module(wasm).expect_err("overlong func idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -920,7 +920,7 @@ fn table_idx_error_for_overlong_table_get_instruction() {
     let err = decode_module(wasm).expect_err("overlong table idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -948,7 +948,7 @@ fn mem_idx_error_for_overlong_data_segment_memory_index() {
     let err = decode_module(wasm).expect_err("overlong mem idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -973,7 +973,7 @@ fn global_idx_error_for_overlong_global_get_instruction() {
     let err = decode_module(wasm).expect_err("overlong global idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1000,7 +1000,7 @@ fn elem_idx_error_for_overlong_elem_drop_instruction() {
     let err = decode_module(wasm).expect_err("overlong elem idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1027,7 +1027,7 @@ fn data_idx_error_for_overlong_data_drop_instruction() {
     let err = decode_module(wasm).expect_err("overlong data idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1054,7 +1054,7 @@ fn local_idx_error_for_overlong_local_get_instruction() {
     let err = decode_module(wasm).expect_err("overlong local idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1081,7 +1081,7 @@ fn label_idx_error_for_overlong_br_instruction() {
     let err = decode_module(wasm).expect_err("overlong label idx should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1108,7 +1108,7 @@ fn decode_u32_error_too_large_for_type_section_length() {
     let err = decode_module(wasm).expect_err("too-large vector length should fail to decode");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
             DecodeListError::DecodeLength(u32_err),
         )) => {
             assert!(
@@ -1153,12 +1153,12 @@ fn parametric_error_decode_vector_invalid_valtype() {
     let err = decode_module(wasm).expect_err("invalid type vector in select should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeCodeError::DecodeFunctionBody(ParseExpressionError::ParseInstruction(
-                        ParseError::Parametric(ParametricError::DecodeVector(
+                        ParseError::Parametric(ParametricError::DecodeList(
                             DecodeListError::ParseElement {
                                 position: vec_pos,
                                 source:
@@ -1192,7 +1192,7 @@ fn memory_error_decode_memarg_missing_offset() {
     let err = decode_module(wasm).expect_err("missing memarg offset should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1223,7 +1223,7 @@ fn numeric_error_read_opcode_truncated_fc_prefix() {
     let err = decode_module(wasm).expect_err("truncated 0xFC opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1254,7 +1254,7 @@ fn numeric_error_decode_f32_truncated_payload() {
     let err = decode_module(wasm).expect_err("truncated f32 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1284,7 +1284,7 @@ fn numeric_error_decode_f64_truncated_payload() {
     let err = decode_module(wasm).expect_err("truncated f64 const should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1314,7 +1314,7 @@ fn vector_error_read_opcode_truncated() {
     let err = decode_module(wasm).expect_err("truncated vector opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1345,7 +1345,7 @@ fn vector_error_memarg_offset_missing() {
     let err = decode_module(wasm).expect_err("missing memarg offset should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1373,7 +1373,7 @@ fn vector_error_laneidx_missing() {
     let err = decode_module(wasm).expect_err("missing lane idx should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1399,7 +1399,7 @@ fn vector_error_read_immediate_bytes() {
     let err = decode_module(wasm).expect_err("truncated vector immediate should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1425,7 +1425,7 @@ fn vector_error_invalid_opcode() {
     let err = decode_module(wasm).expect_err("invalid vector opcode should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1451,7 +1451,7 @@ fn memarg_error_align_missing() {
     let err = decode_module(wasm).expect_err("missing memarg align should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1480,7 +1480,7 @@ fn memarg_error_invalid_flags_bit() {
     let err = decode_module(wasm).expect_err("invalid memarg flags should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1508,7 +1508,7 @@ fn lane_idx_error_missing_byte() {
     let err = decode_module(wasm).expect_err("missing lane idx should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1534,7 +1534,7 @@ fn block_type_error_read_marker_byte() {
     let err = decode_module(wasm).expect_err("missing block type should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1562,7 +1562,7 @@ fn block_type_error_decode_index_truncated() {
     let err = decode_module(wasm).expect_err("truncated block type index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1590,7 +1590,7 @@ fn block_type_error_negative_type_index() {
     let err = decode_module(wasm).expect_err("negative block type index should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1619,7 +1619,7 @@ fn decode_rec_type_error_read_marker_byte() {
     let err = decode_module(wasm).expect_err("missing rectype marker should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeRecTypeError::Io(io_err),
@@ -1644,7 +1644,7 @@ fn decode_rec_type_error_invalid_marker_byte() {
     let err = decode_module(wasm).expect_err("invalid composite type marker should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1672,13 +1672,13 @@ fn decode_rec_type_error_parameter_types_invalid_valtype() {
     let err = decode_module(wasm).expect_err("invalid parameter valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
                         DecodeCompTypeError::DecodeFuncParameters(
-                            DecodeResultTypeError::DecodeVector(DecodeListError::ParseElement {
+                            DecodeResultTypeError::DecodeList(DecodeListError::ParseElement {
                                 position: inner_pos,
                                 source:
                                     DecodeValTypeError::DecodeRefType(
@@ -1711,13 +1711,13 @@ fn decode_rec_type_error_result_types_truncated() {
     let err = decode_module(wasm).expect_err("truncated result valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeVector(
+        DecodeModuleError::DecodeTypeSection(DecodeTypeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
                     DecodeRecTypeError::DecodeSubtype(DecodeSubTypeError::DecodeCompType(
                         DecodeCompTypeError::DecodeFuncResults(
-                            DecodeResultTypeError::DecodeVector(DecodeListError::ParseElement {
+                            DecodeResultTypeError::DecodeList(DecodeListError::ParseElement {
                                 position: inner_pos,
                                 source: DecodeValTypeError::Io(io_err),
                             }),
@@ -1743,7 +1743,7 @@ fn decode_table_error_invalid_reftype_marker() {
     let err = decode_module(wasm).expect_err("invalid table reftype should fail");
 
     match err {
-        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
+        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1771,7 +1771,7 @@ fn decode_table_error_reftype_truncated() {
     let err = decode_module(wasm).expect_err("truncated table reftype should fail");
 
     match err {
-        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
+        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeTableError::Io(io_err),
@@ -1795,7 +1795,7 @@ fn decode_table_error_limits_invalid_flag() {
     let err = decode_module(wasm).expect_err("invalid table limits flag should fail");
 
     match err {
-        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeVector(
+        DecodeModuleError::DecodeTableSection(DecodeTableSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1818,7 +1818,7 @@ fn decode_memory_type_error_missing_limits_byte() {
     let err = decode_module(wasm).expect_err("missing limits should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeMemoryTypeError(ParseLimitsError::ReadFlagByte(io_err)),
@@ -1842,7 +1842,7 @@ fn decode_memory_type_error_unexpected_max_limit_byte() {
     let err = decode_module(wasm).expect_err("unexpected limits flag should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeMemoryTypeError(ParseLimitsError::UnexpectedFlagByte(0x02)),
@@ -1864,7 +1864,7 @@ fn decode_memory_type_error_missing_min_limit() {
     let err = decode_module(wasm).expect_err("missing min limit should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1888,7 +1888,7 @@ fn decode_memory_type_error_missing_max_limit() {
     let err = decode_module(wasm).expect_err("missing max limit should fail");
 
     match err {
-        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeVector(
+        DecodeModuleError::DecodeMemorySection(DecodeMemorySectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1912,7 +1912,7 @@ fn decode_global_type_error_invalid_valtype() {
     let err = decode_module(wasm).expect_err("invalid global valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1941,7 +1941,7 @@ fn decode_global_type_error_missing_mutability() {
     let err = decode_module(wasm).expect_err("missing mutability should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -1966,7 +1966,7 @@ fn decode_global_type_error_invalid_mutability() {
     let err = decode_module(wasm).expect_err("invalid mutability should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2251,7 +2251,7 @@ fn decode_import_section_error_module_name() {
     let err = decode_module(wasm).expect_err("invalid import module name should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2277,7 +2277,7 @@ fn decode_import_section_error_entity_name_utf8() {
     let err = decode_module(wasm).expect_err("invalid import entity name should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeImportError::DecodeItemName(DecodeNameError::Utf8(err)),
@@ -2302,7 +2302,7 @@ fn decode_import_error_descriptor_missing_byte() {
     let err = decode_module(wasm).expect_err("missing import descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2326,7 +2326,7 @@ fn decode_import_error_invalid_descriptor() {
     let err = decode_module(wasm).expect_err("invalid import descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2350,7 +2350,7 @@ fn decode_import_error_typeidx_overlong() {
     let err = decode_module(wasm).expect_err("overlong import type idx should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2375,7 +2375,7 @@ fn decode_import_error_table_invalid_reftype() {
     let err = decode_module(wasm).expect_err("invalid import table reftype should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2403,7 +2403,7 @@ fn decode_import_error_memory_invalid_limits() {
     let err = decode_module(wasm).expect_err("invalid import memory limits should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2429,7 +2429,7 @@ fn decode_import_error_global_invalid_mutability() {
     let err = decode_module(wasm).expect_err("invalid import global mutability should fail");
 
     match err {
-        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeVector(
+        DecodeModuleError::DecodeImportSection(DecodeImportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2455,7 +2455,7 @@ fn decode_export_section_error_name_decode() {
     let err = decode_module(wasm).expect_err("invalid export name should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2480,7 +2480,7 @@ fn decode_export_error_descriptor_missing_byte() {
     let err = decode_module(wasm).expect_err("missing export descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::ReadDescriptorMarkerByte(io_err),
@@ -2503,7 +2503,7 @@ fn decode_export_error_index_decode() {
     let err = decode_module(wasm).expect_err("overlong export index should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::DecodeIndex(u32_err),
@@ -2529,7 +2529,7 @@ fn decode_export_error_invalid_descriptor() {
     let err = decode_module(wasm).expect_err("invalid export descriptor should fail");
 
     match err {
-        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeVector(
+        DecodeModuleError::DecodeExportSection(DecodeExportSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeExportError::InvalidDescriptorMarkerByte(err),
@@ -2570,7 +2570,7 @@ fn decode_code_error_function_size_truncated() {
     let err = decode_module(wasm).expect_err("missing code size should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeCodeError::DecodeFunctionSize(u32_err),
@@ -2600,7 +2600,7 @@ fn decode_code_error_locals_vector_length_overlong() {
     let err = decode_module(wasm).expect_err("overlong locals vector length should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2624,7 +2624,7 @@ fn decode_code_locals_error_count_out_of_bounds() {
     let err = decode_module(wasm).expect_err("too many locals should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2658,7 +2658,7 @@ fn decode_code_locals_error_decode_count() {
     let err = decode_module(wasm).expect_err("truncated locals count should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2687,7 +2687,7 @@ fn decode_code_error_local_valtype_invalid() {
     let err = decode_module(wasm).expect_err("invalid local valtype should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2723,7 +2723,7 @@ fn decode_code_error_entry_size_mismatch() {
     let err = decode_module(wasm).expect_err("entry size mismatch should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2753,7 +2753,7 @@ fn parse_expression_error_unexpected_else() {
     let err = decode_module(wasm).expect_err("unexpected else should fail");
 
     match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeVector(
+        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeCodeError::DecodeFunctionBody(ParseExpressionError::UnexpectedElse),
@@ -2775,7 +2775,7 @@ fn decode_element_section_error_bitfield_decode() {
     let err = decode_module(wasm).expect_err("element bitfield decode should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::DecodeBitfield(DecodeU32Error::RepresentationTooLong),
@@ -2795,7 +2795,7 @@ fn decode_element_error_invalid_bitfield() {
     let err = decode_module(wasm).expect_err("invalid element bitfield should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::InvalidBitfield(n),
@@ -2818,7 +2818,7 @@ fn decode_element_error_offset_expression() {
     let err = decode_module(wasm).expect_err("missing offset expr should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2844,7 +2844,7 @@ fn decode_element_error_elemkind_invalid() {
     let err = decode_module(wasm).expect_err("invalid element kind should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2867,7 +2867,7 @@ fn decode_element_error_elemkind_io() {
     let err = decode_module(wasm).expect_err("missing elemkind byte should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeElementError::DecodeElementKind(DecodeElementKindError::Io(io_err)),
@@ -2890,7 +2890,7 @@ fn decode_element_error_reference_type_invalid() {
     let err = decode_module(wasm).expect_err("invalid element ref type should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2916,7 +2916,7 @@ fn decode_element_error_init_decode_length() {
     let err = decode_module(wasm).expect_err("invalid element init vector should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2941,7 +2941,7 @@ fn decode_element_error_funcidx_vector_overlong() {
     let err = decode_module(wasm).expect_err("overlong funcidx vector should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2968,7 +2968,7 @@ fn decode_element_error_table_idx_overlong() {
     let err = decode_module(wasm).expect_err("overlong table idx should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -2992,7 +2992,7 @@ fn decode_element_error_expression_missing_opcode() {
     let err = decode_module(wasm).expect_err("missing element expression should fail");
 
     match err {
-        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeVector(
+        DecodeModuleError::DecodeElementSection(DecodeElementSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3018,7 +3018,7 @@ fn decode_data_section_error_bitfield_decode() {
     let err = decode_module(wasm).expect_err("data bitfield decode should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3041,7 +3041,7 @@ fn decode_data_section_error_invalid_bitfield() {
     let err = decode_module(wasm).expect_err("invalid data bitfield should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeDataSegmentError::InvalidBitfield(n),
@@ -3064,7 +3064,7 @@ fn decode_data_section_error_offset_expr_missing() {
     let err = decode_module(wasm).expect_err("missing data offset expr should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3090,7 +3090,7 @@ fn decode_data_section_error_init_vector_truncated() {
     let err = decode_module(wasm).expect_err("truncated data init vector should fail");
 
     match err {
-        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeVector(
+        DecodeModuleError::DecodeDataSection(DecodeDataSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3136,7 +3136,7 @@ fn decode_global_error_init_missing_expr() {
     let err = decode_module(wasm).expect_err("missing global init should fail");
 
     match err {
-        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeVector(
+        DecodeModuleError::DecodeGlobalSection(DecodeGlobalSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3162,7 +3162,7 @@ fn decode_tag_section_error_invalid_marker() {
     let err = decode_module(wasm).expect_err("invalid tagtype marker should fail");
 
     match err {
-        DecodeModuleError::DecodeTagSection(DecodeTagSectionError::DecodeVector(
+        DecodeModuleError::DecodeTagSection(DecodeTagSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeTagTypeError::InvalidMarkerByte(byte),

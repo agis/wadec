@@ -130,7 +130,7 @@ pub enum AggregateError {
 #[derive(Debug, Error)]
 pub enum ParametricError {
     #[error("failed decoding value type vector")]
-    DecodeVector(#[from] DecodeListError<DecodeValTypeError>),
+    DecodeList(#[from] DecodeListError<DecodeValTypeError>),
 }
 
 #[derive(Debug, Error)]
@@ -214,7 +214,7 @@ impl Instruction {
             0x1A => Instruction::Drop,
             0x1B => Instruction::Select(None),
             0x1C => Instruction::Select(Some(
-                decode_list(reader, ValType::decode).map_err(ParametricError::DecodeVector)?,
+                decode_list(reader, ValType::decode).map_err(ParametricError::DecodeList)?,
             )),
 
             // --- Control instructions ---
