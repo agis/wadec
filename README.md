@@ -29,8 +29,9 @@ wadec is 100% conforming to the official WebAssembly specification, [version
 3](https://www.w3.org/TR/wasm-core-2/).
 
 This is ensured by running the official specification [test
-suite](https://github.com/WebAssembly/spec/tree/wg-2.0/test/core) (`wg-2.0` tag)
-against our decoder. Specifically, we go through all the test scripts (`.wast`) and ensure that:
+suite](https://github.com/WebAssembly/spec/tree/main/test/core)
+against our decoder. Specifically, we go through all the test scripts (`.wast`)
+and ensure that:
 
 ✔️ all modules marked with `assert_malformed` are *rejected* by our decoder
 
