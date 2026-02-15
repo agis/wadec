@@ -26,7 +26,7 @@ decoder.
 ## Specification conformance
 
 wadec is 100% conforming to the official WebAssembly specification, [version
-3](https://www.w3.org/TR/wasm-core-2/).
+3.0](https://www.w3.org/TR/wasm-core-2/).
 
 This is ensured by running the official specification [test
 suite](https://github.com/WebAssembly/spec/tree/main/test/core)

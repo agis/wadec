@@ -1,6 +1,6 @@
 use crate::core::types::heaptype::*;
+use crate::decode::integer::{decode_s33, DecodeS33Error};
 use crate::decode::FromMarkerByte;
-use crate::decode::integer::{DecodeS33Error, decode_s33};
 use crate::read_byte;
 use phf::phf_ordered_map;
 use std::io::Cursor;
@@ -39,9 +39,9 @@ impl HeapType {
     }
 }
 
-// --------------------------------
-// Abstract Heap Type
-// -------------------------------
+/*************************/
+/*       AbsHeapType     */
+/*************************/
 #[expect(non_upper_case_globals)]
 static AbsHeapType_MARKERS: phf::OrderedMap<u8, AbsHeapType> = phf_ordered_map! {
     0x69u8 => AbsHeapType::Exn,
