@@ -9,14 +9,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DecodeTableSectionError {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-
     #[error("failed decoding Table section")]
     DecodeList(#[from] DecodeListError<DecodeTableError>),
-
-    #[error("expected 0x00 after 0x40; got {0:#04X}")]
-    UnexpectedByte(u8),
 }
 
 pub(crate) fn decode_table_section<R: Read + ?Sized>(
