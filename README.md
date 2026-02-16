@@ -10,8 +10,8 @@ It can be used as a library or a command-line tool and is [fully conforming to t
 
 ## Status
 
-This project is currently in early development stage of development. The API is
-unstable and subject to change.
+This project is currently in early stage of development. The API is
+unstable and subject to breaking changes.
 
 ## Rationale
 
