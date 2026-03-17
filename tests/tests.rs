@@ -62,8 +62,8 @@ fn rectypes(comptypes: Vec<CompType>) -> Vec<RecType> {
 fn it_parses_preamble() {
     let mut input: &[u8] = &[];
     let err = decode_module(input).expect_err("empty input should fail");
-    match err {
-        DecodeModuleError::ParsePreamble(ParsePreambleError::Io(io_err)) => {
+    match err.source {
+        DecodeModuleErrorKind::ParsePreamble(ParsePreambleError::Io(io_err)) => {
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -71,8 +71,8 @@ fn it_parses_preamble() {
 
     input = &[0xD3, 0xAD, 0xBE, 0xEF];
     let err = decode_module(input).expect_err("short preamble should fail");
-    match err {
-        DecodeModuleError::ParsePreamble(ParsePreambleError::Io(io_err)) => {
+    match err.source {
+        DecodeModuleErrorKind::ParsePreamble(ParsePreambleError::Io(io_err)) => {
             assert_eq!(io_err.kind(), std::io::ErrorKind::UnexpectedEof);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -80,8 +80,8 @@ fn it_parses_preamble() {
 
     input = &[0xD3, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00];
     let err = decode_module(input).expect_err("wrong preamble should fail");
-    match err {
-        DecodeModuleError::ParsePreamble(ParsePreambleError::Unexpected(preamble)) => {
+    match err.source {
+        DecodeModuleErrorKind::ParsePreamble(ParsePreambleError::Unexpected(preamble)) => {
             assert_eq!(preamble, [0xD3, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00]);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -3405,8 +3405,8 @@ fn it_decodes_memory64_limits_large_values() {
 fn it_fails_on_code_size_mismatch() {
     let f = File::open("tests/fixtures/code_section_size_underreported.wasm").unwrap();
     let err = decode_module(f).expect_err("underreported code section should fail");
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+    match err.source {
+        DecodeModuleErrorKind::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:
@@ -3423,8 +3423,8 @@ fn it_fails_on_code_size_mismatch() {
 
     let f = File::open("tests/fixtures/custom_section_size_overreported.wasm").unwrap();
     let err = decode_module(f).expect_err("overreported custom section should fail");
-    match err {
-        DecodeModuleError::SectionSizeMismatch {
+    match err.source {
+        DecodeModuleErrorKind::SectionSizeMismatch {
             section_kind,
             declared,
             got,
@@ -3457,8 +3457,8 @@ fn it_rejects_overlong_type_index_encoding() {
 
     let err = decode_module(module).expect_err("module should fail while reading type index");
 
-    match err {
-        DecodeModuleError::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
+    match err.source {
+        DecodeModuleErrorKind::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source: DecodeTypeIdxError(DecodeU32Error::RepresentationTooLong),
@@ -3476,8 +3476,8 @@ fn it_rejects_overlong_blocktype_s33() {
     let err = decode_module(File::open(path).unwrap())
         .expect_err("overlong s33 blocktype encoding should fail");
 
-    match err {
-        DecodeModuleError::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
+    match err.source {
+        DecodeModuleErrorKind::DecodeCodeSection(DecodeCodeSectionError::DecodeList(
             DecodeListError::ParseElement {
                 position,
                 source:

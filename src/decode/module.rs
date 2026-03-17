@@ -22,11 +22,32 @@ static EXPECTED_PREAMBLE: [u8; 8] = [
     VERSION[3],
 ];
 
+// OffsetReader is a wrapper around a [Read] that tracks the position (offset) of the reader in the
+// input stream.
+struct OffsetReader<R: Read> {
+    reader: R,
+    offset: u64,
+}
+
+impl<R: Read> OffsetReader<R> {
+    fn new(reader: R) -> Self {
+        Self { reader, offset: 0 }
+    }
+}
+
+impl<R: Read> Read for OffsetReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let bytes_read = self.reader.read(buf)?;
+        self.offset += u64::try_from(bytes_read).unwrap();
+        Ok(bytes_read)
+    }
+}
+
 impl Module {
     fn validate_section_kind_expected(
         &self,
         current: &SectionHeader,
-    ) -> Result<(), DecodeModuleError> {
+    ) -> Result<(), DecodeModuleErrorKind> {
         let previous = self.parsed_section_kinds.last();
         let current = current.kind;
 
@@ -39,11 +60,11 @@ impl Module {
         let previous = *previous.unwrap();
 
         if current < previous {
-            return Err(DecodeModuleError::SectionOutOfOrder { current, previous });
+            return Err(DecodeModuleErrorKind::SectionOutOfOrder { current, previous });
         }
 
         if current == previous {
-            return Err(DecodeModuleError::DuplicateSection(current));
+            return Err(DecodeModuleErrorKind::DuplicateSection(current));
         }
 
         Ok(())
@@ -119,7 +140,32 @@ impl FromMarkerByte for SectionKind {
 /// Encompasses all possible errors that may occur during decoding,
 /// including section-specific errors.
 #[derive(Debug, Error)]
-pub enum DecodeModuleError {
+pub struct DecodeModuleError {
+    pub offset: u64,
+    pub source: DecodeModuleErrorKind,
+}
+
+impl DecodeModuleError {
+    fn new<R, E>(reader: &OffsetReader<R>, source: E) -> Self
+    where
+        R: Read,
+        E: Into<DecodeModuleErrorKind>,
+    {
+        Self {
+            offset: reader.offset,
+            source: source.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for DecodeModuleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (at offset {:#04X})", self.source, self.offset)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum DecodeModuleErrorKind {
     #[error(transparent)]
     ParsePreamble(#[from] ParsePreambleError),
 
@@ -204,8 +250,9 @@ pub enum DecodeModuleError {
 }
 
 /// Decode `input` into a WebAssembly [Module].
-pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> {
-    parse_preamble(&mut input)?;
+pub fn decode_module(input: impl Read) -> Result<Module, DecodeModuleError> {
+    let mut input = OffsetReader::new(input);
+    parse_preamble(&mut input).map_err(|e| DecodeModuleError::new(&input, e))?;
 
     let mut module = Module {
         ..Default::default()
@@ -220,96 +267,114 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
     // (per section 5.5.16)
     let mut encountered_data_idx_in_code_section = false;
 
-    while let Some(section_header) = decode_section_header(&mut input)? {
-        let mut section_reader = &mut input.by_ref().take(section_header.size.into());
-
-        module.validate_section_kind_expected(&section_header)?;
+    while let Some(section_header) =
+        decode_section_header(&mut input).map_err(|e| DecodeModuleError::new(&input, e))?
+    {
+        module
+            .validate_section_kind_expected(&section_header)
+            .map_err(|e| DecodeModuleError::new(&input, e))?;
 
         let section_kind = section_header.kind;
-        match section_kind {
-            SectionKind::Custom => {
-                module
-                    .custom_sections
-                    .push(decode_section_custom(&mut section_reader)?);
-            }
-            SectionKind::Type => module.types = decode_type_section(section_reader)?,
-            SectionKind::Import => module.imports = decode_import_section(section_reader)?,
-            SectionKind::Function => {
-                for type_idx in decode_function_section(&mut section_reader)? {
-                    module.funcs.push(Func {
-                        r#type: type_idx,
-                        // going to be filled later on by SectionKind::Code
-                        locals: vec![],
-                        body: vec![],
-                    });
-                }
-            }
-            SectionKind::Table => module.tables = decode_table_section(section_reader)?,
-            SectionKind::Memory => module.mems = decode_memory_section(section_reader)?,
-            SectionKind::Global => module.globals = decode_global_section(section_reader)?,
-            SectionKind::Export => module.exports = decode_export_section(section_reader)?,
-            SectionKind::Start => module.start = Some(decode_start_section(section_reader)?),
-            SectionKind::Element => module.elems = decode_element_section(section_reader)?,
-            SectionKind::DataCount => {
-                module.data_count = Some(decode_datacount_section(section_reader)?)
-            }
-            SectionKind::Code => {
-                encountered_code_section = true;
-
-                let codes = decode_code_section(section_reader)?;
-
-                // Section 5.5.17: The lengths of vectors produced by the (possibly empty)
-                // function and code section must match up
-                if codes.len() != module.funcs.len() {
-                    return Err(DecodeModuleError::CodeFuncEntriesLenMismatch {
-                        codes_len: codes.len(),
-                        funcs_len: module.funcs.len(),
-                    });
-                }
-
-                // Section 5.5.17: Furthermore, it [the data count section] must be present if any
-                // data index occurs in the code section.
-                for (i, code) in codes.into_iter().enumerate() {
-                    for local in code.locals {
-                        for _ in 0..local.count {
-                            module.funcs[i].locals.push(local.t);
+        let section_error = {
+            let mut section_reader = &mut input.by_ref().take(section_header.size.into());
+            (|| -> Result<(), DecodeModuleErrorKind> {
+                match section_kind {
+                    SectionKind::Custom => {
+                        module
+                            .custom_sections
+                            .push(decode_section_custom(&mut section_reader)?);
+                    }
+                    SectionKind::Type => module.types = decode_type_section(section_reader)?,
+                    SectionKind::Import => module.imports = decode_import_section(section_reader)?,
+                    SectionKind::Function => {
+                        for type_idx in decode_function_section(&mut section_reader)? {
+                            module.funcs.push(Func {
+                                r#type: type_idx,
+                                // going to be filled later on by SectionKind::Code
+                                locals: vec![],
+                                body: vec![],
+                            });
                         }
                     }
-
-                    if code.encountered_data_index {
-                        encountered_data_idx_in_code_section = true;
+                    SectionKind::Table => module.tables = decode_table_section(section_reader)?,
+                    SectionKind::Memory => module.mems = decode_memory_section(section_reader)?,
+                    SectionKind::Global => module.globals = decode_global_section(section_reader)?,
+                    SectionKind::Export => module.exports = decode_export_section(section_reader)?,
+                    SectionKind::Start => {
+                        module.start = Some(decode_start_section(section_reader)?)
                     }
+                    SectionKind::Element => module.elems = decode_element_section(section_reader)?,
+                    SectionKind::DataCount => {
+                        module.data_count = Some(decode_datacount_section(section_reader)?)
+                    }
+                    SectionKind::Code => {
+                        encountered_code_section = true;
 
-                    module.funcs[i].body = code.expr;
+                        let codes = decode_code_section(section_reader)?;
+
+                        // Section 5.5.17: The lengths of vectors produced by the (possibly empty)
+                        // function and code section must match up
+                        if codes.len() != module.funcs.len() {
+                            return Err(DecodeModuleErrorKind::CodeFuncEntriesLenMismatch {
+                                codes_len: codes.len(),
+                                funcs_len: module.funcs.len(),
+                            });
+                        }
+
+                        // Section 5.5.17: Furthermore, it [the data count section] must be present if any
+                        // data index occurs in the code section.
+                        for (i, code) in codes.into_iter().enumerate() {
+                            for local in code.locals {
+                                for _ in 0..local.count {
+                                    module.funcs[i].locals.push(local.t);
+                                }
+                            }
+
+                            if code.encountered_data_index {
+                                encountered_data_idx_in_code_section = true;
+                            }
+
+                            module.funcs[i].body = code.expr;
+                        }
+                    }
+                    SectionKind::Data => {
+                        let datas = decode_data_section(section_reader)?;
+
+                        // Section 5.5.17: Similarly, the optional data count must match the length of the
+                        // data segment list.
+                        if let Some(data_count) = module.data_count
+                            && datas.len() != usize::try_from(data_count).unwrap()
+                        {
+                            return Err(DecodeModuleErrorKind::DataCountMismatch {
+                                datas_len: datas.len(),
+                                data_count,
+                            });
+                        }
+
+                        module.datas = datas;
+                    }
+                    SectionKind::Tag => module.tags = decode_tag_section(section_reader)?,
                 }
-            }
-            SectionKind::Data => {
-                let datas = decode_data_section(section_reader)?;
 
-                // Section 5.5.17: Similarly, the optional data count must match the length of the
-                // data segment list.
-                if let Some(data_count) = module.data_count
-                    && datas.len() != usize::try_from(data_count).unwrap()
-                {
-                    return Err(DecodeModuleError::DataCountMismatch {
-                        datas_len: datas.len(),
-                        data_count,
+                if section_reader.limit() != 0 {
+                    return Err(DecodeModuleErrorKind::SectionSizeMismatch {
+                        section_kind,
+                        declared: section_header.size,
+                        got: u64::from(section_header.size) - section_reader.limit(),
                     });
                 }
-                module.datas = datas;
-            }
-            SectionKind::Tag => module.tags = decode_tag_section(section_reader)?,
-        }
 
-        if section_reader.limit() != 0 {
-            return Err(DecodeModuleError::SectionSizeMismatch {
-                section_kind,
-                declared: section_header.size,
-                got: u64::from(section_header.size) - section_reader.limit(),
-            });
+                Ok(())
+            })()
+            .err()
+        };
+
+        if let Some(e) = section_error {
+            return Err(DecodeModuleError::new(&input, e));
         }
 
         module.section_headers.push(section_header);
+
         if section_kind != SectionKind::Custom {
             // parsed_section_kinds facilitates enforcing the prescribed order of sections, but
             // Custom sections may appear in any order thus we don't want them in the set
@@ -324,27 +389,32 @@ pub fn decode_module(mut input: impl Read) -> Result<Module, DecodeModuleError> 
         // if we encountered a Code section, it means we already checked that
         // its count matches the Function section count. (Function section comes
         // before Code section.)
-        return Err(DecodeModuleError::CodeFuncEntriesLenMismatch {
+        let e = DecodeModuleErrorKind::CodeFuncEntriesLenMismatch {
             funcs_len: module.funcs.len(),
             codes_len: 0,
-        });
+        };
+        return Err(DecodeModuleError::new(&input, e));
     }
 
     // Section 5.5.17: Similarly, the optional data count must match the length
     // of the data segment vector
     if let Some(n) = module.data_count
-        && usize::try_from(n).map_err(DecodeModuleError::DecodeDataCount)? != module.datas.len()
+        && usize::try_from(n).map_err(|e| {
+            DecodeModuleError::new(&input, DecodeModuleErrorKind::DecodeDataCount(e))
+        })? != module.datas.len()
     {
-        return Err(DecodeModuleError::DataCountDatasLenMismatch {
+        let e = DecodeModuleErrorKind::DataCountDatasLenMismatch {
             datas_len: module.datas.len(),
             data_count: n,
-        });
+        };
+        return Err(DecodeModuleError::new(&input, e));
     }
 
     // Section 5.5.17: Furthermore, it [the data count section] must be present if any data index
     // occurs in the code section
     if encountered_data_idx_in_code_section && module.data_count.is_none() {
-        return Err(DecodeModuleError::DataIndexWithoutDataCount);
+        let e = DecodeModuleErrorKind::DataIndexWithoutDataCount;
+        return Err(DecodeModuleError::new(&input, e));
     }
 
     Ok(module)

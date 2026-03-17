@@ -34,6 +34,6 @@ pub use crate::decode::types::{
 };
 pub use crate::decode::{
     DecodeByteVectorError, DecodeFloat32Error, DecodeFloat64Error, DecodeListError,
-    DecodeModuleError, DecodeNameError, DecodeSectionHeaderError, InvalidSectionIdError,
-    ParseExpressionError, ParsePreambleError,
+    DecodeModuleError, DecodeModuleErrorKind, DecodeNameError, DecodeSectionHeaderError,
+    InvalidSectionIdError, ParseExpressionError, ParsePreambleError,
 };
