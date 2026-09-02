@@ -3174,3 +3174,31 @@ fn decode_tag_section_error_invalid_marker() {
         other => panic!("unexpected error: {other:?}"),
     }
 }
+
+#[test]
+fn huge_vector_length_does_not_preallocate() {
+    // Sections: Function.
+    // A function section whose vector length prefix is u32::MAX must not be
+    // trusted for allocation: decode_list bounds the speculative capacity and
+    // parses elements up to the claimed length, so a tiny input fails cleanly
+    // with an element-level EOF instead of aborting on a multi-gigabyte
+    // Vec::with_capacity.
+    let wasm: &[u8] = &[
+        0x00, 0x61, 0x73, 0x6D, // magic
+        0x01, 0x00, 0x00, 0x00, // version
+        0x03, // section id = Function
+        0x06, // section size
+        0xFF, 0xFF, 0xFF, 0xFF, 0x0F, // vector length = 4294967295
+    ];
+
+    let err = decode_module(wasm).expect_err("oversized vector length should fail to decode");
+
+    match err.source {
+        DecodeModuleErrorKind::DecodeFunctionSection(DecodeFunctionSectionError::DecodeList(
+            DecodeListError::ParseElement { position, .. },
+        )) => {
+            assert_eq!(position, 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
