@@ -11,6 +11,14 @@ pub(crate) fn read_byte<R: Read + ?Sized>(reader: &mut R) -> Result<u8, io::Erro
     Ok(buf[0])
 }
 
+/// Upper bound on the number of elements a vector is allowed to pre-allocate
+/// before any element has been read. The length prefix is attacker-controlled
+/// (up to `u32::MAX`), so trusting it for `Vec::with_capacity` lets a tiny input
+/// request gigabytes of memory. Elements are still parsed up to the real length;
+/// this only bounds the speculative allocation, letting the vector grow as data
+/// actually arrives.
+const MAX_PREALLOC_ELEMENTS: u32 = 1024;
+
 #[derive(Debug, Error)]
 pub enum ParseExpressionError {
     #[error("failed parsing instruction")]
@@ -108,7 +116,8 @@ where
 {
     let len = decode_u32(reader)?;
 
-    let mut items = Vec::with_capacity(len.try_into().unwrap());
+    let cap = len.min(MAX_PREALLOC_ELEMENTS).try_into().unwrap();
+    let mut items = Vec::with_capacity(cap);
     for i in 0..len {
         let elem = parse_fn(reader).map_err(|err| DecodeListError::ParseElement {
             position: i,
@@ -156,9 +165,12 @@ pub enum DecodeByteVectorError {
 pub(crate) fn decode_byte_vector<R: Read + ?Sized>(
     reader: &mut R,
 ) -> Result<Vec<u8>, DecodeByteVectorError> {
-    let len = decode_u32(reader)?;
-    let mut b = vec![0u8; len.try_into().unwrap()];
-    reader.read_exact(&mut b)?;
+    let len: u64 = decode_u32(reader)?.into();
+    let mut b = Vec::with_capacity(len.min(u64::from(MAX_PREALLOC_ELEMENTS)) as usize);
+    let read = io::copy(&mut reader.take(len), &mut b)?;
+    if read != len {
+        return Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+    }
     Ok(b)
 }
 
